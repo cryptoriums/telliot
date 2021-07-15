@@ -772,11 +772,14 @@ func (_ITellor *ITellorCaller) GetNewCurrentVariables(opts *bind.CallOpts) (stru
 		Difficutly *big.Int
 		Tip        *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Challenge = out[0].([32]byte)
-	outstruct.RequestIds = out[1].([5]*big.Int)
-	outstruct.Difficutly = out[2].(*big.Int)
-	outstruct.Tip = out[3].(*big.Int)
+	outstruct.Challenge = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.RequestIds = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.Difficutly = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.Tip = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -851,9 +854,12 @@ func (_ITellor *ITellorCaller) GetNewVariablesOnDeck(opts *bind.CallOpts) (struc
 		IdsOnDeck  [5]*big.Int
 		TipsOnDeck [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IdsOnDeck = out[0].([5]*big.Int)
-	outstruct.TipsOnDeck = out[1].([5]*big.Int)
+	outstruct.IdsOnDeck = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.TipsOnDeck = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -2050,10 +2056,13 @@ func (_Main *MainCaller) DataIDs(opts *bind.CallOpts, arg0 *big.Int) (struct {
 		Name        string
 		Granularity *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Id = out[0].(*big.Int)
-	outstruct.Name = out[1].(string)
-	outstruct.Granularity = out[2].(*big.Int)
+	outstruct.Id = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Name = *abi.ConvertType(out[1], new(string)).(*string)
+	outstruct.Granularity = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -2283,10 +2292,13 @@ func (_Main *MainCaller) GetCurrentValue(opts *bind.CallOpts, _requestId *big.In
 		Value              *big.Int
 		TimestampRetrieved *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IfRetrieve = out[0].(bool)
-	outstruct.Value = out[1].(*big.Int)
-	outstruct.TimestampRetrieved = out[2].(*big.Int)
+	outstruct.IfRetrieve = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.TimestampRetrieved = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -2330,10 +2342,13 @@ func (_Main *MainCaller) GetDataBefore(opts *bind.CallOpts, _requestId *big.Int,
 		Value              *big.Int
 		TimestampRetrieved *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IfRetrieve = out[0].(bool)
-	outstruct.Value = out[1].(*big.Int)
-	outstruct.TimestampRetrieved = out[2].(*big.Int)
+	outstruct.IfRetrieve = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.TimestampRetrieved = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -2375,9 +2390,12 @@ func (_Main *MainCaller) GetIndexForDataBefore(opts *bind.CallOpts, _requestId *
 		Found bool
 		Index *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Found = out[0].(bool)
-	outstruct.Index = out[1].(*big.Int)
+	outstruct.Found = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Index = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -3596,10 +3614,13 @@ func (_UsingTellor *UsingTellorCaller) GetCurrentValue(opts *bind.CallOpts, _req
 		Value              *big.Int
 		TimestampRetrieved *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IfRetrieve = out[0].(bool)
-	outstruct.Value = out[1].(*big.Int)
-	outstruct.TimestampRetrieved = out[2].(*big.Int)
+	outstruct.IfRetrieve = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.TimestampRetrieved = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -3643,10 +3664,13 @@ func (_UsingTellor *UsingTellorCaller) GetDataBefore(opts *bind.CallOpts, _reque
 		Value              *big.Int
 		TimestampRetrieved *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IfRetrieve = out[0].(bool)
-	outstruct.Value = out[1].(*big.Int)
-	outstruct.TimestampRetrieved = out[2].(*big.Int)
+	outstruct.IfRetrieve = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.TimestampRetrieved = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -3688,9 +3712,12 @@ func (_UsingTellor *UsingTellorCaller) GetIndexForDataBefore(opts *bind.CallOpts
 		Found bool
 		Index *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Found = out[0].(bool)
-	outstruct.Index = out[1].(*big.Int)
+	outstruct.Found = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Index = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 

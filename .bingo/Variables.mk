@@ -1,11 +1,11 @@
-# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.3.1. DO NOT EDIT.
+# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.4.3. DO NOT EDIT.
 # All tools are designed to be build inside $GOBIN.
 BINGO_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 GOPATH ?= $(shell go env GOPATH)
 GOBIN  ?= $(firstword $(subst :, ,${GOPATH}))/bin
 GO     ?= $(shell which go)
 
-# Bellow generated variables ensure that every time a tool under each variable is invoked, the correct version
+# Below generated variables ensure that every time a tool under each variable is invoked, the correct version
 # will be used; reinstalling only if needed.
 # For example for contraget variable:
 #
@@ -17,11 +17,11 @@ GO     ?= $(shell which go)
 #	@echo "Running contraget"
 #	@$(CONTRAGET) <flags/args..>
 #
-CONTRAGET := $(GOBIN)/contraget-v0.0.0-20210218090103-f72d253ad2ed
+CONTRAGET := $(GOBIN)/contraget-v0.0.0-20210715114415-635683ad3e5b
 $(CONTRAGET): $(BINGO_DIR)/contraget.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/contraget-v0.0.0-20210218090103-f72d253ad2ed"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=contraget.mod -o=$(GOBIN)/contraget-v0.0.0-20210218090103-f72d253ad2ed "github.com/cryptoriums/contraget/cmd/contraget"
+	@echo "(re)installing $(GOBIN)/contraget-v0.0.0-20210715114415-635683ad3e5b"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=contraget.mod -o=$(GOBIN)/contraget-v0.0.0-20210715114415-635683ad3e5b "github.com/cryptoriums/contraget/cmd/contraget"
 
 FAILLINT := $(GOBIN)/faillint-v1.5.0
 $(FAILLINT): $(BINGO_DIR)/faillint.mod

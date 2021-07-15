@@ -315,9 +315,12 @@ func (_Extension *ExtensionCaller) Balances(opts *bind.CallOpts, arg0 common.Add
 		FromBlock *big.Int
 		Value     *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.FromBlock = out[0].(*big.Int)
-	outstruct.Value = out[1].(*big.Int)
+	outstruct.FromBlock = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -388,9 +391,12 @@ func (_Extension *ExtensionCaller) CurrentMiners(opts *bind.CallOpts, arg0 *big.
 		Value *big.Int
 		Miner common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Value = out[0].(*big.Int)
-	outstruct.Miner = out[1].(common.Address)
+	outstruct.Value = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Miner = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -566,15 +572,18 @@ func (_Extension *ExtensionCaller) DisputesById(opts *bind.CallOpts, arg0 *big.I
 		ReportingParty      common.Address
 		ProposedForkAddress common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Hash = out[0].([32]byte)
-	outstruct.Tally = out[1].(*big.Int)
-	outstruct.Executed = out[2].(bool)
-	outstruct.DisputeVotePassed = out[3].(bool)
-	outstruct.IsPropFork = out[4].(bool)
-	outstruct.ReportedMiner = out[5].(common.Address)
-	outstruct.ReportingParty = out[6].(common.Address)
-	outstruct.ProposedForkAddress = out[7].(common.Address)
+	outstruct.Hash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.Tally = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.Executed = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.DisputeVotePassed = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.IsPropFork = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.ReportedMiner = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.ReportingParty = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
+	outstruct.ProposedForkAddress = *abi.ConvertType(out[7], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -822,9 +831,12 @@ func (_Extension *ExtensionCaller) GetMax5(opts *bind.CallOpts, data [51]*big.In
 		Max      [5]*big.Int
 		MaxIndex [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Max = out[0].([5]*big.Int)
-	outstruct.MaxIndex = out[1].([5]*big.Int)
+	outstruct.Max = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.MaxIndex = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -930,11 +942,14 @@ func (_Extension *ExtensionCaller) GetNewCurrentVariables(opts *bind.CallOpts) (
 		Diff       *big.Int
 		Tip        *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Challenge = out[0].([32]byte)
-	outstruct.RequestIds = out[1].([5]*big.Int)
-	outstruct.Diff = out[2].(*big.Int)
-	outstruct.Tip = out[3].(*big.Int)
+	outstruct.Challenge = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.RequestIds = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.Diff = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.Tip = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -1009,9 +1024,12 @@ func (_Extension *ExtensionCaller) GetNewVariablesOnDeck(opts *bind.CallOpts) (s
 		IdsOnDeck  [5]*big.Int
 		TipsOnDeck [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IdsOnDeck = out[0].([5]*big.Int)
-	outstruct.TipsOnDeck = out[1].([5]*big.Int)
+	outstruct.IdsOnDeck = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.TipsOnDeck = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -3065,9 +3083,12 @@ func (_ITellor *ITellorCaller) GetMax(opts *bind.CallOpts, data [51]*big.Int) (s
 		Max      *big.Int
 		MaxIndex *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Max = out[0].(*big.Int)
-	outstruct.MaxIndex = out[1].(*big.Int)
+	outstruct.Max = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.MaxIndex = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -3107,9 +3128,12 @@ func (_ITellor *ITellorCaller) GetMax5(opts *bind.CallOpts, data [51]*big.Int) (
 		Max      [5]*big.Int
 		MaxIndex [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Max = out[0].([5]*big.Int)
-	outstruct.MaxIndex = out[1].([5]*big.Int)
+	outstruct.Max = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.MaxIndex = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -3149,9 +3173,12 @@ func (_ITellor *ITellorCaller) GetMin(opts *bind.CallOpts, data [51]*big.Int) (s
 		Min      *big.Int
 		MinIndex *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Min = out[0].(*big.Int)
-	outstruct.MinIndex = out[1].(*big.Int)
+	outstruct.Min = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.MinIndex = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -3257,11 +3284,14 @@ func (_ITellor *ITellorCaller) GetNewCurrentVariables(opts *bind.CallOpts) (stru
 		Difficutly *big.Int
 		Tip        *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Challenge = out[0].([32]byte)
-	outstruct.RequestIds = out[1].([5]*big.Int)
-	outstruct.Difficutly = out[2].(*big.Int)
-	outstruct.Tip = out[3].(*big.Int)
+	outstruct.Challenge = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.RequestIds = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.Difficutly = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.Tip = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -3336,9 +3366,12 @@ func (_ITellor *ITellorCaller) GetNewVariablesOnDeck(opts *bind.CallOpts) (struc
 		IdsOnDeck  [5]*big.Int
 		TipsOnDeck [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IdsOnDeck = out[0].([5]*big.Int)
-	outstruct.TipsOnDeck = out[1].([5]*big.Int)
+	outstruct.IdsOnDeck = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.TipsOnDeck = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -7308,9 +7341,12 @@ func (_Tellor *TellorCaller) Balances(opts *bind.CallOpts, arg0 common.Address, 
 		FromBlock *big.Int
 		Value     *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.FromBlock = out[0].(*big.Int)
-	outstruct.Value = out[1].(*big.Int)
+	outstruct.FromBlock = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -7381,9 +7417,12 @@ func (_Tellor *TellorCaller) CurrentMiners(opts *bind.CallOpts, arg0 *big.Int) (
 		Value *big.Int
 		Miner common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Value = out[0].(*big.Int)
-	outstruct.Miner = out[1].(common.Address)
+	outstruct.Value = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Miner = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -7466,15 +7505,18 @@ func (_Tellor *TellorCaller) DisputesById(opts *bind.CallOpts, arg0 *big.Int) (s
 		ReportingParty      common.Address
 		ProposedForkAddress common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Hash = out[0].([32]byte)
-	outstruct.Tally = out[1].(*big.Int)
-	outstruct.Executed = out[2].(bool)
-	outstruct.DisputeVotePassed = out[3].(bool)
-	outstruct.IsPropFork = out[4].(bool)
-	outstruct.ReportedMiner = out[5].(common.Address)
-	outstruct.ReportingParty = out[6].(common.Address)
-	outstruct.ProposedForkAddress = out[7].(common.Address)
+	outstruct.Hash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.Tally = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.Executed = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.DisputeVotePassed = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.IsPropFork = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.ReportedMiner = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.ReportingParty = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
+	outstruct.ProposedForkAddress = *abi.ConvertType(out[7], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -9524,9 +9566,12 @@ func (_TellorGetters *TellorGettersCaller) Balances(opts *bind.CallOpts, arg0 co
 		FromBlock *big.Int
 		Value     *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.FromBlock = out[0].(*big.Int)
-	outstruct.Value = out[1].(*big.Int)
+	outstruct.FromBlock = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -9597,9 +9642,12 @@ func (_TellorGetters *TellorGettersCaller) CurrentMiners(opts *bind.CallOpts, ar
 		Value *big.Int
 		Miner common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Value = out[0].(*big.Int)
-	outstruct.Miner = out[1].(common.Address)
+	outstruct.Value = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Miner = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -9775,15 +9823,18 @@ func (_TellorGetters *TellorGettersCaller) DisputesById(opts *bind.CallOpts, arg
 		ReportingParty      common.Address
 		ProposedForkAddress common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Hash = out[0].([32]byte)
-	outstruct.Tally = out[1].(*big.Int)
-	outstruct.Executed = out[2].(bool)
-	outstruct.DisputeVotePassed = out[3].(bool)
-	outstruct.IsPropFork = out[4].(bool)
-	outstruct.ReportedMiner = out[5].(common.Address)
-	outstruct.ReportingParty = out[6].(common.Address)
-	outstruct.ProposedForkAddress = out[7].(common.Address)
+	outstruct.Hash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.Tally = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.Executed = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.DisputeVotePassed = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.IsPropFork = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.ReportedMiner = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.ReportingParty = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
+	outstruct.ProposedForkAddress = *abi.ConvertType(out[7], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -10031,9 +10082,12 @@ func (_TellorGetters *TellorGettersCaller) GetMax5(opts *bind.CallOpts, data [51
 		Max      [5]*big.Int
 		MaxIndex [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Max = out[0].([5]*big.Int)
-	outstruct.MaxIndex = out[1].([5]*big.Int)
+	outstruct.Max = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.MaxIndex = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -10139,11 +10193,14 @@ func (_TellorGetters *TellorGettersCaller) GetNewCurrentVariables(opts *bind.Cal
 		Diff       *big.Int
 		Tip        *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Challenge = out[0].([32]byte)
-	outstruct.RequestIds = out[1].([5]*big.Int)
-	outstruct.Diff = out[2].(*big.Int)
-	outstruct.Tip = out[3].(*big.Int)
+	outstruct.Challenge = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.RequestIds = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.Diff = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.Tip = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -10218,9 +10275,12 @@ func (_TellorGetters *TellorGettersCaller) GetNewVariablesOnDeck(opts *bind.Call
 		IdsOnDeck  [5]*big.Int
 		TipsOnDeck [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.IdsOnDeck = out[0].([5]*big.Int)
-	outstruct.TipsOnDeck = out[1].([5]*big.Int)
+	outstruct.IdsOnDeck = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.TipsOnDeck = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 
@@ -11256,9 +11316,12 @@ func (_TellorStake *TellorStakeCaller) Balances(opts *bind.CallOpts, arg0 common
 		FromBlock *big.Int
 		Value     *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.FromBlock = out[0].(*big.Int)
-	outstruct.Value = out[1].(*big.Int)
+	outstruct.FromBlock = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -11329,9 +11392,12 @@ func (_TellorStake *TellorStakeCaller) CurrentMiners(opts *bind.CallOpts, arg0 *
 		Value *big.Int
 		Miner common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Value = out[0].(*big.Int)
-	outstruct.Miner = out[1].(common.Address)
+	outstruct.Value = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Miner = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -11414,15 +11480,18 @@ func (_TellorStake *TellorStakeCaller) DisputesById(opts *bind.CallOpts, arg0 *b
 		ReportingParty      common.Address
 		ProposedForkAddress common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Hash = out[0].([32]byte)
-	outstruct.Tally = out[1].(*big.Int)
-	outstruct.Executed = out[2].(bool)
-	outstruct.DisputeVotePassed = out[3].(bool)
-	outstruct.IsPropFork = out[4].(bool)
-	outstruct.ReportedMiner = out[5].(common.Address)
-	outstruct.ReportingParty = out[6].(common.Address)
-	outstruct.ProposedForkAddress = out[7].(common.Address)
+	outstruct.Hash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.Tally = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.Executed = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.DisputeVotePassed = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.IsPropFork = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.ReportedMiner = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.ReportingParty = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
+	outstruct.ProposedForkAddress = *abi.ConvertType(out[7], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -12623,9 +12692,12 @@ func (_TellorStorage *TellorStorageCaller) Balances(opts *bind.CallOpts, arg0 co
 		FromBlock *big.Int
 		Value     *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.FromBlock = out[0].(*big.Int)
-	outstruct.Value = out[1].(*big.Int)
+	outstruct.FromBlock = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -12696,9 +12768,12 @@ func (_TellorStorage *TellorStorageCaller) CurrentMiners(opts *bind.CallOpts, ar
 		Value *big.Int
 		Miner common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Value = out[0].(*big.Int)
-	outstruct.Miner = out[1].(common.Address)
+	outstruct.Value = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Miner = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -12781,15 +12856,18 @@ func (_TellorStorage *TellorStorageCaller) DisputesById(opts *bind.CallOpts, arg
 		ReportingParty      common.Address
 		ProposedForkAddress common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Hash = out[0].([32]byte)
-	outstruct.Tally = out[1].(*big.Int)
-	outstruct.Executed = out[2].(bool)
-	outstruct.DisputeVotePassed = out[3].(bool)
-	outstruct.IsPropFork = out[4].(bool)
-	outstruct.ReportedMiner = out[5].(common.Address)
-	outstruct.ReportingParty = out[6].(common.Address)
-	outstruct.ProposedForkAddress = out[7].(common.Address)
+	outstruct.Hash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.Tally = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.Executed = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.DisputeVotePassed = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.IsPropFork = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.ReportedMiner = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.ReportingParty = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
+	outstruct.ProposedForkAddress = *abi.ConvertType(out[7], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -13367,9 +13445,12 @@ func (_TellorTransfer *TellorTransferCaller) Balances(opts *bind.CallOpts, arg0 
 		FromBlock *big.Int
 		Value     *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.FromBlock = out[0].(*big.Int)
-	outstruct.Value = out[1].(*big.Int)
+	outstruct.FromBlock = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Value = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -13440,9 +13521,12 @@ func (_TellorTransfer *TellorTransferCaller) CurrentMiners(opts *bind.CallOpts, 
 		Value *big.Int
 		Miner common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Value = out[0].(*big.Int)
-	outstruct.Miner = out[1].(common.Address)
+	outstruct.Value = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Miner = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -13525,15 +13609,18 @@ func (_TellorTransfer *TellorTransferCaller) DisputesById(opts *bind.CallOpts, a
 		ReportingParty      common.Address
 		ProposedForkAddress common.Address
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Hash = out[0].([32]byte)
-	outstruct.Tally = out[1].(*big.Int)
-	outstruct.Executed = out[2].(bool)
-	outstruct.DisputeVotePassed = out[3].(bool)
-	outstruct.IsPropFork = out[4].(bool)
-	outstruct.ReportedMiner = out[5].(common.Address)
-	outstruct.ReportingParty = out[6].(common.Address)
-	outstruct.ProposedForkAddress = out[7].(common.Address)
+	outstruct.Hash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.Tally = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.Executed = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.DisputeVotePassed = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.IsPropFork = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.ReportedMiner = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.ReportingParty = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
+	outstruct.ProposedForkAddress = *abi.ConvertType(out[7], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -14440,9 +14527,12 @@ func (_Utilities *UtilitiesCaller) GetMax5(opts *bind.CallOpts, data [51]*big.In
 		Max      [5]*big.Int
 		MaxIndex [5]*big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Max = out[0].([5]*big.Int)
-	outstruct.MaxIndex = out[1].([5]*big.Int)
+	outstruct.Max = *abi.ConvertType(out[0], new([5]*big.Int)).(*[5]*big.Int)
+	outstruct.MaxIndex = *abi.ConvertType(out[1], new([5]*big.Int)).(*[5]*big.Int)
 
 	return *outstruct, err
 

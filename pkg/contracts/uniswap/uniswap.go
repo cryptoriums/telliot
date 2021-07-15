@@ -2684,10 +2684,13 @@ func (_IUniswapV2Pair *IUniswapV2PairCaller) GetReserves(opts *bind.CallOpts) (s
 		Reserve1           *big.Int
 		BlockTimestampLast uint32
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Reserve0 = out[0].(*big.Int)
-	outstruct.Reserve1 = out[1].(*big.Int)
-	outstruct.BlockTimestampLast = out[2].(uint32)
+	outstruct.Reserve0 = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Reserve1 = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.BlockTimestampLast = *abi.ConvertType(out[2], new(uint32)).(*uint32)
 
 	return *outstruct, err
 
@@ -5871,10 +5874,13 @@ func (_UniswapV2Pair *UniswapV2PairCaller) GetReserves(opts *bind.CallOpts) (str
 		Reserve1           *big.Int
 		BlockTimestampLast uint32
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
-	outstruct.Reserve0 = out[0].(*big.Int)
-	outstruct.Reserve1 = out[1].(*big.Int)
-	outstruct.BlockTimestampLast = out[2].(uint32)
+	outstruct.Reserve0 = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Reserve1 = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.BlockTimestampLast = *abi.ConvertType(out[2], new(uint32)).(*uint32)
 
 	return *outstruct, err
 
