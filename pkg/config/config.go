@@ -103,7 +103,7 @@ var DefaultConfig = Config{
 	},
 	IndexTracker: index.Config{
 		LogLevel:  "info",
-		Interval:  format.Duration{Duration: time.Minute},
+		Interval:  format.Duration{Duration: 30 * time.Second},
 		IndexFile: "configs/index.json",
 	},
 	EnvFile: "configs/.env",
