@@ -42,6 +42,21 @@ const (
 	IntervalMetricName = ComponentName + "_" + IntervalSuffix
 )
 
+type DataSource interface {
+	// Source returns the data source.
+	Source() string
+	// Get returns current api value.
+	Get(context.Context) (float64, error)
+	// The recommended interval for calling the Get method.
+	// Some APIs will return an error if called more often
+	// Due to API rate limiting of the provider.
+	Interval() time.Duration
+}
+
+type Parser interface {
+	Parse([]byte) (value float64, timestamp time.Time, err error)
+}
+
 type Config struct {
 	LogLevel  string
 	Interval  format.Duration
@@ -57,6 +72,7 @@ type IndexTracker struct {
 	dataSources map[string][]DataSource
 	value       *prometheus.GaugeVec
 	getErrors   *prometheus.CounterVec
+	getCount    *prometheus.CounterVec
 }
 
 func New(
@@ -90,7 +106,13 @@ func New(
 			Subsystem: ComponentName,
 			Name:      "errors_total",
 			Help:      "The total number of get errors. Usually caused by API throtling.",
-		}, []string{"source"}),
+		}, []string{"source", "domain"}),
+		getCount: promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      "count_total",
+			Help:      "The total number of requests.",
+		}, []string{"source", "domain"}),
 		value: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "telliot",
 			Subsystem: ComponentName,
@@ -284,20 +306,29 @@ func (self *IndexTracker) recordInterval(logger log.Logger, ts int64, interval t
 }
 
 func (self *IndexTracker) recordValue(logger log.Logger, ts int64, interval time.Duration, symbol string, dataSource DataSource) (err error) {
+	source, err := url.Parse(dataSource.Source())
+	if err != nil {
+		return errors.Wrap(err, "parsing url from data source")
+	}
+
 	value, err := dataSource.Get(self.ctx)
 	if err != nil {
 		self.getErrors.With(
 			prometheus.Labels{
 				"source": dataSource.Source(),
+				"domain": source.Host,
 			},
 		).Inc()
 		return errors.Wrap(err, "getting values from data source")
 	}
 
-	source, err := url.Parse(dataSource.Source())
-	if err != nil {
-		return errors.Wrap(err, "parsing url from data source")
-	}
+	self.getCount.With(
+		prometheus.Labels{
+			"source": dataSource.Source(),
+			"domain": source.Host,
+		},
+	).Inc()
+
 	appender := self.tsDB.Appender(self.ctx)
 	defer func() { // An appender always needs to be committed or rolled back.
 		if err != nil {
@@ -548,21 +579,6 @@ func (self *JSONapi) Interval() time.Duration {
 
 func (self *JSONapi) Source() string {
 	return self.url
-}
-
-type DataSource interface {
-	// Source returns the data source.
-	Source() string
-	// Get returns current api value.
-	Get(context.Context) (float64, error)
-	// The recommended interval for calling the Get method.
-	// Some APIs will return an error if called more often
-	// Due to API rate limiting of the provider.
-	Interval() time.Duration
-}
-
-type Parser interface {
-	Parse([]byte) (value float64, timestamp time.Time, err error)
 }
 
 type JsonPathParser struct {
