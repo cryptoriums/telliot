@@ -57,10 +57,10 @@ func checkNewVersion(current string) (string, error) {
 	defer cncl()
 	client := github.NewClient(nil)
 	release, resp, err := client.Repositories.GetLatestRelease(ctx, "tellor-io", "telliot")
-
 	if err != nil {
 		return "", errors.Wrap(err, "checking for a new release")
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
 		rbody, err := ioutil.ReadAll(resp.Body)

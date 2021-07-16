@@ -41,6 +41,7 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 				return nil, ctx.Err()
 			}
 		}
+		defer r.Body.Close()
 
 		data, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -52,7 +53,6 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 				return nil, ctx.Err()
 			}
 		}
-		r.Body.Close()
 
 		if r.StatusCode/100 != 2 {
 			errFinal = errors.Errorf("response status code not OK code:%v, payload:%v", r.StatusCode, string(data))
