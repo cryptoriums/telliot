@@ -17,10 +17,12 @@ import (
 
 func Get(ctx context.Context, url string, headers map[string]string) ([]byte, error) {
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:    &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives:  true,
+		DisableCompression: true,
 	}
 	client := http.Client{Transport: tr}
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(time.Second)
 
 	req, err := http.NewRequest("GET", ExpandTimeVars(url), nil)
 	if err != nil {
