@@ -25,7 +25,7 @@ import (
 	"github.com/tellor-io/telliot/pkg/logging"
 	"github.com/tellor-io/telliot/pkg/mining"
 	psr "github.com/tellor-io/telliot/pkg/psr/tellor"
-	"github.com/tellor-io/telliot/pkg/reward"
+	"github.com/tellor-io/telliot/pkg/tracker/reward"
 	"github.com/tellor-io/telliot/pkg/transactor"
 )
 
@@ -64,7 +64,7 @@ type Submitter struct {
 	submitValue     *prometheus.GaugeVec
 	lastSubmitCncl  context.CancelFunc
 	transactor      transactor.Transactor
-	reward          *reward.Reward
+	reward          *reward.RewardQuerier
 	gasPriceQuerier gasPrice.GasPriceQuerier
 	psr             *psr.Psr
 }
@@ -76,7 +76,7 @@ func New(
 	client *ethclient.Client,
 	contract ContractCaller,
 	account *ethereum.Account,
-	reward *reward.Reward,
+	reward *reward.RewardQuerier,
 	transactor transactor.Transactor,
 	gasPriceQuerier gasPrice.GasPriceQuerier,
 	psr *psr.Psr,
@@ -221,25 +221,24 @@ func (self *Submitter) canSubmit() error {
 }
 
 func (self *Submitter) profitPercent() (int64, error) {
-	slot, err := self.reward.Slot()
-	if err != nil {
-		return 0, errors.Wrapf(err, "getting current slot")
-	}
 	gasPrice, err := self.gasPriceQuerier.Query(self.ctx)
 	if err != nil {
 		return 0, errors.Wrapf(err, "getting current Gas price")
 	}
+	ctx, cncl := context.WithTimeout(self.ctx, 3*time.Second)
+	defer cncl()
 
-	// Need the price for next slot transaction so increment by one.
-	slot.Add(slot, big.NewInt(1))
-
-	// Slots numbers are from 0 to 4 so
-	// when next slot is 4+1=5 get the price for slot 0.
-	if slot.Int64() == 5 {
-		slot.SetInt64(0)
+	slot, err := self.reward.Slot()
+	if err != nil {
+		return 0, errors.Wrap(err, "getting slot number")
 	}
 
-	return self.reward.Current(slot, gasPrice)
+	gasUsed, err := self.reward.GasUsage(ctx, slot)
+	if err != nil {
+		return 0, err
+	}
+
+	return self.reward.Current(ctx, slot.Uint64(), gasPrice, gasUsed)
 }
 
 func (self *Submitter) Submit(newChallengeReplace context.Context, result *mining.Result) {
@@ -268,7 +267,7 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 				default:
 				}
 
-				reqVals, err := self.requestVals(result.Work.Challenge.RequestIDs)
+				reqVals, err := self.addRrequestVals(result.Work.Challenge.RequestIDs)
 				if err != nil {
 					level.Error(self.logger).Log("msg", "adding the request ids, retrying", "err", err)
 					<-ticker.C
@@ -319,20 +318,13 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 					).(prometheus.Gauge).Set(float64(reqVals[i].Int64()))
 				}
 
-				slot, err := self.reward.Slot()
-				if err != nil {
-					level.Error(self.logger).Log("msg", "getting _SLOT_PROGRESS for saving gas used", "err", err)
-				} else {
-					self.reward.SaveGasUsed(slot, recieipt.GasUsed)
-				}
-
 				return
 			}
 		}
 	}(newChallengeReplace, result)
 }
 
-func (self *Submitter) requestVals(requestIDs [5]*big.Int) ([5]*big.Int, error) {
+func (self *Submitter) addRrequestVals(requestIDs [5]*big.Int) ([5]*big.Int, error) {
 	var currentValues [5]*big.Int
 	for i, reqID := range requestIDs {
 		val, err := self.psr.GetValue(reqID.Int64(), time.Now())

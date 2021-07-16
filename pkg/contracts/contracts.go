@@ -2,9 +2,17 @@ package contracts
 
 import (
 	"context"
+	"math"
+	"math/big"
+	"strings"
+	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/tellor-io/telliot/pkg/contracts/balancer"
 	"github.com/tellor-io/telliot/pkg/contracts/lens"
@@ -141,4 +149,48 @@ func GetLensAddress(client *ethclient.Client) (common.Address, error) {
 	default:
 		return common.Address{}, errors.Errorf("contract address for current network id not found:%v", netID)
 	}
+}
+
+func EstimateGasUsageSubmitMiningSolution(
+	ctx context.Context,
+	contractInstance *ITellor,
+	client *ethclient.Client,
+	addr common.Address,
+) (uint64, error) {
+	ctx, cncl := context.WithTimeout(ctx, 2*time.Second)
+	defer cncl()
+	abi, err := abi.JSON(strings.NewReader(tellor.TellorABI))
+	if err != nil {
+		return 0, errors.Wrap(err, "getting abi")
+	}
+
+	vars, err := contractInstance.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, errors.Wrap(err, "call GetNewCurrentVariables")
+	}
+	// Use arbitrary values as when tested didn't make a noticeable difference
+	// between using real vs arbitrary values.
+	reqVals := [5]*big.Int{
+		big.NewInt(math.MaxInt64),
+		big.NewInt(math.MaxInt64),
+		big.NewInt(math.MaxInt64),
+		big.NewInt(math.MaxInt64),
+		big.NewInt(math.MaxInt64),
+	}
+	packed, err := abi.Pack("submitMiningSolution", "", vars.RequestIds, reqVals)
+	if err != nil {
+		return 0, errors.Wrap(err, "packing submitMiningSolution args")
+	}
+	data := ethereum.CallMsg{
+		From: addr,
+		To:   &contractInstance.Address,
+		// Hardcoded gas price. Looks like it doesn't matter in the calculation.
+		GasPrice: big.NewInt(0).Mul(big.NewInt(30), big.NewInt(params.GWei)),
+		Data:     packed,
+	}
+	gasEstimation, err := client.EstimateGas(ctx, data)
+	if err != nil {
+		return 0, errors.Wrap(err, "call client.EstimateGas")
+	}
+	return gasEstimation, nil
 }
