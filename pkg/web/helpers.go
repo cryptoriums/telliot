@@ -22,9 +22,11 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 		DisableCompression: true,
 	}
 	client := http.Client{Transport: tr}
-	ticker := time.NewTicker(time.Second)
 
-	req, err := http.NewRequest("GET", ExpandTimeVars(url), nil)
+	ctx, cncl := context.WithTimeout(ctx, 3*time.Second)
+	defer cncl()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", ExpandTimeVars(url), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -33,45 +35,21 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 		req.Header.Add(k, v)
 	}
 
-	var errFinal error
-	for i := 0; i < 5; i++ {
-		r, err := client.Do(req)
-		if err != nil {
-			errFinal = errors.Wrap(err, "fetching data")
-			select {
-			case <-ticker.C:
-				continue
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
-		defer r.Body.Close()
+	r, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetching data")
+	}
+	defer r.Body.Close()
 
-		data, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			errFinal = errors.Wrap(err, "read response body")
-			select {
-			case <-ticker.C:
-				continue
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
-
-		if r.StatusCode/100 != 2 {
-			errFinal = errors.Errorf("response status code not OK code:%v, payload:%v", r.StatusCode, string(data))
-			select {
-			case <-ticker.C:
-				continue
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
-		return data, nil
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "read response body")
 	}
 
-	return nil, errFinal
-
+	if r.StatusCode/100 != 2 {
+		return nil, errors.Errorf("response status code not OK code:%v, payload:%v", r.StatusCode, string(data))
+	}
+	return data, nil
 }
 
 func ExpandTimeVars(url string) string {
