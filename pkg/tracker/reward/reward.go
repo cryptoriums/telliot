@@ -42,7 +42,7 @@ type RewardTracker struct {
 	contractInstance *contracts.ITellor
 	ctx              context.Context
 	stop             context.CancelFunc
-	addr             common.Address
+	accounts         []common.Address
 
 	tsDB   *tsdb.DB
 	aggr   aggregator.IAggregator
@@ -58,7 +58,7 @@ func NewRewardTracker(
 	tsDB *tsdb.DB,
 	client *ethclient.Client,
 	contractInstance *contracts.ITellor,
-	addr common.Address,
+	accounts []common.Address,
 	aggr aggregator.IAggregator,
 ) (*RewardTracker, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
@@ -80,15 +80,16 @@ func NewRewardTracker(
 
 	ctx, cncl := context.WithCancel(ctx)
 	return &RewardTracker{
-		client:           client,
-		logger:           logger,
-		contractInstance: contractInstance,
-		addr:             addr,
-		ctx:              ctx,
-		stop:             cncl,
-		tsDB:             tsDB,
-		engine:           engine,
-		aggr:             aggr,
+		client:            client,
+		logger:            logger,
+		contractInstance:  contractInstance,
+		accounts:          accounts,
+		ctx:               ctx,
+		stop:              cncl,
+		tsDB:              tsDB,
+		engine:            engine,
+		aggr:              aggr,
+		lastGasEstimation: make(map[uint64]uint64),
 	}, nil
 }
 
@@ -189,18 +190,22 @@ func (self *RewardTracker) recordGasEstimation() error {
 		return errors.Wrap(err, "getting current slot")
 	}
 
-	gasEstimation, err := contracts.EstimateGasUsageSubmitMiningSolution(
-		self.ctx,
-		self.contractInstance,
-		self.client,
-		self.addr,
-	)
-	if err != nil {
-		return errors.Wrap(err, "estimate gas usage from client")
+	// Try for all registered accounts to avoid the minimum submit period revert errors.
+	for _, account := range self.accounts {
+		var gasEstimation uint64
+		gasEstimation, err = contracts.EstimateGasUsageSubmitMiningSolution(
+			self.ctx,
+			self.contractInstance,
+			self.client,
+			account,
+		)
+		if err != nil {
+			continue
+		}
+		self.lastGasEstimation[slotCurrent.Uint64()] = gasEstimation
 	}
 
-	self.lastGasEstimation[slotCurrent.Uint64()] = gasEstimation
-	return nil
+	return err
 }
 
 // recordGasUsageRefund gets the gas estimation before the TX was mined and
@@ -208,7 +213,7 @@ func (self *RewardTracker) recordGasEstimation() error {
 func (self *RewardTracker) recordGasUsageRefund(gasUsedActual uint64, slot uint64) error {
 	gasEstimation, ok := self.lastGasEstimation[slot]
 	if !ok {
-		level.Warn(self.logger).Log("msg", "no gas estimation for slot, this is normal for the first event iteration", "num", slot)
+		level.Warn(self.logger).Log("msg", "no gas estimation for slot, this is normal for the first event iteration", "slot", slot)
 	}
 	lbls := labels.Labels{
 		labels.Label{Name: "__name__", Value: "gas_usage_refund"},

@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
@@ -104,7 +105,12 @@ func (self dataserverCmd) Run() error {
 		if err != nil {
 			return errors.Wrap(err, "getting accounts")
 		}
-		rewardTracker, err := reward.NewRewardTracker(logger, ctx, cfg.RewardTracker, tsDB, client, contractTellor, accounts[0].Address, aggregator)
+
+		var accountAddrs []common.Address
+		for _, acc := range accounts {
+			accountAddrs = append(accountAddrs, acc.Address)
+		}
+		rewardTracker, err := reward.NewRewardTracker(logger, ctx, cfg.RewardTracker, tsDB, client, contractTellor, accountAddrs, aggregator)
 		if err != nil {
 			return errors.Wrap(err, "creating reward tracker")
 		}

@@ -51,22 +51,25 @@ type Config struct {
  */
 
 type Submitter struct {
-	ctx             context.Context
-	close           context.CancelFunc
-	logger          log.Logger
-	cfg             Config
-	account         *ethereum.Account
-	client          *ethclient.Client
-	contract        ContractCaller
-	resultCh        chan *mining.Result
-	submitCount     prometheus.Counter
-	submitFailCount prometheus.Counter
-	submitValue     *prometheus.GaugeVec
-	lastSubmitCncl  context.CancelFunc
-	transactor      transactor.Transactor
-	reward          *reward.RewardQuerier
-	gasPriceQuerier gasPrice.GasPriceQuerier
-	psr             *psr.Psr
+	ctx                     context.Context
+	close                   context.CancelFunc
+	logger                  log.Logger
+	cfg                     Config
+	account                 *ethereum.Account
+	client                  *ethclient.Client
+	contract                ContractCaller
+	resultCh                chan *mining.Result
+	submitCount             prometheus.Counter
+	submitFailCount         prometheus.Counter
+	submitValue             *prometheus.GaugeVec
+	submitGasUsageEstimated *prometheus.GaugeVec
+	submitGasUsageActual    *prometheus.GaugeVec
+	lastSubmitCncl          context.CancelFunc
+	transactor              transactor.Transactor
+	reward                  *reward.RewardQuerier
+	gasPriceQuerier         gasPrice.GasPriceQuerier
+	psr                     *psr.Psr
+	lastGasUsageEstimation  map[uint64]uint64
 }
 
 func New(
@@ -88,18 +91,19 @@ func New(
 	logger = log.With(logger, "component", ComponentName)
 	ctx, close := context.WithCancel(ctx)
 	submitter := &Submitter{
-		ctx:             ctx,
-		close:           close,
-		client:          client,
-		cfg:             cfg,
-		resultCh:        make(chan *mining.Result),
-		account:         account,
-		reward:          reward,
-		logger:          logger,
-		contract:        contract,
-		transactor:      transactor,
-		gasPriceQuerier: gasPriceQuerier,
-		psr:             psr,
+		ctx:                    ctx,
+		close:                  close,
+		client:                 client,
+		cfg:                    cfg,
+		resultCh:               make(chan *mining.Result),
+		account:                account,
+		reward:                 reward,
+		logger:                 logger,
+		contract:               contract,
+		transactor:             transactor,
+		gasPriceQuerier:        gasPriceQuerier,
+		psr:                    psr,
+		lastGasUsageEstimation: make(map[uint64]uint64),
 		submitCount: promauto.NewCounter(prometheus.CounterOpts{
 			Namespace:   "telliot",
 			Subsystem:   ComponentName,
@@ -122,6 +126,24 @@ func New(
 			ConstLabels: prometheus.Labels{"account": account.Address.String()},
 		},
 			[]string{"id"},
+		),
+		submitGasUsageEstimated: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace:   "telliot",
+			Subsystem:   ComponentName,
+			Name:        "submit_gas_usage_estimated",
+			Help:        "The submitted estimation for the gas usage",
+			ConstLabels: prometheus.Labels{"account": account.Address.String()},
+		},
+			[]string{"slot"},
+		),
+		submitGasUsageActual: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace:   "telliot",
+			Subsystem:   ComponentName,
+			Name:        "submit_gas_usage_actual",
+			Help:        "The submitted actual result for the gas usage",
+			ConstLabels: prometheus.Labels{"account": account.Address.String()},
+		},
+			[]string{"slot"},
 		),
 	}
 
@@ -197,9 +219,9 @@ func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Contex
 	}
 }
 
-func (self *Submitter) canSubmit() error {
+func (self *Submitter) canSubmit(slot *big.Int) error {
 	if self.cfg.ProfitThreshold > 0 { // Profit check is enabled.
-		profitPercent, err := self.profitPercent()
+		profitPercent, err := self.profitPercent(slot)
 		if _, ok := errors.Cause(err).(reward.ErrNoDataForSlot); ok {
 			level.Warn(self.logger).Log("msg", "skipping profit check when the slot has no record for how much gas it uses", "err", err)
 		} else if err != nil {
@@ -220,7 +242,7 @@ func (self *Submitter) canSubmit() error {
 	return nil
 }
 
-func (self *Submitter) profitPercent() (int64, error) {
+func (self *Submitter) profitPercent(slot *big.Int) (int64, error) {
 	gasPrice, err := self.gasPriceQuerier.Query(self.ctx)
 	if err != nil {
 		return 0, errors.Wrapf(err, "getting current Gas price")
@@ -228,15 +250,11 @@ func (self *Submitter) profitPercent() (int64, error) {
 	ctx, cncl := context.WithTimeout(self.ctx, 3*time.Second)
 	defer cncl()
 
-	slot, err := self.reward.Slot()
-	if err != nil {
-		return 0, errors.Wrap(err, "getting slot number")
-	}
-
 	gasUsed, err := self.reward.GasUsage(ctx, slot)
 	if err != nil {
 		return 0, err
 	}
+	self.lastGasUsageEstimation[slot.Uint64()] = gasPrice.Uint64()
 
 	return self.reward.Current(ctx, slot.Uint64(), gasPrice, gasUsed)
 }
@@ -254,7 +272,13 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 			}
 
 			self.blockUntilTimeToSubmit(newChallengeReplace)
-			if err := self.canSubmit(); err != nil {
+
+			slot, err := self.reward.Slot()
+			if err != nil {
+				level.Error(self.logger).Log("msg", "getting slot number", "err", err)
+			}
+
+			if err := self.canSubmit(slot); err != nil {
 				level.Info(self.logger).Log("msg", "can't submit and will retry later", "reason", err)
 				<-ticker.C
 				continue
@@ -300,11 +324,36 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 					level.Error(self.logger).Log("msg", "submiting solution status not success", "status", recieipt.Status, "hash", tx.Hash())
 					return
 				}
+
+				// Record gas usage to ensure that the estimated value is close to the actual value.
+				// Record it only when the profit check is enables as otherwise the estimation is not enabled.
+				var gasEstimate uint64
+				if self.cfg.ProfitThreshold > 0 {
+					var ok bool
+					gasEstimate, ok = self.lastGasUsageEstimation[slot.Uint64()]
+					if !ok {
+						level.Error(self.logger).Log("msg", "no gas estimation for slot", "slot", slot.String())
+					} else {
+						self.submitGasUsageEstimated.With(
+							prometheus.Labels{
+								"slot": slot.String(),
+							},
+						).(prometheus.Gauge).Set(float64(gasEstimate))
+					}
+
+					self.submitGasUsageActual.With(
+						prometheus.Labels{
+							"slot": slot.String(),
+						},
+					).(prometheus.Gauge).Set(float64(recieipt.GasUsed))
+				}
+
 				level.Info(self.logger).Log("msg", "successfully submited solution",
 					"txHash", tx.Hash().String(),
 					"nonce", tx.Nonce(),
 					"gasPrice", tx.GasPrice(),
 					"gasUsed", recieipt.GasUsed,
+					"gasUsedEstimated", gasEstimate,
 					"gasLimit", tx.Gas(),
 					"data", fmt.Sprintf("%x", tx.Data()),
 				)

@@ -61,6 +61,11 @@ func (self mineCmd) Run() error {
 		return errors.Wrap(err, "getting accounts")
 	}
 
+	var accountAddrs []common.Address
+	for _, acc := range accounts {
+		accountAddrs = append(accountAddrs, acc.Address)
+	}
+
 	// We define our run groups here.
 	var g run.Group
 	// Run groups.
@@ -152,7 +157,7 @@ func (self mineCmd) Run() error {
 				}
 
 				// Reward tracker.
-				rewardTracker, err := reward.NewRewardTracker(logger, ctx, cfg.RewardTracker, _tsDB, client, contractTellor, accounts[0].Address, aggregator)
+				rewardTracker, err := reward.NewRewardTracker(logger, ctx, cfg.RewardTracker, _tsDB, client, contractTellor, accountAddrs, aggregator)
 				if err != nil {
 					return errors.Wrap(err, "creating reward tracker")
 				}
@@ -194,11 +199,6 @@ func (self mineCmd) Run() error {
 
 		if cfg.SubmitterTellor.Enabled {
 			// Profit tracker.
-			var accountAddrs []common.Address
-			for _, acc := range accounts {
-				accountAddrs = append(accountAddrs, acc.Address)
-			}
-
 			contractTellor, err := contracts.NewITellor(client)
 			if err != nil {
 				return errors.Wrap(err, "create tellor contract instance")
