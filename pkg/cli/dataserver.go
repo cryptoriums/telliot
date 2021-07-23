@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
@@ -22,7 +21,6 @@ import (
 	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
 	"github.com/tellor-io/telliot/pkg/tracker/dispute"
 	"github.com/tellor-io/telliot/pkg/tracker/index"
-	"github.com/tellor-io/telliot/pkg/tracker/reward"
 	"github.com/tellor-io/telliot/pkg/web"
 )
 
@@ -99,28 +97,6 @@ func (self dataserverCmd) Run() error {
 		if err != nil {
 			return errors.Wrap(err, "create tellor contract instance")
 		}
-
-		// Reward tracker.
-		accounts, err := ethereum.GetAccounts()
-		if err != nil {
-			return errors.Wrap(err, "getting accounts")
-		}
-
-		var accountAddrs []common.Address
-		for _, acc := range accounts {
-			accountAddrs = append(accountAddrs, acc.Address)
-		}
-		rewardTracker, err := reward.NewRewardTracker(logger, ctx, cfg.RewardTracker, tsDB, client, contractTellor, accountAddrs, aggregator)
-		if err != nil {
-			return errors.Wrap(err, "creating reward tracker")
-		}
-		g.Add(func() error {
-			err := rewardTracker.Start()
-			level.Info(logger).Log("msg", "reward tracker shutdown complete")
-			return err
-		}, func(error) {
-			rewardTracker.Stop()
-		})
 
 		disputeTracker, err := dispute.New(
 			logger,

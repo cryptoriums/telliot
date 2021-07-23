@@ -23,7 +23,7 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 	}
 	client := http.Client{Transport: tr}
 
-	ctx, cncl := context.WithTimeout(ctx, 3*time.Second)
+	ctx, cncl := context.WithTimeout(ctx, 5*time.Second)
 	defer cncl()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", ExpandTimeVars(url), nil)

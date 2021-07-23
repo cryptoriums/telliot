@@ -25,13 +25,13 @@ import (
 	"github.com/tellor-io/telliot/pkg/mining"
 	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
 	psrTellorMesosphere "github.com/tellor-io/telliot/pkg/psr/tellorMesosphere"
+	"github.com/tellor-io/telliot/pkg/reward"
 	"github.com/tellor-io/telliot/pkg/submitter/tellor"
 	"github.com/tellor-io/telliot/pkg/submitter/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/tasker"
 	"github.com/tellor-io/telliot/pkg/tracker/dispute"
 	"github.com/tellor-io/telliot/pkg/tracker/index"
 	"github.com/tellor-io/telliot/pkg/tracker/profit"
-	"github.com/tellor-io/telliot/pkg/tracker/reward"
 	"github.com/tellor-io/telliot/pkg/transactor"
 	"github.com/tellor-io/telliot/pkg/web"
 )
@@ -149,25 +149,13 @@ func (self mineCmd) Run() error {
 			}
 			netID := _netID.Int64()
 
-			// Run some component only when not connected to a remote DB.
+			// Run some component only when not connected to a remote DB
+			// and mainnet or testnet.
 			if netID == 1 || netID == 4 {
 				contractTellor, err := contracts.NewITellor(client)
 				if err != nil {
 					return errors.Wrap(err, "create tellor contract instance")
 				}
-
-				// Reward tracker.
-				rewardTracker, err := reward.NewRewardTracker(logger, ctx, cfg.RewardTracker, _tsDB, client, contractTellor, accountAddrs, aggregator)
-				if err != nil {
-					return errors.Wrap(err, "creating reward tracker")
-				}
-				g.Add(func() error {
-					err := rewardTracker.Start()
-					level.Info(logger).Log("msg", "reward tracker shutdown complete")
-					return err
-				}, func(error) {
-					rewardTracker.Stop()
-				})
 
 				disputeTracker, err := dispute.New(
 					logger,
@@ -198,10 +186,14 @@ func (self mineCmd) Run() error {
 		}
 
 		if cfg.SubmitterTellor.Enabled {
-			// Profit tracker.
 			contractTellor, err := contracts.NewITellor(client)
 			if err != nil {
 				return errors.Wrap(err, "create tellor contract instance")
+			}
+
+			rewardTracker, err := reward.NewReward(logger, ctx, cfg.Reward, client, contractTellor, aggregator)
+			if err != nil {
+				return errors.Wrap(err, "creating reward tracker")
 			}
 
 			profitTracker, err := profit.NewProfitTracker(logger, ctx, cfg.ProfitTracker, client, contractTellor, accountAddrs)
@@ -240,11 +232,6 @@ func (self mineCmd) Run() error {
 
 				psr := psrTellor.New(loggerWithAddr, cfg.PsrTellor, aggregator)
 
-				rewardQuerier, err := reward.NewRewardQuerier(logger, ctx, cfg.RewardTracker, tsDB, client, contractTellor, accounts[0].Address, aggregator)
-				if err != nil {
-					return errors.Wrap(err, "creating reward tracker")
-				}
-
 				// Get a channel on which it listens for new data to submit.
 				submitter, submitterCh, err := tellor.New(
 					ctx,
@@ -253,7 +240,7 @@ func (self mineCmd) Run() error {
 					client,
 					contractTellor,
 					account,
-					rewardQuerier,
+					rewardTracker,
 					transactor,
 					gasPriceQuerier,
 					psr,

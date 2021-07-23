@@ -203,7 +203,7 @@ func (self *Submitter) Submit(reqID int64) error {
 		_val := big.NewInt(val)
 		return self.contract.SubmitValue(auth, _reqID, _val)
 	}
-	tx, recieipt, err := self.transactor.Transact(ctx, f)
+	tx, recieipt, err := self.transactor.Transact(ctx, 0, f)
 	if err != nil {
 		self.submitFailCount.Inc()
 		return errors.Wrap(err, "submiting a solution")

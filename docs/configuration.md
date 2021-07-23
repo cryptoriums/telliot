@@ -374,7 +374,7 @@ Flags:
 	"PsrTellorMesosphere": {
 		"MinConfidence": "Required:false, Default:0"
 	},
-	"RewardTracker": {
+	"Reward": {
 		"LogLevel": "Required:false, Default:info"
 	},
 	"SubmitterTellor": {
@@ -450,7 +450,7 @@ Here are the config defaults in json format:
 	"PsrTellorMesosphere": {
 		"MinConfidence": 0
 	},
-	"RewardTracker": {
+	"Reward": {
 		"LogLevel": "info"
 	},
 	"SubmitterTellor": {

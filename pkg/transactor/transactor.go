@@ -31,7 +31,7 @@ type Config struct {
 
 // Transactor takes care of sending transactions over the blockchain network.
 type Transactor interface {
-	Transact(context.Context, func(*bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, *types.Receipt, error)
+	Transact(ctx context.Context, gasLimit uint64, f func(*bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, *types.Receipt, error)
 }
 
 // TransactorDefault implements the Transactor interface.
@@ -73,7 +73,7 @@ func New(
 	}, nil
 }
 
-func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, *types.Receipt, error) {
+func (self *TransactorDefault) Transact(ctx context.Context, gasLimit uint64, contractCall func(*bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, *types.Receipt, error) {
 	nonce, err := self.client.NonceAt(ctx, self.account.Address, nil)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "getting nonce for miner address")
@@ -113,8 +113,11 @@ func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*
 			return nil, nil, errors.Wrap(err, "creating transactor")
 		}
 		auth.Nonce = big.NewInt(IntNonce)
-		auth.Value = big.NewInt(0)      // in weiF
-		auth.GasLimit = uint64(3000000) // in units
+		auth.Value = big.NewInt(0) // in weiF
+		auth.GasLimit = 3_000_000
+		if gasLimit != 0 {
+			auth.GasLimit = gasLimit
+		}
 		if gasPrice.Cmp(big.NewInt(0)) == 0 {
 			gasPrice = big.NewInt(100)
 		}

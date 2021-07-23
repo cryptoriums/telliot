@@ -7,15 +7,13 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/prometheus/prometheus/promql"
-	"github.com/prometheus/prometheus/storage"
 
 	"github.com/tellor-io/telliot/pkg/aggregator"
 	"github.com/tellor-io/telliot/pkg/contracts"
@@ -23,62 +21,60 @@ import (
 	"github.com/tellor-io/telliot/pkg/logging"
 )
 
-type RewardQuerier struct {
+const ComponentName = "rewardTracker"
+const DefaultRetry = 30 * time.Second
+
+type Config struct {
+	LogLevel string
+}
+
+type Reward struct {
 	client           *ethclient.Client
 	logger           log.Logger
 	contractInstance *contracts.ITellor
 	ctx              context.Context
 	stop             context.CancelFunc
-
-	tsDB   storage.SampleAndChunkQueryable
-	aggr   aggregator.IAggregator
-	engine *promql.Engine
-	addr   common.Address
+	aggr             aggregator.IAggregator
+	gasUsage         map[uint64]int64
+	mtx              sync.Mutex
 }
 
-func NewRewardQuerier(
+func NewReward(
 	logger log.Logger,
 	ctx context.Context,
 	cfg Config,
-	tsDB storage.SampleAndChunkQueryable,
 	client *ethclient.Client,
 	contractInstance *contracts.ITellor,
-	addr common.Address,
 	aggr aggregator.IAggregator,
-) (*RewardQuerier, error) {
+) (*Reward, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")
 	}
 	logger = log.With(logger, "component", ComponentName)
 
-	opts := promql.EngineOpts{
-		Logger:               logger,
-		Reg:                  nil,
-		MaxSamples:           30000,
-		Timeout:              10 * time.Second,
-		LookbackDelta:        5 * time.Minute,
-		EnableAtModifier:     true,
-		EnableNegativeOffset: true,
-	}
-	engine := promql.NewEngine(opts)
-
 	ctx, cncl := context.WithCancel(ctx)
-	return &RewardQuerier{
+	return &Reward{
 		client:           client,
 		logger:           logger,
 		contractInstance: contractInstance,
 		ctx:              ctx,
 		stop:             cncl,
-		tsDB:             tsDB,
-		engine:           engine,
 		aggr:             aggr,
-		addr:             addr,
+		gasUsage:         make(map[uint64]int64),
 	}, nil
 }
 
+// recordGasUsageRefund gets the gas estimation before the TX was mined and
+// subtracts the actual gas usage to record the refund.
+func (self *Reward) RecordGasUsageRefund(value int64, slot uint64) {
+	self.mtx.Lock()
+	defer self.mtx.Unlock()
+	self.gasUsage[slot] = value
+}
+
 // Current returns the profit in percents based on the current TRB price and gas usage.
-func (self *RewardQuerier) Current(ctx context.Context, slot uint64, gasPriceEth1e18 *big.Int, gasUsed *big.Int) (int64, error) {
+func (self *Reward) Current(ctx context.Context, slot uint64, gasPriceEth1e18 *big.Int, gasUsed *big.Int) (int64, error) {
 
 	rewardEth1e18, err := self.rewardInEth1e18()
 	if err != nil {
@@ -104,45 +100,17 @@ func (self *RewardQuerier) Current(ctx context.Context, slot uint64, gasPriceEth
 	return profitPercent, nil
 }
 
-type ErrNoDataForSlot struct {
-	slot string
+func (self *Reward) Refund(slot *big.Int) (int64, error) {
+	self.mtx.Lock()
+	defer self.mtx.Unlock()
+
+	if refund, ok := self.gasUsage[slot.Uint64()]; ok {
+		return refund, nil
+	}
+	return 0, errors.New("no refund value")
 }
 
-func (e ErrNoDataForSlot) Error() string {
-	return "no data for gas used for slot:" + e.slot
-}
-
-// GasUsed estimates the gas needed by the transaction.
-func (self *RewardQuerier) GasUsage(ctx context.Context, slot *big.Int) (*big.Int, error) {
-	estimated, err := contracts.EstimateGasUsageSubmitMiningSolution(
-		ctx,
-		self.contractInstance,
-		self.client,
-		self.addr, // The addr here shouldn't matter, the only requirement should be that it is staked.
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting estimated gas usage from client")
-	}
-	query, err := self.engine.NewInstantQuery(
-		self.tsDB,
-		`last_over_time(gas_usage_refund{slot="`+slot.String()+`"}[1d])`,
-		time.Now(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer query.Close()
-	refund := query.Exec(self.ctx)
-	if refund.Err != nil {
-		return nil, errors.Wrapf(refund.Err, "error evaluating query:%v", query.Statement())
-	}
-	if len(refund.Value.(promql.Vector)) == 0 {
-		return nil, ErrNoDataForSlot{slot: slot.String()}
-	}
-	return big.NewInt(int64(estimated) - int64(refund.Value.(promql.Vector)[0].V)), nil
-}
-
-func (self *RewardQuerier) rewardInEth1e18() (*big.Int, error) {
+func (self *Reward) rewardInEth1e18() (*big.Int, error) {
 	trbAmount1e18, err := self.contractInstance.CurrentReward(nil)
 	if err != nil {
 		return nil, errors.New("getting currentReward from the chain")
@@ -168,7 +136,7 @@ func (self *RewardQuerier) rewardInEth1e18() (*big.Int, error) {
 	return big.NewInt(rewardEth1e18Int), nil
 }
 
-func (self *RewardQuerier) Slot() (*big.Int, error) {
+func (self *Reward) Slot() (*big.Int, error) {
 	slot, err := self.contractInstance.GetUintVar(nil, eth.Keccak256([]byte("_SLOT_PROGRESS")))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")

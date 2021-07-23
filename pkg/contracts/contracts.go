@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
@@ -35,6 +36,19 @@ const (
 	LensAddressHardhat                     = "0x577417CFaF319a1fAD90aA135E3848D2C00e68CF"
 )
 
+type ContractCaller interface {
+	GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error)
+	SubmitMiningSolution(opts *bind.TransactOpts, _nonce string, _requestId [5]*big.Int, _value [5]*big.Int) (*types.Transaction, error)
+	GetStakerInfo(opts *bind.CallOpts, _staker common.Address) (*big.Int, *big.Int, error)
+	GetNewCurrentVariables(opts *bind.CallOpts) (struct {
+		Challenge  [32]byte
+		RequestIds [5]*big.Int
+		Difficutly *big.Int
+		Tip        *big.Int
+	}, error)
+	GetAddr() *common.Address
+}
+
 type (
 	ITellorNewDispute    = tellor.ITellorNewDispute
 	TellorNonceSubmitted = tellor.TellorNonceSubmitted
@@ -58,6 +72,10 @@ type ITellor struct {
 	*tellor.ITellorNewDispute
 	*lens.Main
 	Address common.Address
+}
+
+func (self *ITellor) GetAddr() *common.Address {
+	return &self.Address
 }
 
 func NewITellor(client *ethclient.Client) (*ITellor, error) {
@@ -153,10 +171,11 @@ func GetLensAddress(client *ethclient.Client) (common.Address, error) {
 
 func EstimateGasUsageSubmitMiningSolution(
 	ctx context.Context,
-	contractInstance *ITellor,
+	contract ContractCaller,
 	client *ethclient.Client,
-	addr common.Address,
-) (uint64, error) {
+	from common.Address,
+	solution string,
+) (int64, error) {
 	ctx, cncl := context.WithTimeout(ctx, 2*time.Second)
 	defer cncl()
 	abi, err := abi.JSON(strings.NewReader(tellor.TellorABI))
@@ -164,7 +183,7 @@ func EstimateGasUsageSubmitMiningSolution(
 		return 0, errors.Wrap(err, "getting abi")
 	}
 
-	vars, err := contractInstance.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
+	vars, err := contract.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return 0, errors.Wrap(err, "call GetNewCurrentVariables")
 	}
@@ -177,13 +196,14 @@ func EstimateGasUsageSubmitMiningSolution(
 		big.NewInt(math.MaxInt64),
 		big.NewInt(math.MaxInt64),
 	}
-	packed, err := abi.Pack("submitMiningSolution", "", vars.RequestIds, reqVals)
+	packed, err := abi.Pack("submitMiningSolution", solution, vars.RequestIds, reqVals)
 	if err != nil {
 		return 0, errors.Wrap(err, "packing submitMiningSolution args")
 	}
+
 	data := ethereum.CallMsg{
-		From: addr,
-		To:   &contractInstance.Address,
+		From: from,
+		To:   contract.GetAddr(),
 		// Hardcoded gas price. Looks like it doesn't matter in the calculation.
 		GasPrice: big.NewInt(0).Mul(big.NewInt(30), big.NewInt(params.GWei)),
 		Data:     packed,
@@ -192,5 +212,5 @@ func EstimateGasUsageSubmitMiningSolution(
 	if err != nil {
 		return 0, errors.Wrap(err, "call client.EstimateGas")
 	}
-	return gasEstimation, nil
+	return int64(gasEstimation), nil
 }
