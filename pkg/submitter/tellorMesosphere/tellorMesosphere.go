@@ -5,10 +5,8 @@ package tellorMesosphere
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -17,20 +15,21 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/tellor-io/telliot/pkg/contracts"
 	"github.com/tellor-io/telliot/pkg/ethereum"
 	"github.com/tellor-io/telliot/pkg/format"
 	"github.com/tellor-io/telliot/pkg/logging"
 	mathU "github.com/tellor-io/telliot/pkg/math"
 	psr "github.com/tellor-io/telliot/pkg/psr/tellorMesosphere"
-	"github.com/tellor-io/telliot/pkg/transactor"
 )
 
 const (
 	ComponentName = "submitterTellorMesosphere"
 )
+
+type Transactor interface {
+	Transact(ctx context.Context, reqId *big.Int, val *big.Int) (*types.Transaction, error)
+}
 
 type Config struct {
 	Enabled              bool
@@ -53,10 +52,7 @@ type Submitter struct {
 	account         *ethereum.Account
 	client          *ethclient.Client
 	contract        *contracts.ITellorMesosphere
-	transactor      transactor.Transactor
-	submitCount     prometheus.Counter
-	submitFailCount prometheus.Counter
-	submitValue     *prometheus.GaugeVec
+	transactor      Transactor
 	psr             *psr.Psr
 	lastSubmitValue map[int64]float64
 	lastSubmitTime  map[int64]time.Time
@@ -70,7 +66,7 @@ func New(
 	client *ethclient.Client,
 	contract *contracts.ITellorMesosphere,
 	account *ethereum.Account,
-	transactor transactor.Transactor,
+	transactor Transactor,
 	psr *psr.Psr,
 ) (*Submitter, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
@@ -92,29 +88,6 @@ func New(
 		reqIDs:          []int64{1, 2},
 		lastSubmitValue: make(map[int64]float64),
 		lastSubmitTime:  make(map[int64]time.Time),
-		submitCount: promauto.NewCounter(prometheus.CounterOpts{
-			Namespace:   "telliot",
-			Subsystem:   ComponentName,
-			Name:        "submit_total",
-			Help:        "The total number of submitted solutions",
-			ConstLabels: prometheus.Labels{"account": account.Address.String()},
-		}),
-		submitFailCount: promauto.NewCounter(prometheus.CounterOpts{
-			Namespace:   "telliot",
-			Subsystem:   ComponentName,
-			Name:        "submit_fails_total",
-			Help:        "The total number of failed submission",
-			ConstLabels: prometheus.Labels{"account": account.Address.String()},
-		}),
-		submitValue: promauto.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace:   "telliot",
-			Subsystem:   ComponentName,
-			Name:        "submit_value",
-			Help:        "The submitted value",
-			ConstLabels: prometheus.Labels{"account": account.Address.String()},
-		},
-			[]string{"id"},
-		),
 	}
 
 	// Set the initial values
@@ -198,36 +171,17 @@ func (self *Submitter) Submit(reqID int64) error {
 		"val", val,
 	)
 
-	f := func(auth *bind.TransactOpts) (*types.Transaction, error) {
-		_reqID := big.NewInt(reqID)
-		_val := big.NewInt(val)
-		return self.contract.SubmitValue(auth, _reqID, _val)
-	}
-	tx, recieipt, err := self.transactor.Transact(ctx, 0, f)
+	tx, err := self.transactor.Transact(ctx, big.NewInt(reqID), big.NewInt(val))
 	if err != nil {
-		self.submitFailCount.Inc()
-		return errors.Wrap(err, "submiting a solution")
+		return errors.Wrap(err, "transacting")
 	}
 
-	if recieipt.Status != types.ReceiptStatusSuccessful {
-		self.submitFailCount.Inc()
-		return errors.Wrapf(err, "submiting solution status not success status:%v, tx hash:%v", recieipt.Status, tx.Hash())
-	}
 	level.Info(self.logger).Log("msg", "successfully submited solution",
 		"txHash", tx.Hash().String(),
 		"nonce", tx.Nonce(),
 		"gasPrice", tx.GasPrice(),
-		"gasUsed", recieipt.GasUsed,
 		"gasLimit", tx.Gas(),
-		"data", fmt.Sprintf("%x", tx.Data()),
 	)
-	self.submitCount.Inc()
-
-	self.submitValue.With(
-		prometheus.Labels{
-			"id": strconv.Itoa(int(reqID)),
-		},
-	).(prometheus.Gauge).Set(float64(val))
 
 	self.lastSubmitValue[reqID] = float64(val)
 	self.lastSubmitTime[reqID] = time.Now()

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -38,15 +39,16 @@ type SubmitCanceler interface {
 }
 
 type Tasker struct {
-	ctx             context.Context
-	close           context.CancelFunc
-	logger          log.Logger
-	accounts        []*ethereum.Account
-	contract        *contracts.ITellor
-	client          *ethclient.Client
-	workSinks       map[string]chan *mining.Work
-	SubmitCancelers []SubmitCanceler
-	txPending       context.CancelFunc
+	ctx       context.Context
+	close     context.CancelFunc
+	logger    log.Logger
+	accounts  []*ethereum.Account
+	contract  *contracts.ITellor
+	client    *ethclient.Client
+	workSinks map[string]chan *mining.Work
+
+	mtx            sync.Mutex
+	pendingSubmits []context.CancelFunc
 }
 
 func New(
@@ -68,20 +70,15 @@ func New(
 		return nil, nil, errors.Wrap(err, "apply filter logger")
 	}
 	tasker := &Tasker{
-		ctx:             ctx,
-		close:           close,
-		accounts:        accounts,
-		contract:        contract,
-		workSinks:       workSinks,
-		logger:          log.With(logger, "component", ComponentName),
-		client:          client,
-		SubmitCancelers: make([]SubmitCanceler, 0),
+		ctx:       ctx,
+		close:     close,
+		accounts:  accounts,
+		contract:  contract,
+		workSinks: workSinks,
+		logger:    log.With(logger, "component", ComponentName),
+		client:    client,
 	}
 	return tasker, tasker.workSinks, nil
-}
-
-func (self *Tasker) AddSubmitCanceler(SubmitCanceler SubmitCanceler) {
-	self.SubmitCancelers = append(self.SubmitCancelers, SubmitCanceler)
 }
 
 func (self *Tasker) newSub(output chan *tellor.ITellorNewChallenge) (event.Subscription, error) {
@@ -96,7 +93,7 @@ func (self *Tasker) newSub(output chan *tellor.ITellorNewChallenge) (event.Subsc
 	return sub, nil
 }
 
-func (self *Tasker) sendWork(challenge *tellor.ITellorNewChallenge) {
+func (self *Tasker) sendWork(ctx context.Context, challenge *tellor.ITellorNewChallenge) {
 	newChallenge := &mining.MiningChallenge{
 		Challenge:  challenge.CurrentChallenge[:],
 		Difficulty: challenge.Difficulty,
@@ -111,7 +108,13 @@ func (self *Tasker) sendWork(challenge *tellor.ITellorNewChallenge) {
 		)
 
 		select {
-		case self.workSinks[acc.Address.String()] <- &mining.Work{Challenge: newChallenge, PublicAddr: acc.Address.String(), Start: uint64(rand.Int63()), N: math.MaxInt64}:
+		case self.workSinks[acc.Address.String()] <- &mining.Work{
+			Context:    ctx,
+			Challenge:  newChallenge,
+			PublicAddr: acc.Address.String(),
+			Start:      uint64(rand.Int63()),
+			N:          math.MaxInt64,
+		}:
 		case <-self.ctx.Done():
 			return
 		}
@@ -126,21 +129,26 @@ func (self *Tasker) Start() error {
 	level.Info(self.logger).Log("msg", "starting")
 
 	// Getting current challenge from the contract.
-	newVariables, err := self.contract.GetNewCurrentVariables(nil)
+	currentVariables, err := self.contract.GetNewCurrentVariables(&bind.CallOpts{Context: self.ctx})
 	if err != nil {
 		level.Warn(self.logger).Log("msg", "getting new current variables", "err", err)
 		return errors.Wrap(err, "getting GetNewCurrentVariables")
 	}
 
 	currentChallenge := &tellor.ITellorNewChallenge{
-		CurrentChallenge: newVariables.Challenge,
-		Difficulty:       newVariables.Difficutly,
-		CurrentRequestId: newVariables.RequestIds,
-		TotalTips:        newVariables.Tip,
+		CurrentChallenge: currentVariables.Challenge,
+		Difficulty:       currentVariables.Difficutly,
+		CurrentRequestId: currentVariables.RequestIds,
+		TotalTips:        currentVariables.Tip,
 	}
 
 	level.Info(self.logger).Log("msg", "sending the initial event")
-	self.sendWork(currentChallenge)
+
+	self.mtx.Unlock()
+	ctx, cncl := context.WithCancel(self.ctx)
+	self.pendingSubmits = append(self.pendingSubmits, cncl)
+	self.mtx.Unlock()
+	self.sendWork(ctx, currentChallenge)
 
 	// Subscribe and wait until the context cancellation event.
 	events := make(chan *tellor.ITellorNewChallenge)
@@ -191,16 +199,15 @@ func (self *Tasker) Start() error {
 			}
 			level.Info(self.logger).Log("msg", "re-subscribed to events")
 		case event := <-events:
-			level.Debug(self.logger).Log("msg", "new event", "reorg", event.Raw.Removed)
-			if self.txPending != nil {
-				self.txPending()
-				self.txPending = nil
-			}
+			level.Debug(self.logger).Log("msg", "new event", "hash", event.Raw.TxHash, "reorg", event.Raw.Removed)
 
 			if !event.Raw.Removed { // For reorg events just cancel the old TXs without sending this one.
-				ctxPending, ctxPendingCncl := context.WithCancel(self.ctx)
-				self.txPending = ctxPendingCncl
-				go self.sendWhenConfirmed(ctxPending, event)
+				self.mtx.Unlock()
+				ctx, cncl := context.WithCancel(self.ctx)
+				self.pendingSubmits = append(self.pendingSubmits, cncl)
+				self.mtx.Unlock()
+
+				go self.sendWhenConfirmed(ctx, event)
 			}
 		}
 	}
@@ -209,6 +216,7 @@ func (self *Tasker) Start() error {
 func (self *Tasker) sendWhenConfirmed(ctx context.Context, vLog *tellor.ITellorNewChallenge) {
 	ticker := time.NewTicker(defaultDelay)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -220,10 +228,15 @@ func (self *Tasker) sendWhenConfirmed(ctx context.Context, vLog *tellor.ITellorN
 		if receipt != nil {
 			// Send it only when the TX ReceiptStatusSuccessful or otherwise ignore.
 			if receipt.Status == types.ReceiptStatusSuccessful {
-				for _, canceler := range self.SubmitCancelers {
-					canceler.CancelPendingSubmit()
+				self.mtx.Unlock()
+				for _, cncl := range self.pendingSubmits {
+					cncl()
 				}
-				self.sendWork(vLog)
+				self.pendingSubmits = nil
+				ctx, cncl := context.WithCancel(self.ctx)
+				self.pendingSubmits = append(self.pendingSubmits, cncl)
+				self.mtx.Unlock()
+				self.sendWork(ctx, vLog)
 			}
 			return
 		}

@@ -47,6 +47,7 @@ type ContractCaller interface {
 		Tip        *big.Int
 	}, error)
 	GetAddr() *common.Address
+	CurrentReward(opts *bind.CallOpts) (*big.Int, error)
 }
 
 type (
@@ -97,7 +98,11 @@ func NewITellor(client *ethclient.Client) (*ITellor, error) {
 		return nil, errors.Wrap(err, "creating telllor interface")
 	}
 
-	return &ITellor{Address: common.HexToAddress(TellorAddress), ITellor: tellorInstance, Main: lensInstance}, nil
+	return &ITellor{
+		Address: common.HexToAddress(TellorAddress),
+		ITellor: tellorInstance,
+		Main:    lensInstance,
+	}, nil
 }
 
 func NewITellorMesosphere(client *ethclient.Client) (*ITellorMesosphere, error) {
@@ -175,7 +180,7 @@ func EstimateGasUsageSubmitMiningSolution(
 	client *ethclient.Client,
 	from common.Address,
 	solution string,
-) (int64, error) {
+) (uint64, error) {
 	ctx, cncl := context.WithTimeout(ctx, 2*time.Second)
 	defer cncl()
 	abi, err := abi.JSON(strings.NewReader(tellor.TellorABI))
@@ -212,5 +217,5 @@ func EstimateGasUsageSubmitMiningSolution(
 	if err != nil {
 		return 0, errors.Wrap(err, "call client.EstimateGas")
 	}
-	return int64(gasEstimation), nil
+	return gasEstimation, nil
 }

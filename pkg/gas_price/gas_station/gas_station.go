@@ -1,7 +1,7 @@
 // Copyright (c) The Tellor Authors.
 // Licensed under the MIT License.
 
-package gasStation
+package gas_station
 
 import (
 	"context"

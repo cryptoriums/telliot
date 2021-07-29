@@ -180,6 +180,7 @@ func (g *MiningGroup) PrintHashRateSummary() {
 }
 
 type Work struct {
+	Context    context.Context
 	Challenge  *MiningChallenge
 	PublicAddr string
 	Start      uint64

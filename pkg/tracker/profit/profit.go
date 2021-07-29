@@ -6,6 +6,7 @@ package profit
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/tellor-io/telliot/pkg/contracts"
 	"github.com/tellor-io/telliot/pkg/contracts/tellor"
+	"github.com/tellor-io/telliot/pkg/ethereum"
+	"github.com/tellor-io/telliot/pkg/gas_estimator"
 	"github.com/tellor-io/telliot/pkg/logging"
 )
 
@@ -42,8 +45,18 @@ type ProfitTracker struct {
 	abi              abi.ABI
 	ctx              context.Context
 	stop             context.CancelFunc
-	addrs            []common.Address
-	addrsMap         map[common.Address]struct{} // The same as above but used for quick matching.
+
+	// All registered addresses to track in different formats.
+	// They hold the same addresses, just in a different format
+	// to make it easyer to pass around.
+	accounts []*ethereum.Account
+	addrs    []common.Address
+	addrsMap map[common.Address]struct{} // The same as above but used for quick matching.
+
+	gasEstimator    gas_estimator.GasEstimator
+	lastGasEstimate uint64
+
+	lastSubmit time.Time
 
 	cacheTXsProfit     gcache.Cache
 	cacheTXsCost       gcache.Cache
@@ -53,6 +66,13 @@ type ProfitTracker struct {
 	submitProfit *prometheus.GaugeVec
 	submitCost   *prometheus.GaugeVec
 	balances     *prometheus.GaugeVec
+
+	submitCount     *prometheus.CounterVec
+	submitFailCount *prometheus.CounterVec
+	submitValue     *prometheus.GaugeVec
+
+	submitGasUsageEstimated *prometheus.GaugeVec
+	submitGasUsageActual    *prometheus.GaugeVec
 }
 
 func NewProfitTracker(
@@ -60,8 +80,9 @@ func NewProfitTracker(
 	ctx context.Context,
 	cfg Config,
 	client *ethclient.Client,
+	gasEstimator gas_estimator.GasEstimator,
 	contractInstance *contracts.ITellor,
-	addrs []common.Address,
+	accounts []*ethereum.Account,
 ) (*ProfitTracker, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
@@ -69,14 +90,20 @@ func NewProfitTracker(
 	}
 	logger = log.With(logger, "component", ComponentName)
 
+	if gasEstimator == nil {
+		gasEstimator = gas_estimator.NewDefault(contractInstance, client)
+	}
+
 	abi, err := abi.JSON(strings.NewReader(tellor.TellorABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "abi read")
 	}
 
 	addrsMap := make(map[common.Address]struct{})
-	for _, addr := range addrs {
-		addrsMap[addr] = struct{}{}
+	var addrs []common.Address
+	for _, acc := range accounts {
+		addrsMap[acc.Address] = struct{}{}
+		addrs = append(addrs, acc.Address)
 	}
 
 	netID, err := client.NetworkID(ctx)
@@ -92,10 +119,12 @@ func NewProfitTracker(
 		logger:           logger,
 		contractInstance: contractInstance,
 		abi:              abi,
+		accounts:         accounts,
 		addrs:            addrs,
 		addrsMap:         addrsMap,
 		ctx:              ctx,
 		stop:             cncl,
+		gasEstimator:     gasEstimator,
 
 		cacheTXsProfit:     gcache.New(50).LRU().Build(),
 		cacheTXsCost:       gcache.New(50).LRU().Build(),
@@ -124,6 +153,46 @@ func NewProfitTracker(
 			Help:      "Current token balances for all registered addresses",
 		},
 			[]string{"addr", "token"},
+		),
+		submitCount: promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      "submit_total",
+			Help:      "The total number of submitted solutions",
+		},
+			[]string{"addr"},
+		),
+		submitFailCount: promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      "submit_fails_total",
+			Help:      "The total number of failed submits",
+		},
+			[]string{"addr"},
+		),
+		submitValue: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      "submit_value",
+			Help:      "The submitted value",
+		},
+			[]string{"id", "addr"},
+		),
+		submitGasUsageEstimated: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      "submit_gas_usage_estimated",
+			Help:      "The submitted estimation for the gas usage",
+		},
+			[]string{"slot"},
+		),
+		submitGasUsageActual: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      "submit_gas_usage_actual",
+			Help:      "The submitted actual result for the gas usage",
+		},
+			[]string{"slot"},
 		),
 	}, nil
 }
@@ -159,6 +228,10 @@ func (self *ProfitTracker) Start() error {
 
 func (self *ProfitTracker) Stop() {
 	self.stop()
+}
+
+func (self *ProfitTracker) LastSubmit() time.Time {
+	return self.lastSubmit
 }
 
 func (self *ProfitTracker) monitorReward() {
@@ -299,6 +372,30 @@ func (self *ProfitTracker) monitorCost() {
 				continue
 			}
 
+			// When the next slot is 4 also record the gas estimation.
+			if event.Slot.Int64() == 3 {
+				var gasEstimate uint64
+				var ok bool
+				for _, acc := range self.accounts {
+					gasEstimate, err = self.gasEstimator.EstimateGas(self.ctx, acc, event.Slot.Uint64())
+					if err == nil {
+						ok = true
+						break
+					}
+				}
+				if !ok {
+					level.Error(self.logger).Log("msg", "gas estimation didn't work with any of the registered addresses", "lastErr", err)
+
+				} else {
+					self.lastGasEstimate = gasEstimate
+					self.submitGasUsageEstimated.With(
+						prometheus.Labels{
+							"slot": strconv.Itoa(int(event.Slot.Uint64())),
+						},
+					).(prometheus.Gauge).Set(float64(gasEstimate))
+				}
+			}
+
 			self.setCostWhenConfirmed(logger, event)
 		}
 	}
@@ -409,6 +506,12 @@ func (self *ProfitTracker) monitorCostFailed() {
 							level.Error(logger).Log("msg", "adding cost to the cache", "err", err)
 						}
 
+						self.submitFailCount.With(
+							prometheus.Labels{
+								"addr": addr.String(),
+							},
+						).Inc()
+
 						balance, err := self.getETHBalance(addr)
 						if err != nil {
 							level.Error(logger).Log("msg", "getting ETH balance", "err", err)
@@ -426,14 +529,19 @@ func (self *ProfitTracker) monitorCostFailed() {
 func (self *ProfitTracker) setCostWhenConfirmed(logger log.Logger, event *tellor.TellorNonceSubmitted) {
 	ticker := time.NewTicker(DefaultRetry)
 	defer ticker.Stop()
+
+	// Give up checking after this time.
+	ctx, cncl := context.WithTimeout(self.ctx, time.Hour)
+	defer cncl()
+
 	for {
 		select {
-		case <-self.ctx.Done():
+		case <-ctx.Done():
 			level.Debug(logger).Log("msg", "transaction confirmation check canceled")
 			return
 		case <-ticker.C:
 		}
-		receipt, err := self.client.TransactionReceipt(self.ctx, event.Raw.TxHash)
+		receipt, err := self.client.TransactionReceipt(ctx, event.Raw.TxHash)
 		if err != nil {
 			level.Error(logger).Log("msg", "receipt retrieval", "err", err)
 		} else if receipt != nil && receipt.Status == types.ReceiptStatusSuccessful { // Failed transactions cost is monitored in a different process.
@@ -458,6 +566,30 @@ func (self *ProfitTracker) setCostWhenConfirmed(logger log.Logger, event *tellor
 			}
 			level.Debug(logger).Log("msg", "new ETH balance", "balance", balance)
 			self.balances.With(prometheus.Labels{"addr": event.Miner.String(), "token": "ETH"}).(prometheus.Gauge).Set(balance)
+
+			self.submitCount.With(
+				prometheus.Labels{
+					"addr": event.Miner.String(),
+				},
+			).Inc()
+
+			self.lastSubmit = time.Now()
+
+			self.submitGasUsageActual.With(
+				prometheus.Labels{
+					"slot": strconv.Itoa(int(event.Slot.Uint64())),
+				},
+			).(prometheus.Gauge).Set(float64(receipt.GasUsed))
+
+			for i, id := range event.RequestId {
+				self.submitValue.With(
+					prometheus.Labels{
+						"addr": event.Miner.String(),
+						"id":   id.String(),
+					},
+				).(prometheus.Gauge).Set(float64(event.Value[i].Int64()))
+			}
+
 			return
 		}
 
@@ -512,6 +644,7 @@ func (self *ProfitTracker) nonceSubmittedSub(output chan *tellor.TellorNonceSubm
 	if err != nil {
 		return nil, errors.Wrap(err, "getting instance")
 	}
+
 	sub, err := tellorFilterer.WatchNonceSubmitted(&bind.WatchOpts{Context: self.ctx}, output, self.addrs, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting channel")

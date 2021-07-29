@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -21,7 +21,7 @@ import (
 	"github.com/tellor-io/telliot/pkg/logging"
 )
 
-const ComponentName = "rewardTracker"
+const ComponentName = "reward"
 const DefaultRetry = 30 * time.Second
 
 type Config struct {
@@ -29,22 +29,18 @@ type Config struct {
 }
 
 type Reward struct {
-	client           *ethclient.Client
-	logger           log.Logger
-	contractInstance *contracts.ITellor
-	ctx              context.Context
-	stop             context.CancelFunc
-	aggr             aggregator.IAggregator
-	gasUsage         map[uint64]int64
-	mtx              sync.Mutex
+	logger         log.Logger
+	contractCaller contracts.ContractCaller
+	ctx            context.Context
+	stop           context.CancelFunc
+	aggr           aggregator.IAggregator
 }
 
-func NewReward(
+func New(
 	logger log.Logger,
 	ctx context.Context,
 	cfg Config,
-	client *ethclient.Client,
-	contractInstance *contracts.ITellor,
+	contractCaller contracts.ContractCaller,
 	aggr aggregator.IAggregator,
 ) (*Reward, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
@@ -55,27 +51,16 @@ func NewReward(
 
 	ctx, cncl := context.WithCancel(ctx)
 	return &Reward{
-		client:           client,
-		logger:           logger,
-		contractInstance: contractInstance,
-		ctx:              ctx,
-		stop:             cncl,
-		aggr:             aggr,
-		gasUsage:         make(map[uint64]int64),
+		logger:         logger,
+		contractCaller: contractCaller,
+		ctx:            ctx,
+		stop:           cncl,
+		aggr:           aggr,
 	}, nil
-}
-
-// recordGasUsageRefund gets the gas estimation before the TX was mined and
-// subtracts the actual gas usage to record the refund.
-func (self *Reward) RecordGasUsageRefund(value int64, slot uint64) {
-	self.mtx.Lock()
-	defer self.mtx.Unlock()
-	self.gasUsage[slot] = value
 }
 
 // Current returns the profit in percents based on the current TRB price and gas usage.
 func (self *Reward) Current(ctx context.Context, slot uint64, gasPriceEth1e18 *big.Int, gasUsed *big.Int) (int64, error) {
-
 	rewardEth1e18, err := self.rewardInEth1e18()
 	if err != nil {
 		return 0, errors.New("getting trb current TRB price")
@@ -87,12 +72,12 @@ func (self *Reward) Current(ctx context.Context, slot uint64, gasPriceEth1e18 *b
 	profitPercent := int64(profitPercentFloat)
 
 	level.Debug(self.logger).Log(
-		"msg", "profit checking",
-		"reward", fmt.Sprintf("%.2e", float64(rewardEth1e18.Int64())),
-		"txCost", fmt.Sprintf("%.2e", float64(txCostEth1e18.Int64())),
+		"msg", "profit checking current",
+		"reward", float64(rewardEth1e18.Int64())/params.Ether,
+		"txCost", float64(txCostEth1e18.Int64())/params.Ether,
 		"slot", slot,
 		"gasUsed", gasUsed,
-		"gasPrice", gasPriceEth1e18,
+		"gasPrice", float64(gasPriceEth1e18.Int64())/params.GWei,
 		"profit", fmt.Sprintf("%.2e", float64(profit.Int64())),
 		"profitMargin", profitPercent,
 	)
@@ -100,18 +85,35 @@ func (self *Reward) Current(ctx context.Context, slot uint64, gasPriceEth1e18 *b
 	return profitPercent, nil
 }
 
-func (self *Reward) Refund(slot *big.Int) (int64, error) {
-	self.mtx.Lock()
-	defer self.mtx.Unlock()
-
-	if refund, ok := self.gasUsage[slot.Uint64()]; ok {
-		return refund, nil
+// GasPriceForProfitThreshold returns the gas price in WEI for a given profit percent based on the current TRB price and gas usage.
+func (self *Reward) GasPriceForProfitThreshold(ctx context.Context, slot uint64, profitTargetPercent float64, gasUsed *big.Int) (int64, error) {
+	rewardEth1e18, err := self.rewardInEth1e18()
+	if err != nil {
+		return 0, errors.New("getting trb current TRB price")
 	}
-	return 0, errors.New("no refund value")
+
+	reward := float64(rewardEth1e18.Int64()) / params.Ether
+
+	profitTarget := reward * (profitTargetPercent / 100)
+
+	cost := reward - profitTarget
+	gasPrice := cost / float64(gasUsed.Int64())
+
+	level.Debug(self.logger).Log(
+		"msg", "profit checking for threshold",
+		"reward", float64(rewardEth1e18.Int64())*params.GWei,
+		"txCost", cost/params.GWei,
+		"slot", slot,
+		"gasUsed", gasUsed,
+		"gasPrice", gasPrice*params.GWei,
+		"profitTarget", profitTarget,
+	)
+
+	return int64(gasPrice * params.Ether), nil
 }
 
 func (self *Reward) rewardInEth1e18() (*big.Int, error) {
-	trbAmount1e18, err := self.contractInstance.CurrentReward(nil)
+	trbAmount1e18, err := self.contractCaller.CurrentReward(&bind.CallOpts{Context: self.ctx})
 	if err != nil {
 		return nil, errors.New("getting currentReward from the chain")
 	}
@@ -137,7 +139,7 @@ func (self *Reward) rewardInEth1e18() (*big.Int, error) {
 }
 
 func (self *Reward) Slot() (*big.Int, error) {
-	slot, err := self.contractInstance.GetUintVar(nil, eth.Keccak256([]byte("_SLOT_PROGRESS")))
+	slot, err := self.contractCaller.GetUintVar(nil, eth.Keccak256([]byte("_SLOT_PROGRESS")))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
 	}
