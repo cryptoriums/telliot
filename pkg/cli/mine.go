@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
@@ -60,11 +59,6 @@ func (self mineCmd) Run() error {
 	accounts, err := ethereum.GetAccounts()
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")
-	}
-
-	var accountAddrs []common.Address
-	for _, acc := range accounts {
-		accountAddrs = append(accountAddrs, acc.Address)
 	}
 
 	// We define our run groups here.

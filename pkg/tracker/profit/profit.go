@@ -206,7 +206,7 @@ func (self *ProfitTracker) Start() error {
 			level.Error(self.logger).Log("msg", "getting initial TRB balance", "addr", addr.String(), "err", err)
 		}
 		level.Info(self.logger).Log("msg", "initial TRB balance", "addr", addr.String(), "balance", balance)
-		self.balances.With(prometheus.Labels{"addr": addr.String(), "token": "TRB"}).(prometheus.Gauge).Set(balance)
+		self.balances.With(prometheus.Labels{"addr": addr.String(), "token": "TRB"}).Set(balance)
 	}
 
 	for _, addr := range self.addrs {
@@ -215,7 +215,7 @@ func (self *ProfitTracker) Start() error {
 			level.Error(self.logger).Log("msg", "getting initial ETH balance", "addr", addr.String(), "err", err)
 		}
 		level.Info(self.logger).Log("msg", "initial ETH balance", "addr", addr.String(), "balance", balance)
-		self.balances.With(prometheus.Labels{"addr": addr.String(), "token": "ETH"}).(prometheus.Gauge).Set(balance)
+		self.balances.With(prometheus.Labels{"addr": addr.String(), "token": "ETH"}).Set(balance)
 	}
 
 	go self.monitorCost()
@@ -296,7 +296,7 @@ func (self *ProfitTracker) monitorReward() {
 					continue
 				}
 				level.Debug(logger).Log("msg", "removing cost from dropped event", "amount", val.(float64))
-				self.submitProfit.With(prometheus.Labels{"addr": event.To.String()}).(prometheus.Gauge).Sub(val.(float64))
+				self.submitProfit.With(prometheus.Labels{"addr": event.To.String()}).Sub(val.(float64))
 				continue
 			}
 
@@ -368,7 +368,7 @@ func (self *ProfitTracker) monitorCost() {
 					continue
 				}
 				level.Debug(logger).Log("msg", "removed event", "amount", val.(float64))
-				self.submitCost.With(prometheus.Labels{"addr": event.Miner.String()}).(prometheus.Gauge).Sub(val.(float64))
+				self.submitCost.With(prometheus.Labels{"addr": event.Miner.String()}).Sub(val.(float64))
 				continue
 			}
 
@@ -392,7 +392,7 @@ func (self *ProfitTracker) monitorCost() {
 						prometheus.Labels{
 							"slot": strconv.Itoa(int(event.Slot.Uint64())),
 						},
-					).(prometheus.Gauge).Set(float64(gasEstimate))
+					).Set(float64(gasEstimate))
 				}
 			}
 
@@ -492,7 +492,7 @@ func (self *ProfitTracker) monitorCostFailed() {
 								if cachedBlock.(int64) >= event.Number.Int64() {
 									cost := _cost.(float64)
 									level.Debug(logger).Log("msg", "removing cost from dropped block", "amount", cost)
-									self.submitCost.With(prometheus.Labels{"addr": addr.String()}).(prometheus.Gauge).Sub(cost)
+									self.submitCost.With(prometheus.Labels{"addr": addr.String()}).Sub(cost)
 								}
 							}
 						}
@@ -500,7 +500,7 @@ func (self *ProfitTracker) monitorCostFailed() {
 						cost, _ := big.NewFloat(0).Mul(big.NewFloat(float64(tx.GasPrice().Int64())), big.NewFloat(float64(receipt.GasUsed))).Float64()
 						cost = cost / 1e18
 						level.Debug(logger).Log("msg", "adding cost", "amount", cost)
-						self.submitCost.With(prometheus.Labels{"addr": addr.String()}).(prometheus.Gauge).Add(cost)
+						self.submitCost.With(prometheus.Labels{"addr": addr.String()}).Add(cost)
 
 						if err := self.cacheTXsCostFailed.Set(event.Number.Int64(), cost); err != nil {
 							level.Error(logger).Log("msg", "adding cost to the cache", "err", err)
@@ -518,7 +518,7 @@ func (self *ProfitTracker) monitorCostFailed() {
 							continue
 						}
 						level.Debug(logger).Log("msg", "new ETH balance", "balance", balance)
-						self.balances.With(prometheus.Labels{"addr": addr.String(), "token": "ETH"}).(prometheus.Gauge).Set(balance)
+						self.balances.With(prometheus.Labels{"addr": addr.String(), "token": "ETH"}).Set(balance)
 					}
 				}
 			}
@@ -553,7 +553,7 @@ func (self *ProfitTracker) setCostWhenConfirmed(logger log.Logger, event *tellor
 			cost, _ := big.NewFloat(0).Mul(big.NewFloat(float64(tx.GasPrice().Int64())), big.NewFloat(float64(receipt.GasUsed))).Float64()
 			cost = cost / 1e18
 			level.Debug(logger).Log("msg", "adding cost", "amount", cost)
-			self.submitCost.With(prometheus.Labels{"addr": event.Miner.String()}).(prometheus.Gauge).Add(cost)
+			self.submitCost.With(prometheus.Labels{"addr": event.Miner.String()}).Add(cost)
 
 			if err := self.cacheTXsCost.Set(txIDNonceSubmit(event), cost); err != nil {
 				level.Error(logger).Log("msg", "adding cost to the cache", "err", err)
@@ -565,7 +565,7 @@ func (self *ProfitTracker) setCostWhenConfirmed(logger log.Logger, event *tellor
 				return
 			}
 			level.Debug(logger).Log("msg", "new ETH balance", "balance", balance)
-			self.balances.With(prometheus.Labels{"addr": event.Miner.String(), "token": "ETH"}).(prometheus.Gauge).Set(balance)
+			self.balances.With(prometheus.Labels{"addr": event.Miner.String(), "token": "ETH"}).Set(balance)
 
 			self.submitCount.With(
 				prometheus.Labels{
@@ -579,7 +579,7 @@ func (self *ProfitTracker) setCostWhenConfirmed(logger log.Logger, event *tellor
 				prometheus.Labels{
 					"slot": strconv.Itoa(int(event.Slot.Uint64())),
 				},
-			).(prometheus.Gauge).Set(float64(receipt.GasUsed))
+			).Set(float64(receipt.GasUsed))
 
 			for i, id := range event.RequestId {
 				self.submitValue.With(
@@ -587,7 +587,7 @@ func (self *ProfitTracker) setCostWhenConfirmed(logger log.Logger, event *tellor
 						"addr": event.Miner.String(),
 						"id":   id.String(),
 					},
-				).(prometheus.Gauge).Set(float64(event.Value[i].Int64()))
+				).Set(float64(event.Value[i].Int64()))
 			}
 
 			return
@@ -620,7 +620,7 @@ func (self *ProfitTracker) setProfitWhenConfirmed(logger log.Logger, event *tell
 			trb, _ := big.NewFloat(float64(event.Value.Int64())).Float64()
 			trb = trb / 1e18
 			level.Debug(logger).Log("msg", "adding profit", "amount", trb)
-			self.submitProfit.With(prometheus.Labels{"addr": event.To.String()}).(prometheus.Gauge).Add(trb)
+			self.submitProfit.With(prometheus.Labels{"addr": event.To.String()}).Add(trb)
 
 			if err := self.cacheTXsProfit.Set(txIDTransfer(event), trb); err != nil {
 				level.Error(logger).Log("msg", "adding amount to the cache", "err", err)
@@ -632,7 +632,7 @@ func (self *ProfitTracker) setProfitWhenConfirmed(logger log.Logger, event *tell
 				return
 			}
 			level.Debug(logger).Log("msg", "new TRB balance", "balance", balance)
-			self.balances.With(prometheus.Labels{"addr": event.To.String(), "token": "TRB"}).(prometheus.Gauge).Set(balance)
+			self.balances.With(prometheus.Labels{"addr": event.To.String(), "token": "TRB"}).Set(balance)
 			return
 		}
 		level.Debug(logger).Log("msg", "transaction not yet mined")

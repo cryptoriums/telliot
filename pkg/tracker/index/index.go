@@ -330,7 +330,7 @@ func (self *IndexTracker) recordValue(symbol string, dataSource DataSource) (flo
 			"domain": source.Host,
 			"symbol": format.SanitizeMetricName(symbol),
 		},
-	).(prometheus.Gauge).Set(value)
+	).Set(value)
 
 	return value, nil
 }
