@@ -21,9 +21,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-const PrivateKeysEnvName = "ETH_PRIVATE_KEYS"
-const NodeURLEnvName = "NODE_URL"
-const ComponentName = "ethereum"
+const (
+	PrivateKeysEnvName = "ETH_PRIVATE_KEYS"
+	NodeURLEnvName     = "NODE_URL"
+	ComponentName      = "ethereum"
+	BlockTime          = int64(15)
+)
 
 var ethAddressRE *regexp.Regexp = regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
 
