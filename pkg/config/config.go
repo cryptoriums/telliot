@@ -17,10 +17,11 @@ import (
 	"github.com/tellor-io/telliot/pkg/aggregator"
 	"github.com/tellor-io/telliot/pkg/db"
 	"github.com/tellor-io/telliot/pkg/format"
-	"github.com/tellor-io/telliot/pkg/gasPrice/gasStation"
+	"github.com/tellor-io/telliot/pkg/gas_price/gas_station"
 	"github.com/tellor-io/telliot/pkg/mining"
 	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
 	psrTellorMesosphere "github.com/tellor-io/telliot/pkg/psr/tellorMesosphere"
+	"github.com/tellor-io/telliot/pkg/reward"
 	"github.com/tellor-io/telliot/pkg/submitter/tellor"
 	"github.com/tellor-io/telliot/pkg/submitter/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/tasker"
@@ -28,27 +29,30 @@ import (
 	"github.com/tellor-io/telliot/pkg/tracker/index"
 	"github.com/tellor-io/telliot/pkg/tracker/profit"
 	"github.com/tellor-io/telliot/pkg/tracker/submitted_values"
-	"github.com/tellor-io/telliot/pkg/transactor"
+	transactorTellor "github.com/tellor-io/telliot/pkg/transactor/tellor"
+	transactorTellorMesosphere "github.com/tellor-io/telliot/pkg/transactor/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/web"
 )
 
 // Config is the top-level configuration that holds configs for all components.
 type Config struct {
-	Web                       web.Config
-	Mining                    mining.Config
-	SubmitterTellor           tellor.Config
-	SubmitterTellorMesosphere tellorMesosphere.Config
-	ProfitTracker             profit.Config
-	Tasker                    tasker.Config
-	Transactor                transactor.Config
-	IndexTracker              index.Config
-	SubmittedValuesTracker    submitted_values.Config
-	DisputeCountTracker       count.Config
-	Aggregator                aggregator.Config
-	PsrTellor                 psrTellor.Config
-	PsrTellorMesosphere       psrTellorMesosphere.Config
-	Db                        db.Config
-	GasStation                gasStation.Config
+	Web                        web.Config
+	Mining                     mining.Config
+	SubmitterTellor            tellor.Config
+	SubmitterTellorMesosphere  tellorMesosphere.Config
+	ProfitTracker              profit.Config
+	Reward                     reward.Config
+	Tasker                     tasker.Config
+	TransactorTellor           transactorTellor.Config
+	TransactorTellorMesosphere transactorTellorMesosphere.Config
+	IndexTracker               index.Config
+	SubmittedValuesTracker     submitted_values.Config
+	DisputeCountTracker        count.Config
+	Aggregator                 aggregator.Config
+	PsrTellor                  psrTellor.Config
+	PsrTellorMesosphere        psrTellorMesosphere.Config
+	Db                         db.Config
+	GasStation                 gas_station.Config
 	// EnvFile location that include all private details like private key etc.
 	EnvFile string `json:"envFile"`
 }
@@ -74,13 +78,15 @@ var DefaultConfig = Config{
 	ProfitTracker: profit.Config{
 		LogLevel: "info",
 	},
-	DisputeCountTracker: count.Config{
+	Reward: reward.Config{
 		LogLevel: "info",
 	},
-	SubmittedValuesTracker: submitted_values.Config{
-		LogLevel: "info",
+	TransactorTellor: transactorTellor.Config{
+		LogLevel:      "info",
+		GasMax:        10,
+		GasMultiplier: 1,
 	},
-	Transactor: transactor.Config{
+	TransactorTellorMesosphere: transactorTellorMesosphere.Config{
 		LogLevel:      "info",
 		GasMax:        10,
 		GasMultiplier: 1,
@@ -97,19 +103,25 @@ var DefaultConfig = Config{
 		MinSubmitPriceChange: 0.05,
 	},
 	PsrTellor: psrTellor.Config{
-		MinConfidence: 70,
+		MinConfidence: 90,
 	},
 	Aggregator: aggregator.Config{
 		LogLevel:       "info",
 		ManualDataFile: "configs/manualData.json",
 	},
-	GasStation: gasStation.Config{
+	GasStation: gas_station.Config{
 		TimeWait: format.Duration{Duration: time.Minute},
 	},
 	IndexTracker: index.Config{
 		LogLevel:  "info",
 		Interval:  format.Duration{Duration: 30 * time.Second},
 		IndexFile: "configs/index.json",
+	},
+	DisputeCountTracker: count.Config{
+		LogLevel: "info",
+	},
+	SubmittedValuesTracker: submitted_values.Config{
+		LogLevel: "info",
 	},
 	EnvFile: "configs/.env",
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/tellor-io/telliot/pkg/contracts/balancer"
@@ -32,6 +33,20 @@ const (
 	LensAddressRinkeby                     = "0xebEF7ceB7C43850898e258be0a1ea5ffcdBc3205"
 	LensAddressHardhat                     = "0x577417CFaF319a1fAD90aA135E3848D2C00e68CF"
 )
+
+type ContractCaller interface {
+	GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error)
+	SubmitMiningSolution(opts *bind.TransactOpts, _nonce string, _requestId [5]*big.Int, _value [5]*big.Int) (*types.Transaction, error)
+	GetStakerInfo(opts *bind.CallOpts, _staker common.Address) (*big.Int, *big.Int, error)
+	GetNewCurrentVariables(opts *bind.CallOpts) (struct {
+		Challenge  [32]byte
+		RequestIds [5]*big.Int
+		Difficutly *big.Int
+		Tip        *big.Int
+	}, error)
+	GetAddr() *common.Address
+	CurrentReward(opts *bind.CallOpts) (*big.Int, error)
+}
 
 type (
 	ITellorNewDispute    = tellor.ITellorNewDispute
@@ -58,6 +73,10 @@ type ITellor struct {
 	Address common.Address
 }
 
+func (self *ITellor) GetAddr() *common.Address {
+	return &self.Address
+}
+
 func NewITellor(client *ethclient.Client) (*ITellor, error) {
 	conractAddr, err := GetTellorAddress(client)
 	if err != nil {
@@ -77,7 +96,11 @@ func NewITellor(client *ethclient.Client) (*ITellor, error) {
 		return nil, errors.Wrap(err, "creating telllor interface")
 	}
 
-	return &ITellor{Address: common.HexToAddress(TellorAddress), ITellor: tellorInstance, Main: lensInstance}, nil
+	return &ITellor{
+		Address: common.HexToAddress(TellorAddress),
+		ITellor: tellorInstance,
+		Main:    lensInstance,
+	}, nil
 }
 
 func NewITellorMesosphere(client *ethclient.Client) (*ITellorMesosphere, error) {

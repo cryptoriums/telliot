@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
@@ -20,7 +19,7 @@ import (
 	"github.com/tellor-io/telliot/pkg/contracts"
 	"github.com/tellor-io/telliot/pkg/db"
 	"github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/gasPrice/gasStation"
+	"github.com/tellor-io/telliot/pkg/gas_price/gas_station"
 	"github.com/tellor-io/telliot/pkg/logging"
 	"github.com/tellor-io/telliot/pkg/mining"
 	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
@@ -33,7 +32,8 @@ import (
 	"github.com/tellor-io/telliot/pkg/tracker/index"
 	"github.com/tellor-io/telliot/pkg/tracker/profit"
 	"github.com/tellor-io/telliot/pkg/tracker/submitted_values"
-	"github.com/tellor-io/telliot/pkg/transactor"
+	transactorTellor "github.com/tellor-io/telliot/pkg/transactor/tellor"
+	transactorTellorMesosphere "github.com/tellor-io/telliot/pkg/transactor/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/web"
 )
 
@@ -195,24 +195,19 @@ func (self mineCmd) Run() error {
 
 		}
 
-		gasPriceQuerier, err := gasStation.New(logger, cfg.GasStation, client)
+		gasPriceQuerier, err := gas_station.New(logger, cfg.GasStation, client)
 		if err != nil {
 			return errors.Wrap(err, "creating gas price tracker")
 		}
 
 		if cfg.SubmitterTellor.Enabled {
-			// Profit tracker.
-			var accountAddrs []common.Address
-			for _, acc := range accounts {
-				accountAddrs = append(accountAddrs, acc.Address)
-			}
-
 			contractTellor, err := contracts.NewITellor(client)
 			if err != nil {
 				return errors.Wrap(err, "create tellor contract instance")
 			}
 
-			profitTracker, err := profit.NewProfitTracker(logger, ctx, cfg.ProfitTracker, client, contractTellor, accountAddrs)
+			// Profit tracker.
+			profitTracker, err := profit.NewProfitTracker(logger, ctx, cfg.ProfitTracker, client, nil, contractTellor, accounts)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+profit.ComponentName)
 			}
@@ -237,11 +232,16 @@ func (self mineCmd) Run() error {
 				taskerTracker.Stop()
 			})
 
+			reward, err := reward.New(logger, ctx, cfg.Reward, contractTellor, aggregator)
+			if err != nil {
+				return errors.Wrap(err, "creating reward tracker")
+			}
+
 			// Create a submitter for each account.
 			for _, account := range accounts {
 				loggerWithAddr := log.With(logger, "addr", account.Address.String()[:6])
 
-				transactor, err := transactor.New(loggerWithAddr, cfg.Transactor, gasPriceQuerier, client, account)
+				transactor, err := transactorTellor.New(loggerWithAddr, cfg.TransactorTellor, gasPriceQuerier, client, account, reward, contractTellor)
 				if err != nil {
 					return errors.Wrap(err, "creating transactor")
 				}
@@ -256,9 +256,7 @@ func (self mineCmd) Run() error {
 					client,
 					contractTellor,
 					account,
-					reward.New(loggerWithAddr, aggregator, contractTellor),
 					transactor,
-					gasPriceQuerier,
 					psr,
 				)
 				if err != nil {
@@ -297,7 +295,7 @@ func (self mineCmd) Run() error {
 			for _, account := range accounts {
 				loggerWithAddr := log.With(logger, "addr", account.Address.String()[:6])
 				psr := psrTellorMesosphere.New(loggerWithAddr, cfg.PsrTellorMesosphere, aggregator)
-				transactor, err := transactor.New(loggerWithAddr, cfg.Transactor, gasPriceQuerier, client, account)
+				transactor, err := transactorTellorMesosphere.New(loggerWithAddr, cfg.TransactorTellorMesosphere, gasPriceQuerier, client, account, contract)
 				if err != nil {
 					return errors.Wrap(err, "creating transactor")
 				}

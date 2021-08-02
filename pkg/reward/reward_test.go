@@ -4,67 +4,113 @@
 package reward
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/tellor-io/telliot/pkg/testutil"
 )
 
-// TestProfitCalculation ensures correct calculation and pricision conversion of the reward tracker.
-// With
-// GAS usage of 1
-// GAS price of 1ETH
-// TRB price of 1ETH
-// the rewards percent should equal the trb reward amount.
-// Example
-// half TRB reward or 5e17 should equal in -50% profit.
-// 1 TRB reward or 1e18 should equal in 0% profit.
-// 2 TRB reward or 2e18 should equal in 100% profit.
-func TestProfitCalculation(t *testing.T) {
-	logger := log.NewNopLogger()
+func TestGasPriceForProfitThreshold(t *testing.T) {
+	ctx := context.Background()
+	mock := NewMockContractCaller()
+	reward, err := New(log.NewNopLogger(), ctx, Config{LogLevel: "debug"}, mock, mock)
+	testutil.Ok(t, err)
 
-	gasUsed := float64(1)
-	gasCost := float64(params.Ether)
-	costTotal := gasUsed * gasCost
-
-	trbPrice := float64(1)
-
-	aggregator := &MockAggr{TRBPrice: trbPrice}
-	slotNum := big.NewInt(1)
-
-	for _, rewardAmount := range []float64{5e17, 1e18, 2e18, 3e18} {
-		contractCaller := &MockContractCaler{trbRewardAmount: big.NewInt(int64(rewardAmount))}
-		reward := New(logger, aggregator, contractCaller)
-		reward.SaveGasUsed(slotNum, uint64(gasUsed))
-
-		rewardAct, err := reward.Current(slotNum, big.NewInt(int64(gasCost)))
-		testutil.Ok(t, err)
-		profit := rewardAmount*trbPrice - costTotal
-		profitPercent := (profit / costTotal) * 100
-		testutil.Equals(t, profitPercent, float64(rewardAct))
+	for _, tcase := range []struct {
+		Name             string
+		CurrentReward    *big.Int
+		ProfitTarget     float64
+		GasPriceExpected int64
+		GasUsage         *big.Int
+	}{
+		{
+			"50% profit and high gas usage",
+			big.NewInt(2 * params.Ether),
+			50,
+			1,
+			big.NewInt(params.Ether),
+		},
+		{
+			"50% profit and usual gas usage",
+			big.NewInt(2 * params.Ether),
+			50,
+			params.GWei,
+			big.NewInt(params.GWei),
+		},
+		{
+			"50% profit, usual gas usage and very small reward",
+			big.NewInt(params.Ether),
+			50,
+			params.GWei / 2,
+			big.NewInt(params.GWei),
+		},
+		{
+			"50% profit, usual gas usage and smaller reward",
+			big.NewInt(params.Ether / 2),
+			50,
+			params.GWei / 4,
+			big.NewInt(params.GWei),
+		},
+	} {
+		t.Run(tcase.Name, func(t *testing.T) {
+			mock.SetReward(tcase.CurrentReward)
+			gasPrice, err := reward.GasPriceForProfitThreshold(ctx, 4, tcase.ProfitTarget, tcase.GasUsage)
+			testutil.Ok(t, err)
+			testutil.Equals(t, tcase.GasPriceExpected, gasPrice)
+		})
 	}
 }
 
-type MockAggr struct {
-	TRBPrice float64
+type MockContractCaller struct {
+	currentReward *big.Int
 }
 
-func (self *MockAggr) TimeWeightedAvg(_ string, _ time.Time, _ time.Duration) (float64, float64, error) {
-	return self.TRBPrice, 1, nil
+func (self *MockContractCaller) SetReward(r *big.Int) {
+	self.currentReward = r
+}
+func (self *MockContractCaller) TimeWeightedAvg(symbol string, start time.Time, lookBack time.Duration) (float64, float64, error) {
+	// 1 trb equals 1 eth with 100% confidence.
+	return 1, 100, nil
 }
 
-type MockContractCaler struct {
-	trbRewardAmount *big.Int
+func (self *MockContractCaller) CurrentReward(opts *bind.CallOpts) (*big.Int, error) {
+	return self.currentReward, nil
 }
 
-func (*MockContractCaler) GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error) {
+func NewMockContractCaller() *MockContractCaller {
+	return &MockContractCaller{}
+}
+
+func (self *MockContractCaller) GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error) {
 	return nil, nil
 }
+func (self *MockContractCaller) SubmitMiningSolution(opts *bind.TransactOpts, _nonce string, _requestId [5]*big.Int, _value [5]*big.Int) (*types.Transaction, error) {
+	return nil, nil
+}
+func (self *MockContractCaller) GetStakerInfo(opts *bind.CallOpts, _staker common.Address) (*big.Int, *big.Int, error) {
+	return nil, nil, nil
 
-func (self *MockContractCaler) CurrentReward(opts *bind.CallOpts) (*big.Int, error) {
-	return self.trbRewardAmount, nil
+}
+func (self *MockContractCaller) GetNewCurrentVariables(opts *bind.CallOpts) (struct {
+	Challenge  [32]byte
+	RequestIds [5]*big.Int
+	Difficutly *big.Int
+	Tip        *big.Int
+}, error) {
+	return struct {
+		Challenge  [32]byte
+		RequestIds [5]*big.Int
+		Difficutly *big.Int
+		Tip        *big.Int
+	}{[32]byte{}, [5]*big.Int{}, nil, nil}, nil
+}
+func (self *MockContractCaller) GetAddr() *common.Address {
+	return nil
 }

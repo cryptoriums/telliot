@@ -51,5 +51,8 @@ linters:
 linters-settings:
   misspell:
     locale: US
+    ignore-words:
+      - Difficutly
+        Difficulty
   errcheck:
     exclude: scripts/errcheck_excludes.txt

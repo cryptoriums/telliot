@@ -124,20 +124,21 @@ func (self *Tasker) Start() error {
 	level.Info(self.logger).Log("msg", "starting")
 
 	// Getting current challenge from the contract.
-	newVariables, err := self.contract.GetNewCurrentVariables(nil)
+	currentVariables, err := self.contract.GetNewCurrentVariables(&bind.CallOpts{Context: self.ctx})
 	if err != nil {
 		level.Warn(self.logger).Log("msg", "getting new current variables", "err", err)
 		return errors.Wrap(err, "getting GetNewCurrentVariables")
 	}
 
 	currentChallenge := &tellor.ITellorNewChallenge{
-		CurrentChallenge: newVariables.Challenge,
-		Difficulty:       newVariables.Difficutly,
-		CurrentRequestId: newVariables.RequestIds,
-		TotalTips:        newVariables.Tip,
+		CurrentChallenge: currentVariables.Challenge,
+		Difficulty:       currentVariables.Difficutly,
+		CurrentRequestId: currentVariables.RequestIds,
+		TotalTips:        currentVariables.Tip,
 	}
 
 	level.Info(self.logger).Log("msg", "sending the initial event")
+
 	self.mtx.Unlock()
 	ctx, cncl := context.WithCancel(self.ctx)
 	self.pendingSubmits = append(self.pendingSubmits, cncl)
@@ -193,8 +194,7 @@ func (self *Tasker) Start() error {
 			}
 			level.Info(self.logger).Log("msg", "re-subscribed to events")
 		case event := <-events:
-			level.Debug(self.logger).Log("msg", "new event", "reorg", event.Raw.Removed)
-
+			level.Debug(self.logger).Log("msg", "new event", "hash", event.Raw.TxHash, "reorg", event.Raw.Removed)
 			if !event.Raw.Removed { // For reorg events just cancel the old TXs without sending this one.
 				self.mtx.Unlock()
 				ctx, cncl := context.WithCancel(self.ctx)
@@ -210,6 +210,7 @@ func (self *Tasker) Start() error {
 func (self *Tasker) sendWhenConfirmed(ctx context.Context, vLog *tellor.ITellorNewChallenge) {
 	ticker := time.NewTicker(defaultDelay)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -229,7 +230,6 @@ func (self *Tasker) sendWhenConfirmed(ctx context.Context, vLog *tellor.ITellorN
 				ctx, cncl := context.WithCancel(self.ctx)
 				self.pendingSubmits = append(self.pendingSubmits, cncl)
 				self.mtx.Unlock()
-
 				self.sendWork(ctx, vLog)
 			}
 			return

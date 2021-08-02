@@ -16,12 +16,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
+	"github.com/tellor-io/telliot/pkg/contracts"
 	"github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/gasPrice"
+	"github.com/tellor-io/telliot/pkg/gas_price"
 	"github.com/tellor-io/telliot/pkg/logging"
 )
 
-const ComponentName = "transactor"
+const ComponentName = "transactorTellorMesosphere"
 
 type Config struct {
 	LogLevel      string
@@ -29,28 +30,25 @@ type Config struct {
 	GasMultiplier int
 }
 
-// Transactor takes care of sending transactions over the blockchain network.
-type Transactor interface {
-	Transact(context.Context, func(*bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, *types.Receipt, error)
-}
-
-// TransactorDefault implements the Transactor interface.
-type TransactorDefault struct {
+// TellorMesosphere implements the Transactor interface.
+type TellorMesosphere struct {
 	netID           *big.Int
 	cfg             Config
 	logger          log.Logger
-	gasPriceQuerier gasPrice.GasPriceQuerier
+	gasPriceQuerier gas_price.GasPriceQuerier
 	client          *ethclient.Client
 	account         *ethereum.Account
+	contract        *contracts.ITellorMesosphere
 }
 
 func New(
 	logger log.Logger,
 	cfg Config,
-	gasPriceQuerier gasPrice.GasPriceQuerier,
+	gasPriceQuerier gas_price.GasPriceQuerier,
 	client *ethclient.Client,
 	account *ethereum.Account,
-) (*TransactorDefault, error) {
+	contract *contracts.ITellorMesosphere,
+) (*TellorMesosphere, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")
@@ -63,20 +61,22 @@ func New(
 		return nil, errors.Wrap(err, "getting network id")
 	}
 
-	return &TransactorDefault{
+	return &TellorMesosphere{
 		netID:           netID,
 		cfg:             cfg,
 		logger:          log.With(logger, "component", ComponentName),
 		gasPriceQuerier: gasPriceQuerier,
 		client:          client,
 		account:         account,
+		contract:        contract,
 	}, nil
 }
 
-func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, *types.Receipt, error) {
+func (self *TellorMesosphere) Transact(ctx context.Context, reqId *big.Int, val *big.Int) (*types.Transaction, error) {
+	gasEstimate := 3_000_000
 	nonce, err := self.client.NonceAt(ctx, self.account.Address, nil)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "getting nonce for miner address")
+		return nil, errors.Wrap(err, "getting nonce for miner address")
 	}
 
 	// Use the same nonce in case there is a stuck transaction so that it resubmits the same TX with higher gas price.
@@ -84,7 +84,7 @@ func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*
 
 	gasPrice, err := self.gasPriceQuerier.Query(ctx)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "getting data from the db")
+		return nil, errors.Wrap(err, "getting data from the db")
 	}
 
 	mul := self.cfg.GasMultiplier
@@ -108,23 +108,25 @@ func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*
 			continue
 		}
 
-		auth, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, self.netID)
+		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, self.netID)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "creating transactor")
+			return nil, errors.Wrap(err, "creating transactor")
 		}
-		auth.Nonce = big.NewInt(IntNonce)
-		auth.Value = big.NewInt(0)      // in weiF
-		auth.GasLimit = uint64(3000000) // in units
+		opts.Context = ctx
+		opts.Nonce = big.NewInt(IntNonce)
+		opts.Value = big.NewInt(0) // in weiF
+		opts.GasLimit = uint64(gasEstimate + 100_000)
+
 		if gasPrice.Cmp(big.NewInt(0)) == 0 {
 			gasPrice = big.NewInt(100)
 		}
 		if i > 1 {
 			gasPrice1 := new(big.Int).Set(gasPrice)
 			gasPrice1.Mul(gasPrice1, big.NewInt(int64(i*11))).Div(gasPrice1, big.NewInt(int64(100)))
-			auth.GasPrice = gasPrice1.Add(gasPrice, gasPrice1)
+			opts.GasPrice = gasPrice1.Add(gasPrice, gasPrice1)
 		} else {
 			// First time, try base gas price.
-			auth.GasPrice = gasPrice
+			opts.GasPrice = gasPrice
 		}
 		max := self.cfg.GasMax
 		var maxGasPrice *big.Int
@@ -135,12 +137,12 @@ func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*
 			maxGasPrice = gasPrice1.Mul(gasPrice1, big.NewInt(int64(100)))
 		}
 
-		if auth.GasPrice.Cmp(maxGasPrice) > 0 {
-			level.Info(self.logger).Log("msg", "gas price too high, will default to the max price", "current", auth.GasPrice, "defaultMax", maxGasPrice)
-			auth.GasPrice = maxGasPrice
+		if opts.GasPrice.Cmp(maxGasPrice) > 0 {
+			level.Info(self.logger).Log("msg", "gas price too high, will default to the max price", "current", opts.GasPrice, "defaultMax", maxGasPrice)
+			opts.GasPrice = maxGasPrice
 		}
 
-		tx, err := contractCall(auth)
+		tx, err := self.contract.SubmitValue(opts, reqId, val)
 		if err != nil {
 			if strings.Contains(strings.ToLower(err.Error()), "nonce too low") { // Can't use error type matching because of the way the eth client is implemented.
 				IntNonce = IntNonce + 1
@@ -157,17 +159,13 @@ func (self *TransactorDefault) Transact(ctx context.Context, contractCall func(*
 			level.Info(self.logger).Log("msg", "will retry a send", "retryDelay", delay)
 			select {
 			case <-ctx.Done():
-				return nil, nil, errors.New("the submit context was canceled")
+				return nil, errors.New("the submit context was canceled")
 			case <-time.After(delay):
 				continue
 			}
 		}
 
-		receipt, err := bind.WaitMined(ctx, self.client, tx)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "transaction result tx:%v", tx.Hash())
-		}
-		return tx, receipt, nil
+		return tx, nil
 	}
-	return nil, nil, errors.Wrapf(finalError, "submit tx after 5 attempts")
+	return nil, errors.Wrapf(finalError, "submit tx after 5 attempts")
 }

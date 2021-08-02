@@ -1,7 +1,7 @@
 // Copyright (c) The Tellor Authors.
 // Licensed under the MIT License.
 
-package gasPrice
+package gas_price
 
 import (
 	"context"

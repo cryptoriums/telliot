@@ -4,48 +4,63 @@
 package reward
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
+
 	"github.com/tellor-io/telliot/pkg/aggregator"
-	"github.com/tellor-io/telliot/pkg/ethereum"
+	"github.com/tellor-io/telliot/pkg/contracts"
+	eth "github.com/tellor-io/telliot/pkg/ethereum"
+	"github.com/tellor-io/telliot/pkg/logging"
 )
 
 const ComponentName = "reward"
+const DefaultRetry = 30 * time.Second
 
-type ContractCaller interface {
-	GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error)
-	CurrentReward(opts *bind.CallOpts) (*big.Int, error)
-}
-
-func New(logger log.Logger, aggr aggregator.IAggregator, contractCaller ContractCaller) *Reward {
-	return &Reward{
-		aggr:           aggr,
-		logger:         log.With(logger, "component", ComponentName),
-		contractCaller: contractCaller,
-		gasUsed:        make(map[int64]*big.Int),
-	}
+type Config struct {
+	LogLevel string
 }
 
 type Reward struct {
 	logger         log.Logger
+	contractCaller contracts.ContractCaller
+	ctx            context.Context
+	stop           context.CancelFunc
 	aggr           aggregator.IAggregator
-	contractCaller ContractCaller
-	gasUsed        map[int64]*big.Int
 }
 
-// Current returns the profit in percents based on the current TRB price.
-func (self *Reward) Current(slot *big.Int, gasPriceEth1e18 *big.Int) (int64, error) {
-	gasUsed, err := self.GasUsed(slot)
+func New(
+	logger log.Logger,
+	ctx context.Context,
+	cfg Config,
+	contractCaller contracts.ContractCaller,
+	aggr aggregator.IAggregator,
+) (*Reward, error) {
+	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
-		return 0, err
+		return nil, errors.Wrap(err, "apply filter logger")
 	}
+	logger = log.With(logger, "component", ComponentName)
 
+	ctx, cncl := context.WithCancel(ctx)
+	return &Reward{
+		logger:         logger,
+		contractCaller: contractCaller,
+		ctx:            ctx,
+		stop:           cncl,
+		aggr:           aggr,
+	}, nil
+}
+
+// Current returns the profit in percents based on the current TRB price and gas usage.
+func (self *Reward) Current(ctx context.Context, slot uint64, gasPriceEth1e18 *big.Int, gasUsed *big.Int) (int64, error) {
 	rewardEth1e18, err := self.rewardInEth1e18()
 	if err != nil {
 		return 0, errors.New("getting trb current TRB price")
@@ -57,12 +72,12 @@ func (self *Reward) Current(slot *big.Int, gasPriceEth1e18 *big.Int) (int64, err
 	profitPercent := int64(profitPercentFloat)
 
 	level.Debug(self.logger).Log(
-		"msg", "profit checking",
-		"reward", fmt.Sprintf("%.2e", float64(rewardEth1e18.Int64())),
-		"txCost", fmt.Sprintf("%.2e", float64(txCostEth1e18.Int64())),
+		"msg", "profit checking current",
+		"reward", float64(rewardEth1e18.Int64())/params.Ether,
+		"txCost", float64(txCostEth1e18.Int64())/params.Ether,
 		"slot", slot,
 		"gasUsed", gasUsed,
-		"gasPrice", gasPriceEth1e18,
+		"gasPrice", float64(gasPriceEth1e18.Int64())/params.GWei,
 		"profit", fmt.Sprintf("%.2e", float64(profit.Int64())),
 		"profitMargin", profitPercent,
 	)
@@ -70,33 +85,35 @@ func (self *Reward) Current(slot *big.Int, gasPriceEth1e18 *big.Int) (int64, err
 	return profitPercent, nil
 }
 
-func (self *Reward) GasUsed(slot *big.Int) (*big.Int, error) {
-	if gas, ok := self.gasUsed[slot.Int64()]; ok {
-		return gas, nil
+// GasPriceForProfitThreshold returns the gas price in WEI for a given profit percent based on the current TRB price and gas usage.
+func (self *Reward) GasPriceForProfitThreshold(ctx context.Context, slot uint64, profitTargetPercent float64, gasUsed *big.Int) (int64, error) {
+	rewardEth1e18, err := self.rewardInEth1e18()
+	if err != nil {
+		return 0, errors.New("getting trb current TRB price")
 	}
 
-	return nil, ErrNoDataForSlot{slot: slot.String()}
+	reward := float64(rewardEth1e18.Int64()) / params.Ether
 
-}
+	profitTarget := reward * (profitTargetPercent / 100)
 
-type ErrNoDataForSlot struct {
-	slot string
-}
+	cost := reward - profitTarget
+	gasPrice := cost / float64(gasUsed.Int64())
 
-func (e ErrNoDataForSlot) Error() string {
-	return "no data for gas used for slot:" + e.slot
-}
+	level.Debug(self.logger).Log(
+		"msg", "profit checking for threshold",
+		"reward", float64(rewardEth1e18.Int64())*params.GWei,
+		"txCost", cost/params.GWei,
+		"slot", slot,
+		"gasUsed", gasUsed,
+		"gasPrice", gasPrice*params.GWei,
+		"profitTarget", profitTarget,
+	)
 
-// SaveGasUsed calculates the price for a given slot.
-func (self *Reward) SaveGasUsed(slot *big.Int, _gasUsed uint64) {
-	gasUsed := big.NewInt(int64(_gasUsed))
-
-	self.gasUsed[slot.Int64()] = gasUsed
-	level.Info(self.logger).Log("msg", "saved transaction gas used", "amount", gasUsed.Int64(), "slot", slot.Int64())
+	return int64(gasPrice * params.Ether), nil
 }
 
 func (self *Reward) rewardInEth1e18() (*big.Int, error) {
-	trbAmount1e18, err := self.contractCaller.CurrentReward(nil)
+	trbAmount1e18, err := self.contractCaller.CurrentReward(&bind.CallOpts{Context: self.ctx})
 	if err != nil {
 		return nil, errors.New("getting currentReward from the chain")
 	}
@@ -121,8 +138,8 @@ func (self *Reward) rewardInEth1e18() (*big.Int, error) {
 	return big.NewInt(rewardEth1e18Int), nil
 }
 
-func (s *Reward) Slot() (*big.Int, error) {
-	slot, err := s.contractCaller.GetUintVar(nil, ethereum.Keccak256([]byte("_SLOT_PROGRESS")))
+func (self *Reward) Slot() (*big.Int, error) {
+	slot, err := self.contractCaller.GetUintVar(nil, eth.Keccak256([]byte("_SLOT_PROGRESS")))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
 	}
