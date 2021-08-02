@@ -24,9 +24,10 @@ import (
 	"github.com/tellor-io/telliot/pkg/submitter/tellor"
 	"github.com/tellor-io/telliot/pkg/submitter/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/tasker"
-	"github.com/tellor-io/telliot/pkg/tracker/dispute"
+	"github.com/tellor-io/telliot/pkg/tracker/dispute/count"
 	"github.com/tellor-io/telliot/pkg/tracker/index"
 	"github.com/tellor-io/telliot/pkg/tracker/profit"
+	"github.com/tellor-io/telliot/pkg/tracker/submitted_values"
 	"github.com/tellor-io/telliot/pkg/transactor"
 	"github.com/tellor-io/telliot/pkg/web"
 )
@@ -41,7 +42,8 @@ type Config struct {
 	Tasker                    tasker.Config
 	Transactor                transactor.Config
 	IndexTracker              index.Config
-	DisputeTracker            dispute.Config
+	SubmittedValuesTracker    submitted_values.Config
+	DisputeCountTracker       count.Config
 	Aggregator                aggregator.Config
 	PsrTellor                 psrTellor.Config
 	PsrTellorMesosphere       psrTellorMesosphere.Config
@@ -72,7 +74,10 @@ var DefaultConfig = Config{
 	ProfitTracker: profit.Config{
 		LogLevel: "info",
 	},
-	DisputeTracker: dispute.Config{
+	DisputeCountTracker: count.Config{
+		LogLevel: "info",
+	},
+	SubmittedValuesTracker: submitted_values.Config{
 		LogLevel: "info",
 	},
 	Transactor: transactor.Config{

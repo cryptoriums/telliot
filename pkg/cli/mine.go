@@ -29,9 +29,10 @@ import (
 	"github.com/tellor-io/telliot/pkg/submitter/tellor"
 	"github.com/tellor-io/telliot/pkg/submitter/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/tasker"
-	"github.com/tellor-io/telliot/pkg/tracker/dispute"
+	"github.com/tellor-io/telliot/pkg/tracker/dispute/count"
 	"github.com/tellor-io/telliot/pkg/tracker/index"
 	"github.com/tellor-io/telliot/pkg/tracker/profit"
+	"github.com/tellor-io/telliot/pkg/tracker/submitted_values"
 	"github.com/tellor-io/telliot/pkg/transactor"
 	"github.com/tellor-io/telliot/pkg/web"
 )
@@ -99,11 +100,11 @@ func (self mineCmd) Run() error {
 		{
 			srv, err := web.New(logger, ctx, tsDB, cfg.Web)
 			if err != nil {
-				return errors.Wrap(err, "create web server")
+				return errors.Wrap(err, "creating component:"+web.ComponentName)
 			}
 			g.Add(func() error {
 				err := srv.Start()
-				level.Info(logger).Log("msg", "web server shutdown complete")
+				level.Info(logger).Log("msg", "shutdown complete", "component", web.ComponentName)
 				return err
 			}, func(error) {
 				srv.Stop()
@@ -125,17 +126,17 @@ func (self mineCmd) Run() error {
 			}
 
 			// Index Tracker.
-			index, err := index.New(logger, ctx, cfg.IndexTracker, _tsDB, client)
+			indexTracker, err := index.New(logger, ctx, cfg.IndexTracker, _tsDB, client)
 			if err != nil {
-				return errors.Wrapf(err, "creating index tracker")
+				return errors.Wrap(err, "creating component:"+index.ComponentName)
 			}
 
 			g.Add(func() error {
-				err := index.Run()
-				level.Info(logger).Log("msg", "index shutdown complete")
+				err := indexTracker.Run()
+				level.Info(logger).Log("msg", "shutdown complete", "component", index.ComponentName)
 				return err
 			}, func(error) {
-				index.Stop()
+				indexTracker.Stop()
 			})
 
 			_netID, err := client.NetworkID(ctx)
@@ -144,8 +145,7 @@ func (self mineCmd) Run() error {
 			}
 			netID := _netID.Int64()
 
-			// Dispute tracker.
-			// Run it only when not connected to a remote DB.
+			// Run some trackers it only when not connected to a remote DB.
 			// A remote DB already runs a dispute tracker so no need to run another one.
 			// Also run and only for mainnet or rinkeby as the tellor oracle exists only on those networks.
 			if netID == 1 || netID == 4 {
@@ -154,24 +154,42 @@ func (self mineCmd) Run() error {
 					return errors.Wrap(err, "create tellor contract instance")
 				}
 
-				disputeTracker, err := dispute.New(
+				submittedValuesTracker, err := submitted_values.New(
 					logger,
 					ctx,
-					cfg.DisputeTracker,
+					cfg.SubmittedValuesTracker,
 					_tsDB,
 					client,
 					contractTellor,
 					psrTellor.New(logger, cfg.PsrTellor, aggregator),
 				)
 				if err != nil {
-					return errors.Wrap(err, "creating profit tracker")
+					return errors.Wrap(err, "creating component:"+submitted_values.ComponentName)
 				}
 				g.Add(func() error {
-					disputeTracker.Start()
-					level.Info(logger).Log("msg", "dispute tracker shutdown complete")
+					submittedValuesTracker.Start()
+					level.Info(logger).Log("msg", "shutdown complete", "component", submitted_values.ComponentName)
 					return nil
 				}, func(error) {
-					disputeTracker.Stop()
+					submittedValuesTracker.Stop()
+				})
+
+				disputeCount, err := count.New(
+					logger,
+					ctx,
+					cfg.DisputeCountTracker,
+					client,
+					contractTellor,
+				)
+				if err != nil {
+					return errors.Wrap(err, "creating component:"+count.ComponentName)
+				}
+				g.Add(func() error {
+					disputeCount.Start()
+					level.Info(logger).Log("msg", "shutdown complete", "component", count.ComponentName)
+					return nil
+				}, func(error) {
+					disputeCount.Stop()
 				})
 			}
 
@@ -196,27 +214,27 @@ func (self mineCmd) Run() error {
 
 			profitTracker, err := profit.NewProfitTracker(logger, ctx, cfg.ProfitTracker, client, contractTellor, accountAddrs)
 			if err != nil {
-				return errors.Wrap(err, "creating profit tracker")
+				return errors.Wrap(err, "creating component:"+profit.ComponentName)
 			}
 			g.Add(func() error {
 				err := profitTracker.Start()
-				level.Info(logger).Log("msg", "profit tracker shutdown complete")
+				level.Info(logger).Log("msg", "shutdown complete", "component", profit.ComponentName)
 				return err
 			}, func(error) {
 				profitTracker.Stop()
 			})
 
 			// Event tasker.
-			tasker, taskerChs, err := tasker.New(ctx, logger, cfg.Tasker, client, contractTellor, accounts)
+			taskerTracker, taskerChs, err := tasker.New(ctx, logger, cfg.Tasker, client, contractTellor, accounts)
 			if err != nil {
-				return errors.Wrap(err, "creating tasker")
+				return errors.Wrap(err, "creating component:"+tasker.ComponentName)
 			}
 			g.Add(func() error {
-				err := tasker.Start()
-				level.Info(logger).Log("msg", "tasker shutdown complete")
+				err := taskerTracker.Start()
+				level.Info(logger).Log("msg", "shutdown complete", "component", tasker.ComponentName)
 				return err
 			}, func(error) {
-				tasker.Stop()
+				taskerTracker.Stop()
 			})
 
 			// Create a submitter for each account.
@@ -244,27 +262,24 @@ func (self mineCmd) Run() error {
 					psr,
 				)
 				if err != nil {
-					return errors.Wrap(err, "creating tellor submitter")
+					return errors.Wrap(err, "creating component:"+tellor.ComponentName)
 				}
 				g.Add(func() error {
 					err := submitter.Start()
-					level.Info(loggerWithAddr).Log("msg", "tellor submitter shutdown complete")
+					level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", tellor.ComponentName)
 					return err
 				}, func(error) {
 					submitter.Stop()
 				})
 
-				// Will be used to cancel pending submissions.
-				tasker.AddSubmitCanceler(submitter)
-
 				// The Miner component.
 				miner, err := mining.NewMiningManager(loggerWithAddr, ctx, cfg.Mining, contractTellor, taskerChs[account.Address.String()], submitterCh, client)
 				if err != nil {
-					return errors.Wrap(err, "creating miner")
+					return errors.Wrap(err, "creating component:"+mining.ComponentName)
 				}
 				g.Add(func() error {
 					err := miner.Start()
-					level.Info(loggerWithAddr).Log("msg", "miner shutdown complete")
+					level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", mining.ComponentName)
 					return err
 				}, func(error) {
 					miner.Stop()
@@ -298,11 +313,11 @@ func (self mineCmd) Run() error {
 					psr,
 				)
 				if err != nil {
-					return errors.Wrap(err, "creating tellor mesosphere submitter")
+					return errors.Wrap(err, "creating component:"+tellorMesosphere.ComponentName)
 				}
 				g.Add(func() error {
 					err := submitter.Start()
-					level.Info(loggerWithAddr).Log("msg", "tellor mesosphere submitter shutdown complete")
+					level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", tellorMesosphere.ComponentName)
 					return err
 				}, func(error) {
 					submitter.Stop()

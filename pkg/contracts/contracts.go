@@ -2,7 +2,12 @@ package contracts
 
 import (
 	"context"
+	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -11,6 +16,7 @@ import (
 	"github.com/tellor-io/telliot/pkg/contracts/tellor"
 	"github.com/tellor-io/telliot/pkg/contracts/tellorMesosphere"
 	"github.com/tellor-io/telliot/pkg/contracts/uniswap"
+	tEthereum "github.com/tellor-io/telliot/pkg/ethereum"
 )
 
 const (
@@ -141,4 +147,48 @@ func GetLensAddress(client *ethclient.Client) (common.Address, error) {
 	default:
 		return common.Address{}, errors.Errorf("contract address for current network id not found:%v", netID)
 	}
+}
+
+func GetDisputeLogs(ctx context.Context, client *ethclient.Client, contractAdd common.Address, lookBackDays int) ([]ITellorNewDispute, error) {
+
+	abi, err := abi.JSON(strings.NewReader(ITellorABI))
+	if err != nil {
+		return nil, errors.Wrap(err, "parse abi")
+	}
+
+	// Just use nil for most of the variables, only using this object to call UnpackLog which only uses the abi.
+	bar := bind.NewBoundContract(contractAdd, abi, nil, nil, nil)
+
+	header, err := client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get latest eth block header")
+	}
+
+	blocksPerDay := (24 * 60 * 60) / tEthereum.BlockTime
+	lookBackDelta := big.NewInt(int64(lookBackDays) * blocksPerDay) // Interested in only 5 days worth of blocks in the past since disputes can be voted only for 2 days.
+	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
+
+	query := ethereum.FilterQuery{
+		FromBlock: startBlock,
+		ToBlock:   nil,
+		Addresses: []common.Address{contractAdd},
+		Topics:    [][]common.Hash{{abi.Events["NewDispute"].ID}},
+	}
+
+	logs, err := client.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "get logs")
+	}
+
+	var unpackedLogs []ITellorNewDispute
+	for _, rawDispute := range logs {
+
+		log := ITellorNewDispute{}
+		err := bar.UnpackLog(&log, "NewDispute", rawDispute)
+		if err != nil {
+			return nil, errors.Wrap(err, "unpack dispute event from logs")
+		}
+		unpackedLogs = append(unpackedLogs, log)
+	}
+	return unpackedLogs, err
 }

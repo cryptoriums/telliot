@@ -316,7 +316,7 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 						prometheus.Labels{
 							"id": id.String(),
 						},
-					).(prometheus.Gauge).Set(float64(reqVals[i].Int64()))
+					).Set(float64(reqVals[i].Int64()))
 				}
 
 				slot, err := self.reward.Slot()

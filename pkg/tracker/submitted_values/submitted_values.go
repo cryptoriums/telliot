@@ -1,7 +1,7 @@
 // Copyright (c) The Tellor Authors.
 // Licensed under the MIT License.
 
-package dispute
+package submitted_values
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
 )
 
-const ComponentName = "disputeTracker"
+const ComponentName = "trackerSubmittedValues"
 
 const reorgEventWait = 3 * time.Minute
 
@@ -91,7 +91,7 @@ func (self *Dispute) Start() {
 			return
 		default:
 		}
-		sub, err = self.newSubTellor(events)
+		sub, err = self.newSub(events)
 		if err != nil {
 			level.Error(logger).Log("msg", "initial subscribing to events failed")
 			<-ticker.C
@@ -119,7 +119,7 @@ func (self *Dispute) Start() {
 					return
 				default:
 				}
-				sub, err = self.newSubTellor(events)
+				sub, err = self.newSub(events)
 				if err != nil {
 					level.Error(logger).Log("msg", "re-subscribing to events failed", "err", err)
 					<-ticker.C
@@ -144,13 +144,13 @@ func (self *Dispute) Start() {
 			self.pendingAppend[event.Raw.TxHash.String()] = cncl
 			self.mtx.Unlock()
 
-			go func(ctx context.Context) {
+			go func(ctx context.Context, event *tellor.TellorNonceSubmitted) {
 				ticker := time.NewTicker(reorgEventWait) // Wait this long for any re-org events that can cancel this append.
 				defer ticker.Stop()
 
 				select {
 				case <-ticker.C:
-					if err := self.addValTellor(event); err != nil {
+					if err := self.addVal(event); err != nil {
 						level.Error(logger).Log(
 							"msg", "adding value",
 							"err", err,
@@ -161,7 +161,7 @@ func (self *Dispute) Start() {
 					level.Debug(self.logger).Log("msg", "append canceled", "hash", event.Raw.TxHash.String()[:8])
 					return
 				}
-			}(ctx)
+			}(ctx, event)
 		}
 	}
 }
@@ -184,7 +184,7 @@ func (self *Dispute) Stop() {
 	self.close()
 }
 
-func (self *Dispute) addValTellor(event *tellor.TellorNonceSubmitted) (err error) {
+func (self *Dispute) addVal(event *tellor.TellorNonceSubmitted) (err error) {
 	appender := self.tsDB.Appender(self.ctx)
 
 	// Round up the time so that all appends happen with the same TS and
@@ -245,7 +245,7 @@ func (self *Dispute) addValTellor(event *tellor.TellorNonceSubmitted) (err error
 	return nil
 }
 
-func (self *Dispute) newSubTellor(output chan *tellor.TellorNonceSubmitted) (event.Subscription, error) {
+func (self *Dispute) newSub(output chan *tellor.TellorNonceSubmitted) (event.Subscription, error) {
 	tellorFilterer, err := tellor.NewTellorFilterer(self.contract.Address, self.client)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting instance")

@@ -21,6 +21,7 @@ import (
 const ComponentName = "miner"
 
 type HashSettings struct {
+	ctx        context.Context
 	prefix     []byte
 	difficulty *big.Int
 }
@@ -180,6 +181,7 @@ func (g *MiningGroup) PrintHashRateSummary() {
 }
 
 type Work struct {
+	Context    context.Context
 	Challenge  *MiningChallenge
 	PublicAddr string
 	Start      uint64
@@ -320,7 +322,7 @@ func (g *MiningGroup) Mine(ctx context.Context, input chan *Work, output chan *R
 			for sent < currWork.N && len(idleWorkers) > 0 {
 				worker := <-idleWorkers
 				timeOfLastNewValue := g.getTimeOfLastNewValue()
-				sent += worker.dispatchWork(ctx, timeOfLastNewValue, currHashSettings, currWork.Start+sent, resultChannel)
+				sent += worker.dispatchWork(currWork.Context, timeOfLastNewValue, currHashSettings, currWork.Start+sent, resultChannel)
 			}
 		}
 	}

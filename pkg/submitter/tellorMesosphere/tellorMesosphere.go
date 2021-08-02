@@ -227,7 +227,7 @@ func (self *Submitter) Submit(reqID int64) error {
 		prometheus.Labels{
 			"id": strconv.Itoa(int(reqID)),
 		},
-	).(prometheus.Gauge).Set(float64(val))
+	).Set(float64(val))
 
 	self.lastSubmitValue[reqID] = float64(val)
 	self.lastSubmitTime[reqID] = time.Now()

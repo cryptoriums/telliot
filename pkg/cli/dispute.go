@@ -7,13 +7,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -250,53 +246,23 @@ func (self listCmd) Run() error {
 
 	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
 
-	abi, err := abi.JSON(strings.NewReader(contracts.ITellorABI))
-	if err != nil {
-		return errors.Wrap(err, "parse abi")
-	}
-
-	// Just use nil for most of the variables, only using this object to call UnpackLog which only uses the abi.
-	bar := bind.NewBoundContract(contract.Address, abi, nil, nil, nil)
-
-	header, err := client.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return errors.Wrap(err, "get latest eth block header")
-	}
-
 	queryDays := int64(10)
-	blocksPerDay := (24 * 60 * 60) / tEthereum.BlockTime
-	lookBackDelta := big.NewInt(queryDays * blocksPerDay) // Interested in only 5 days worth of blocks in the past since disputes can be voted only for 2 days.
-	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
-
-	query := ethereum.FilterQuery{
-		FromBlock: startBlock,
-		ToBlock:   nil,
-		Addresses: []common.Address{contract.Address},
-		Topics:    [][]common.Hash{{abi.Events["NewDispute"].ID}},
-	}
-
-	logs, err := client.FilterLogs(ctx, query)
+	logs, err := contracts.GetDisputeLogs(ctx, client, contract.Address, int(queryDays))
 	if err != nil {
-		return errors.Wrap(err, "filter eth logs")
+		return errors.Wrap(err, "getting latest disputes")
 	}
 
 	level.Info(logger).Log("msg", "disputes count", "daysLookBack", queryDays, "count", len(logs))
-	for _, rawDispute := range logs {
-		disputeI := contracts.ITellorNewDispute{}
-		err := bar.UnpackLog(&disputeI, "NewDispute", rawDispute)
-		if err != nil {
-			return errors.Wrap(err, "unpack dispute event from logs")
-		}
 
-		fmt.Println("disputeI.DisputeId", disputeI.DisputeId)
-		_, executed, votePassed, _, reportedAddr, reportingMiner, _, disputeVars, currTally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, disputeI.DisputeId)
+	for _, log := range logs {
+		_, executed, votePassed, _, reportedAddr, reportingMiner, _, disputeVars, currTally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, log.DisputeId)
 		if err != nil {
 			return errors.Wrap(err, "get dispute details")
 		}
 
 		rounds, err := contract.GetDisputeUintVars(
 			&bind.CallOpts{Context: ctx},
-			disputeI.DisputeId,
+			log.DisputeId,
 			tEthereum.Keccak256([]byte("_DISPUTE_ROUNDS")),
 		)
 		if err != nil {
@@ -312,9 +278,9 @@ func (self listCmd) Run() error {
 			"created", createdTime.Format("3:04:05 PM January 02, 2006 MST"),
 			"executed", executed,
 			"passed", votePassed,
-			"disputeId", disputeI.DisputeId.String(),
-			"requestId", disputeI.RequestId.Uint64(),
-			"disputedTimestamp", time.Unix(disputeI.Timestamp.Int64(), 0).Format("3:04:05 PM January 02, 2006 MST"),
+			"disputeId", log.DisputeId.String(),
+			"requestId", log.RequestId.Uint64(),
+			"disputedTimestamp", time.Unix(log.Timestamp.Int64(), 0).Format("3:04:05 PM January 02, 2006 MST"),
 			"reported", reportedAddr.Hex(),
 			"miner", reportingMiner.Hex(),
 			"fee", math.BigInt18eToFloat(disputeVars[8]),
@@ -339,17 +305,17 @@ func (self listCmd) Run() error {
 
 		submits, err := contract.GetSubmissionsByTimestamp(
 			&bind.CallOpts{Context: ctx},
-			disputeI.RequestId,
-			disputeI.Timestamp,
+			log.RequestId,
+			log.Timestamp,
 		)
 		if err != nil {
 			level.Error(logger).Log("msg", "getting all submits", "err", err)
 			continue
 		}
 
-		suggested, err := psr.GetValue(disputeI.RequestId.Int64(), time.Unix(disputeI.Timestamp.Int64(), 0))
+		suggested, err := psr.GetValue(log.RequestId.Int64(), time.Unix(log.Timestamp.Int64(), 0))
 		if err != nil {
-			// level.Error(logger).Log("msg", "look up recomended value", "id", disputeI.RequestId.Int64(), "err", err)
+			level.Error(logger).Log("msg", "look up recomended value", "id", log.RequestId.Int64(), "err", err)
 		}
 
 		for i, submit := range submits {

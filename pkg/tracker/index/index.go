@@ -363,7 +363,7 @@ func (self *IndexTracker) recordValue(logger log.Logger, ts int64, interval time
 			"domain": source.Host,
 			"symbol": format.SanitizeMetricName(symbol),
 		},
-	).(prometheus.Gauge).Set(value)
+	).Set(value)
 
 	return nil
 }

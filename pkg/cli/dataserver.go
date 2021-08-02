@@ -19,8 +19,9 @@ import (
 	"github.com/tellor-io/telliot/pkg/ethereum"
 	"github.com/tellor-io/telliot/pkg/logging"
 	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
-	"github.com/tellor-io/telliot/pkg/tracker/dispute"
+	"github.com/tellor-io/telliot/pkg/tracker/dispute/count"
 	"github.com/tellor-io/telliot/pkg/tracker/index"
+	"github.com/tellor-io/telliot/pkg/tracker/submitted_values"
 	"github.com/tellor-io/telliot/pkg/web"
 )
 
@@ -74,17 +75,17 @@ func (self dataserverCmd) Run() error {
 			return errors.Wrap(err, "creating ethereum client")
 		}
 
-		index, err := index.New(logger, ctx, cfg.IndexTracker, tsDB, client)
+		indexTracker, err := index.New(logger, ctx, cfg.IndexTracker, tsDB, client)
 		if err != nil {
-			return errors.Wrap(err, "creating index tracker")
+			return errors.Wrap(err, "creating com:"+index.ComponentName)
 		}
 
 		g.Add(func() error {
-			err := index.Run()
-			level.Info(logger).Log("msg", "index shutdown complete")
+			err := indexTracker.Run()
+			level.Info(logger).Log("msg", "shutdown complete", "component", index.ComponentName)
 			return err
 		}, func(error) {
-			index.Stop()
+			indexTracker.Stop()
 		})
 
 		// Aggregator.
@@ -98,35 +99,53 @@ func (self dataserverCmd) Run() error {
 			return errors.Wrap(err, "create tellor contract instance")
 		}
 
-		disputeTracker, err := dispute.New(
+		submittedValuesTracker, err := submitted_values.New(
 			logger,
 			ctx,
-			cfg.DisputeTracker,
+			cfg.SubmittedValuesTracker,
 			tsDB,
 			client,
 			contractTellor,
 			psrTellor.New(logger, cfg.PsrTellor, aggregator),
 		)
 		if err != nil {
-			return errors.Wrap(err, "creating profit tracker")
+			return errors.Wrap(err, "creating component:"+submitted_values.ComponentName)
 		}
 		g.Add(func() error {
-			disputeTracker.Start()
-			level.Info(logger).Log("msg", "dispute tracker shutdown complete")
+			submittedValuesTracker.Start()
+			level.Info(logger).Log("msg", "shutdown complete", "component", submitted_values.ComponentName)
 			return nil
 		}, func(error) {
-			disputeTracker.Stop()
+			submittedValuesTracker.Stop()
+		})
+
+		disputeCount, err := count.New(
+			logger,
+			ctx,
+			cfg.DisputeCountTracker,
+			client,
+			contractTellor,
+		)
+		if err != nil {
+			return errors.Wrap(err, "creating component:"+count.ComponentName)
+		}
+		g.Add(func() error {
+			disputeCount.Start()
+			level.Info(logger).Log("msg", "shutdown complete", "component", count.ComponentName)
+			return nil
+		}, func(error) {
+			disputeCount.Stop()
 		})
 
 		// Web/Api server.
 		{
 			srv, err := web.New(logger, ctx, tsDB, cfg.Web)
 			if err != nil {
-				return errors.Wrap(err, "create web server")
+				return errors.Wrap(err, "creating component:"+index.ComponentName)
 			}
 			g.Add(func() error {
 				err := srv.Start()
-				level.Info(logger).Log("msg", "web server shutdown complete")
+				level.Info(logger).Log("msg", "shutdown complete", "component", web.ComponentName)
 				return err
 			}, func(error) {
 				srv.Stop()
