@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package main
@@ -15,12 +15,13 @@ import (
 	"text/template"
 
 	"github.com/alecthomas/kong"
+	"github.com/cryptoriums/telliot/pkg/cli"
+	"github.com/cryptoriums/telliot/pkg/config"
+	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/cli"
-	"github.com/tellor-io/telliot/pkg/config"
 )
 
 type cliOutput struct {
@@ -73,7 +74,7 @@ func (l *GenerateCmd) Run() error {
 
 	// Generating cli docs from the cli struct.
 	cliDocsMap := make(map[string]string)
-	cli := &cli.CLI
+	cli := &cli.CLIDefault
 	if err = NewCliDocsGenerator(logger, l.CliBin).genCliDocs("", reflect.ValueOf(cli).Elem(), cliDocsMap); err != nil {
 		level.Error(logger).Log("msg", "failed to generate", "type", "cli docs", "err", err)
 		return err
@@ -196,10 +197,17 @@ func (self *cliDocsGenerator) genCliDocs(parent string, cli reflect.Value, docs 
 
 			if leafFound {
 				// v is a leaf in the cmd tree.
-				cmdName := strings.ToLower(t.Name)
+				cmdName := strings.ToLower(strings.Join(camelcase.Split(t.Name), "-"))
 				if len(parent) > 0 {
 					cmdName = fmt.Sprintf("%s %s", parent, cmdName)
 				}
+
+				// Can skip non commands tags.
+				_, ok := t.Tag.Lookup("cmd")
+				if !ok {
+					continue
+				}
+
 				docs[cmdName] = self.cmdOutput(cmdName)
 			} else {
 				parentName := strings.ToLower(t.Name)

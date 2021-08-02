@@ -9,8 +9,6 @@ jobs:
     name: Build, upload and create a release
     runs-on: ubuntu-latest
     steps:
-      - name : install dependancies
-        run: sudo apt-get install ocl-icd-opencl-dev
       - uses: actions/checkout@v2
         with:
             fetch-depth: 0 # Fetch all tags as well.

@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package index
@@ -12,9 +12,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	balancer "github.com/cryptoriums/telliot/pkg/contracts/balancer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	balancer "github.com/tellor-io/telliot/pkg/contracts/balancer"
 )
 
 // BalancerPair to be fetched onchain.
@@ -45,18 +45,18 @@ func NewBalancer(pair, address string, interval time.Duration, client bind.Contr
 	}
 }
 
-func (b *Balancer) Get(ctx context.Context) (float64, error) {
+func (b *Balancer) Get(ctx context.Context) (float64, float64, error) {
 	// Getting current pair info from input pool.
 	pair, err := b.getPair()
 	if err != nil {
-		return 0, errors.Wrap(err, "getting pair info from balancer pool")
+		return 0, 0, errors.Wrap(err, "getting pair info from balancer pool")
 	}
 	// Use balancer pool own GetSpotPrice to minimize onchain calls.
 	price, err := b.getSpotPrice(ctx, pair)
 	if err != nil {
-		return 0, errors.Wrap(err, "getting price info from balancer pool")
+		return 0, 0, errors.Wrap(err, "getting price info from balancer pool")
 	}
-	return price, nil
+	return price, float64(time.Now().Unix()), nil
 }
 
 func (b *Balancer) Interval() time.Duration {

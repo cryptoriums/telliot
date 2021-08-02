@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package index
@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	uniswap "github.com/tellor-io/telliot/pkg/contracts/uniswap"
+	uniswap "github.com/cryptoriums/telliot/pkg/contracts/uniswap"
 )
 
 // Uniswap implements DataSource interface.
@@ -40,14 +40,14 @@ func NewUniswap(pair string, address string, interval time.Duration, client bind
 }
 
 // Get calculates price for the provided pair.
-func (self *Uniswap) Get(ctx context.Context) (float64, error) {
+func (self *Uniswap) Get(ctx context.Context) (float64, float64, error) {
 	// Getting price on-chain.
 	price, err := self.getSpotPrice(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	priceF64, _ := price.Float64()
-	return priceF64, nil
+	return priceF64, float64(time.Now().Unix()), nil
 }
 
 func (self *Uniswap) Interval() time.Duration {

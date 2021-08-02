@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package gas_estimator
@@ -6,10 +6,8 @@ package gas_estimator
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/contracts"
-	"github.com/tellor-io/telliot/pkg/ethereum"
 )
 
 type GasEstimator interface {
@@ -23,7 +21,7 @@ type GasEstimator interface {
 type Default struct {
 }
 
-func NewDefault(contract contracts.ContractCaller, client *ethclient.Client) *Default {
+func NewDefault() *Default {
 	return &Default{}
 }
 
@@ -38,7 +36,7 @@ func (self *Default) EstimateGas(ctx context.Context, _ *ethereum.Account, slot 
 	case 3:
 		return 400_000, nil
 	case 4:
-		return 1_700_00, nil
+		return 2_100_000, nil
 	}
 	return 0, errors.Errorf("invalid slot:%v", slot)
 }

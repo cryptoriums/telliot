@@ -808,7 +808,7 @@ All comments should be full sentences. They should start with an uppercase lette
 
 ## Bash
 
-Overall try to NOT use bash. For scripts longer than 30 lines, consider writing it in Go as we did [here](https://github.com/tellor-io/telliot/blob/master/scripts/copyright/copyright.go).
+Overall try to NOT use bash. For scripts longer than 30 lines, consider writing it in Go as we did [here](https://github.com/cryptoriums/telliot/blob/master/scripts/copyright/copyright.go).
 
 If you have to, we follow the Google Shell style guide: [https://google.github.io/styleguide/shellguide.html](https://google.github.io/styleguide/shellguide.html)
 

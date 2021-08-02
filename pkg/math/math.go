@@ -1,45 +1,52 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package math
 
 import (
+	"math"
 	"math/big"
-	"strconv"
-
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
 )
 
-func PercentageDiff(old, new float64) (delta float64) {
-	diff := float64(new - old)
+func PercentageDiff(old, new float64) float64 {
+	diff := new - old
+
+	if old == 0 {
+		if new > 0 {
+			return math.MaxFloat64
+		}
+		return -math.MaxFloat64
+	}
+	if new == 0 {
+		if old > 0 {
+			return math.MaxFloat64
+		}
+		return -math.MaxFloat64
+	}
 
 	if old > new {
-		return (diff / float64(old)) * 100
+		return -math.Abs((diff / new) * 100)
 	}
-	return (diff / float64(new)) * 100
+	return math.Abs((diff / old) * 100)
+
 }
 
-func FloatToBigInt18e(v float64) (*big.Int, error) {
-	v = v * params.Ether
-	g := new(big.Int)
-
-	_, ok := g.SetString(strconv.FormatFloat(v, 'f', -1, 64), 10)
-	if !ok {
-		return nil, errors.Errorf("invalid float:%v", v)
+func BigIntToFloatDiv(input *big.Int, devider float64) float64 {
+	if devider == 1 {
+		fl, _ := big.NewFloat(0).SetInt(input).Float64()
+		return fl
 	}
-	if len(g.Bytes()) > 32 {
-		return nil, errors.Errorf("invalid size larger than 256 bits:%v", v)
-	}
-	return g, nil
-}
-
-func BigInt18eToFloat(input *big.Int) float64 {
 	f := 0.0
 	if input != nil {
-		divisor := big.NewInt(1e18 / 100)
-		divisor.Div(input, divisor)
-		f = float64(divisor.Uint64()) / 100
+		divisor := big.NewInt(int64(devider / float64(100)))
+		divisor = big.NewInt(0).Div(input, divisor)
+		f = float64(divisor.Int64()) / 100
 	}
 	return f
+}
+
+func FloatToBigIntMul(input float64, multiplier float64) *big.Int {
+	bigE18 := big.NewFloat(0).Mul(big.NewFloat(input), big.NewFloat(multiplier))
+	result, _ := bigE18.Int(nil)
+	return result
 }

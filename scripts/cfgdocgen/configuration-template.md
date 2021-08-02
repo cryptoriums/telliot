@@ -39,7 +39,7 @@ Note the default level is "INFO", so to turn down the number of logs, enter "WAR
 
 DEBUG - logs everything in INFO and additional developer logs
 
-INFO - logs most information about the mining operation
+INFO - logs most information about the reporting operation
 
 WARN - logs all warnings and errors
 

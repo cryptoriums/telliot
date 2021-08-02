@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package config
@@ -23,9 +23,8 @@ func OpenTestConfig(dir string) (*Config, error) {
 	}
 	cfg.Web.ListenPort = uint(port)
 
-	cfg.IndexTracker.IndexFile = filepath.Join(rootDir, cfg.IndexTracker.IndexFile)
+	cfg.TrackerIndex.IndexFile = filepath.Join(rootDir, cfg.TrackerIndex.IndexFile)
 	cfg.EnvFile = filepath.Join(rootDir, cfg.EnvFile+".example")
-	cfg.Aggregator.ManualDataFile = filepath.Join(rootDir, cfg.Aggregator.ManualDataFile)
 
 	return &cfg, nil
 

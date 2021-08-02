@@ -1,14 +1,17 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package math
 
 import (
+	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"testing"
 
-	"github.com/tellor-io/telliot/pkg/testutil"
+	"github.com/cryptoriums/telliot/pkg/testutil"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 func TestPercentageDiff(t *testing.T) {
@@ -22,32 +25,42 @@ func TestPercentageDiff(t *testing.T) {
 		{
 			1,
 			10,
-			90,
+			900,
 		},
 		{
 			10,
 			1,
-			-90,
+			-900,
 		},
 		{
 			0.01,
 			0.1,
-			90,
+			900,
 		},
 		{
 			0.1,
 			0.01,
-			-90,
+			-900,
 		},
 		{
 			0,
 			1,
-			100,
+			math.MaxFloat64,
+		},
+		{
+			0,
+			-1,
+			-math.MaxFloat64,
 		},
 		{
 			1,
 			0,
-			-100,
+			math.MaxFloat64,
+		},
+		{
+			-1,
+			0,
+			-math.MaxFloat64,
 		},
 		{
 			1,
@@ -62,75 +75,95 @@ func TestPercentageDiff(t *testing.T) {
 	}
 }
 
-func TestFloatToBigInt18(t *testing.T) {
+func TestFloatToBigIntMul(t *testing.T) {
 	type testcase struct {
-		input    float64
-		expected string
+		input      float64
+		multiplier float64
+		expected   float64
 	}
 
 	cases := []testcase{
 		{
 			1,
-			"1000000000000000000",
+			params.Ether,
+			params.Ether,
 		},
 		{
 			10,
-			"10000000000000000000",
+			params.Ether,
+			params.Ether * 10,
+		},
+		{
+			10000,
+			params.Ether,
+			params.Ether * 10000,
 		},
 		{
 			0.1,
-			"100000000000000000",
+			params.Ether,
+			params.Ether / 10,
 		},
 		{
 			0.01,
-			"10000000000000000",
+			params.Ether,
+			params.Ether / 100,
+		},
+		{
+			1,
+			params.GWei,
+			params.GWei,
+		},
+		{
+			0.1,
+			params.GWei,
+			params.GWei / 10,
 		},
 	}
 
 	for i, tc := range cases {
+		act := FloatToBigIntMul(tc.input, tc.multiplier)
+		exp, ok := big.NewInt(0).SetString(fmt.Sprintf("%.0f", tc.expected), 10)
+		testutil.Assert(t, ok, "failed to convert string to big int")
 
-		expected, ok := big.NewInt(0).SetString(tc.expected, 10)
-		testutil.Assert(t, ok)
-
-		ii, err := FloatToBigInt18e(tc.input)
-		testutil.Ok(t, err)
-
-		testutil.Equals(t, expected, ii, "Case:"+strconv.Itoa(i))
+		testutil.Equals(t, exp, act, "Case:"+strconv.Itoa(i))
 	}
 }
 
-func TestBigInt18eToFloat(t *testing.T) {
+func TestBigIntToFloat(t *testing.T) {
 	type testcase struct {
-		input    string
+		input    float64
+		devider  float64
 		expected float64
 	}
 
 	cases := []testcase{
 		{
-			"1000000000000000000",
+			params.Ether,
+			params.Ether,
 			1,
 		},
 		{
-			"10000000000000000000",
+			10 * params.Ether,
+			params.Ether,
 			10,
 		},
 		{
-			"100000000000000000",
+			params.Ether / 10,
+			params.Ether,
 			0.1,
 		},
 		{
-			"10000000000000000",
+			params.Ether / 100,
+			params.Ether,
 			0.01,
 		},
 	}
 
 	for i, tc := range cases {
+		input, ok := big.NewInt(0).SetString(fmt.Sprintf("%.0f", tc.input), 10)
+		testutil.Assert(t, ok, "failed to convert string to big int")
 
-		input, ok := big.NewInt(0).SetString(tc.input, 10)
-		testutil.Assert(t, ok)
-
-		act := BigInt18eToFloat(input)
-
+		act := BigIntToFloatDiv(input, tc.devider)
 		testutil.Equals(t, tc.expected, act, "Case:"+strconv.Itoa(i))
 	}
 }

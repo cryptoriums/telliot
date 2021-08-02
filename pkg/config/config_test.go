@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package config
@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tellor-io/telliot/pkg/testutil"
+	"github.com/cryptoriums/telliot/pkg/testutil"
 )
 
 func createEnvFile(t *testing.T) func() {
@@ -35,7 +35,6 @@ func TestConfig(t *testing.T) {
 	testutil.Ok(t, err)
 
 	//Asserting Default Values
-	testutil.Assert(t, cfg.TransactorTellor.GasMax > 0, "GasMax should have value")
-	testutil.Assert(t, cfg.TransactorTellor.GasMultiplier > 0, "GasMultiplier should have value")
+	testutil.Assert(t, cfg.TransactorTellor.GasMaxTipGwei > 0, "GasMax should have value")
 
 }

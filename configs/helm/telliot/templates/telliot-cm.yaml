@@ -1,0 +1,28 @@
+{{- range $index := .Values.command }}
+{{- $val := dict "command" $index }}
+{{- $commandName := printf "%s-%s" (include "telliot.fullname" $) (include "telliot.commandName" $val) | trunc 63 | trimSuffix "-" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $commandName }}
+  namespace: {{ $.Values.namespace }}
+data:
+{{- $commandPath := printf "%s/%s" "files" ((get $val "command")| lower) }}
+{{- $path := "files" }}
+{{- $commandConfig := $.Files.Glob (printf "%s/%s" $commandPath "config.json") }}
+{{- if $commandConfig }}
+  config.json: |-
+{{ $.Files.Get (printf "%s/%s" $commandPath "config.json") | indent 4 }}
+{{- else }}
+{{ $.Files.Get (printf "%s/%s" $path "config.json") | indent 4 }}
+{{- end }}
+  index.json: |-
+{{ $.Files.Get (printf "%s/%s" $path "index.json") | indent 4 }}
+
+{{- $manualFile := $.Files.Get (printf "%s/%s" $path "manualData.json") }}
+{{- if $manualFile }}
+  manualData.json: |-
+{{ $.Files.Get (printf "%s/%s" $path "manualData.json") | indent 4 }}
+{{- end }}
+{{- end }}

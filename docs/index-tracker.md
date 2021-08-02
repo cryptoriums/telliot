@@ -15,7 +15,8 @@ The structure of the file is as follow:
         "endpoints": [
             {
                 "URL": "https://api.anyblock.tools/market/AMPL_USD_via_ALL/daily-volume?roundDay=false&debug=false&access_token=$ANYBLOCK_KEY&start=$NOW&end=$EOD",
-                "param": "$.overallVWAP"
+                "Value": "$.overallVWAP"
+                "Timestamp": "$.time"
             }
         ]
     },
@@ -56,7 +57,7 @@ Currently supported on-chain parsers are `Uniswap` and `Balancer` parsers.
 
 ### Jsonpath parser
 
-When not set this is the default parser. It parses data from the JSON payload using the `param` as an instruction on how to parse the output.
+When not set this is the default parser. It parses data from the JSON payload using the `Value` as an instruction on how to parse the value and `Timestamp` on how to parse the timestamp.
 [More info](http://goessner.net/articles/JsonPath/).
 
 ### Balancer parser

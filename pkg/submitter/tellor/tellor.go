@@ -1,27 +1,26 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package tellor
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/telliot/pkg/format"
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/cryptoriums/telliot/pkg/mining"
+	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/contracts"
-	"github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/format"
-	"github.com/tellor-io/telliot/pkg/logging"
-	"github.com/tellor-io/telliot/pkg/mining"
-	psr "github.com/tellor-io/telliot/pkg/psr/tellor"
 )
 
 const ComponentName = "submitterTellor"
@@ -33,18 +32,18 @@ type Transactor interface {
 type Config struct {
 	Enabled         bool
 	LogLevel        string
-	MinSubmitPeriod format.Duration `help:"The time limit between each submit for a staked miner."`
+	MinSubmitPeriod format.Duration `help:"The time limit between each submit for a staked reporter."`
 }
 
 /**
 * The submitter has one purpose: to either submit the solution on-chain
-* or to reject it if the miner has already submitted a solution for the challenge
+* or to reject it if the reporter has already submitted a solution for the challenge
 * or the the solution'self challenge does not match current challenge
  */
 
 type Submitter struct {
 	ctx      context.Context
-	close    context.CancelFunc
+	stop     context.CancelFunc
 	logger   log.Logger
 	cfg      Config
 	account  *ethereum.Account
@@ -71,10 +70,10 @@ func New(
 		return nil, nil, errors.Wrap(err, "apply filter logger")
 	}
 	logger = log.With(logger, "component", ComponentName)
-	ctx, close := context.WithCancel(ctx)
+	ctx, stop := context.WithCancel(ctx)
 	submitter := &Submitter{
 		ctx:        ctx,
-		close:      close,
+		stop:       stop,
 		client:     client,
 		cfg:        cfg,
 		resultCh:   make(chan *mining.Result),
@@ -89,6 +88,7 @@ func New(
 }
 
 func (self *Submitter) Start() error {
+	level.Info(self.logger).Log("msg", "starting", "logLevel", self.cfg.LogLevel)
 	for {
 		select {
 		case <-self.ctx.Done():
@@ -106,7 +106,7 @@ func (self *Submitter) Start() error {
 }
 
 func (self *Submitter) Stop() {
-	self.close()
+	self.stop()
 }
 
 func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Context) {
@@ -121,7 +121,7 @@ func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Contex
 			level.Info(self.logger).Log("msg", "canceled pending submit while gettting last submit time")
 		default:
 		}
-		lastSubmit, timestamp, err = self.lastSubmit()
+		lastSubmit, timestamp, err = contracts.LastSubmit(self.contract, self.account.Address)
 		if err != nil {
 			level.Debug(self.logger).Log("msg", "checking last submit time", "err", err)
 			time.Sleep(1 * time.Second)
@@ -170,12 +170,12 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 
 				statusID, err := self.minerStatus()
 				if err != nil {
-					level.Info(self.logger).Log("msg", "getting miner status", "err", err)
+					level.Info(self.logger).Log("msg", "getting reporter status", "err", err)
 					<-ticker.C
 					continue
 				}
 				if statusID != 1 {
-					level.Info(self.logger).Log("msg", "miner is not in a status that can submit", "status", minerStatusName(statusID))
+					level.Info(self.logger).Log("msg", "reporter is not in a status that can submit", "status", reporterStatusName(statusID))
 					<-ticker.C
 					continue
 				}
@@ -197,9 +197,10 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 				tx, err := self.transactor.Transact(newChallengeReplace, result.Nonce, result.Work.Challenge.RequestIDs, reqVals)
 				if err != nil {
 					level.Error(self.logger).Log("msg", "transacting", "err", err)
+					return
 				}
 				level.Info(self.logger).Log("msg", "successfully submited solution",
-					"txHash", tx.Hash().String(),
+					"txHash", tx.Hash().Hex(),
 					"nonce", tx.Nonce(),
 					"gasPrice", tx.GasPrice(),
 					"gasLimit", tx.Gas(),
@@ -214,6 +215,14 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 func (self *Submitter) addRrequestVals(requestIDs [5]*big.Int) ([5]*big.Int, error) {
 	var currentValues [5]*big.Int
 	for i, reqID := range requestIDs {
+
+		// For inactive values just zero values.
+		// Otherwise the psr will return an error as it doesn't hold any value for those.
+		if psr.IsInactive(reqID.Int64()) {
+			currentValues[i] = big.NewInt(0)
+			continue
+		}
+
 		val, err := self.psr.GetValue(reqID.Int64(), time.Now())
 		if err != nil {
 			return currentValues, errors.Wrapf(err, "getting value for request ID:%v", reqID)
@@ -232,35 +241,7 @@ func (self *Submitter) minerStatus() (int64, error) {
 	return statusID.Int64(), nil
 }
 
-func (self *Submitter) lastSubmit() (time.Duration, *time.Time, error) {
-	address := "000000000000000000000000" + self.account.Address.Hex()[2:]
-	decoded, err := hex.DecodeString(address)
-	if err != nil {
-		return 0, nil, errors.Wrapf(err, "decoding address")
-	}
-	last, err := self.contract.GetUintVar(nil, ethereum.Keccak256(decoded))
-
-	if err != nil {
-		return 0, nil, errors.Wrapf(err, "getting last submit time for:%v", self.account.Address.String())
-	}
-	// The Miner has never submitted so put a timestamp at the beginning of unix time.
-	if last.Int64() == 0 {
-		last.Set(big.NewInt(1))
-	}
-
-	lastInt := last.Int64()
-	now := time.Now()
-	var lastSubmit time.Duration
-	var tm time.Time
-	if lastInt > 0 {
-		tm = time.Unix(lastInt, 0)
-		lastSubmit = now.Sub(tm)
-	}
-
-	return lastSubmit, &tm, nil
-}
-
-func minerStatusName(statusID int64) string {
+func reporterStatusName(statusID int64) string {
 	// From https://github.com/tellor-io/tellor3/blob/7c2f38a0e3f96631fb0f96e0d0a9f73e7b355766/contracts/TellorStorage.sol#L41
 	switch statusID {
 	case 0:

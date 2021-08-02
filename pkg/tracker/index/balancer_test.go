@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package index
@@ -10,8 +10,8 @@ package index
 // 	"testing"
 
 // 	eth_common "github.com/ethereum/go-ethereum/common"
-// 	"github.com/tellor-io/telliot/pkg/ethereum"
-// 	"github.com/tellor-io/telliot/pkg/testutil"
+// 	"github.com/cryptoriums/telliot/pkg/ethereum"
+// 	"github.com/cryptoriums/telliot/pkg/testutil"
 // )
 
 // func TestBalancerPrice(t *testing.T) {

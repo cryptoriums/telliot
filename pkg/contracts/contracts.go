@@ -2,36 +2,59 @@ package contracts
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"strings"
+	"time"
 
+	"github.com/cryptoriums/telliot/pkg/contracts/balancer"
+	"github.com/cryptoriums/telliot/pkg/contracts/tellor"
+	"github.com/cryptoriums/telliot/pkg/contracts/tellor_testing"
+	"github.com/cryptoriums/telliot/pkg/contracts/uniswap"
+	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/telliot/pkg/math"
+	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/contracts/balancer"
-	"github.com/tellor-io/telliot/pkg/contracts/lens"
-	"github.com/tellor-io/telliot/pkg/contracts/tellor"
-	"github.com/tellor-io/telliot/pkg/contracts/tellorMesosphere"
-	"github.com/tellor-io/telliot/pkg/contracts/uniswap"
-	tEthereum "github.com/tellor-io/telliot/pkg/ethereum"
 )
 
 const (
-	TellorAddress                          = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	TellorAddressGoerli                    = "0xA0238859b8626cCd6981438200Eded52F05dB37A"
-	TellorAddressHardhat                   = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
-	TellorMesosphereAddressRinkeby         = "0xB2a25FD022526c64823FF1bF03bf348Fd0787f2a"
-	TellorMesosphereAddressArbitrumTestnet = "0x7A1e398A228271D1B8b1fb1ede678A3e4c79f50A"
-	TellorMesosphereAddressPolygonTestnet  = "0x32704dCEb8dA339516f4AE561Cd40a6cBE6d98c9"
-	TellorMesosphereAddressPolygonMainnet  = "0xACC2d27400029904919ea54fFc0b18Bf07C57875"
-	TellorMesosphereAddress                = "0x5a991dd4f646ed7efdd090b1ba5b68d222273f7e"
-	LensAddressMainnet                     = "0x577417CFaF319a1fAD90aA135E3848D2C00e68CF"
-	LensAddressRinkeby                     = "0xebEF7ceB7C43850898e258be0a1ea5ffcdBc3205"
-	LensAddressHardhat                     = "0x577417CFaF319a1fAD90aA135E3848D2C00e68CF"
+	TellorAddress        = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
+	TellorAddressRinkeby = "0xD98C2C046721B297567ACfC41414Dd425721DC7a"
+	// TellorAddressRinkeby = "0x370C526CA64f24803C87f5Ae4e1C2285C4368a88" // Proxy.
+	TellorAddressGoerli  = "0xf6c0da9600526C4D8411Ce5BD18059F1088a9580"
+	TellorAddressHardhat = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
+
+	WithdrawStakeGasUsage          = 50_000
+	RequestStakingWithdrawGasUsage = 100_000
+	TallyGasUsage                  = 150_000
+	DepositStakeGasUsage           = 160_000
+	UnlockFeeGasUsage              = 200_000
+	VoteGasUSage                   = 200_000
+	BeginDisputeGasUsage           = 700_000
+	SubmitMiningSolutionGasUsage   = 3_000_000
+
+	EventNameNewTask    = "NewChallenge"
+	EventNameNewSubmit  = "NonceSubmitted"
+	EventNameTally      = "DisputeVoteTallied"
+	EventNameNewDispute = "NewDispute"
+	// When creating the bindings the Transfer event is aliased as Trasnfered
+	// because it collides with the same function name.
+	EventNameTransfer        = "Transferred"
+	EventNameNewVote         = "Voted"
+	EventNameContractUpgrade = "NewTellorAddress"
+
+	DefaultDisputeVotingWindow = 24 * 2 * time.Hour // 2 days to vote for a dispute.
+	DefaultDisputeUnlockWindow = 24 * time.Hour     // 1 day to wait after a dispute before can get the dispute fee.
 )
 
 type ContractCaller interface {
@@ -41,161 +64,242 @@ type ContractCaller interface {
 	GetNewCurrentVariables(opts *bind.CallOpts) (struct {
 		Challenge  [32]byte
 		RequestIds [5]*big.Int
-		Difficutly *big.Int
+		Difficulty *big.Int
 		Tip        *big.Int
 	}, error)
-	GetAddr() *common.Address
-	CurrentReward(opts *bind.CallOpts) (*big.Int, error)
+	Addr() common.Address
+	NetID() int64
+	Abi() abi.ABI
+	BalanceOf(opts *bind.CallOpts, _user common.Address) (*big.Int, error)
+	GetAllDisputeVars(opts *bind.CallOpts, _disputeId *big.Int) ([32]byte, bool, bool, bool, common.Address, common.Address, common.Address, [9]*big.Int, *big.Int, error)
+	GetDisputeUintVars(opts *bind.CallOpts, _disputeId *big.Int, _data [32]byte) (*big.Int, error)
+	TallyVotes(opts *bind.TransactOpts, _disputeId *big.Int) (*types.Transaction, error)
+	UnlockDisputeFee(opts *bind.TransactOpts, _disputeId *big.Int) (*types.Transaction, error)
+	DepositStake(opts *bind.TransactOpts) (*types.Transaction, error)
+	UnpackLog(out interface{}, event string, log types.Log) error
+	WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error)
+	DisputeVotingWindow() time.Duration
+	DisputeUnlockWindow() time.Duration
+	GetMinersByRequestIdAndTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]common.Address, error)
+	GetSubmissionsByTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]*big.Int, error)
+	GetNewValueCountbyRequestId(opts *bind.CallOpts, _requestId *big.Int) (*big.Int, error)
+	GetTimestampbyRequestIDandIndex(opts *bind.CallOpts, _requestID *big.Int, _index *big.Int) (*big.Int, error)
+	GetRequestUintVars(opts *bind.CallOpts, _requestId *big.Int, _data [32]byte) (*big.Int, error)
+}
+
+type RewardQuerier interface {
+	// Returns the current reward in percent relative to the provided tx cost.
+	Query(ctx context.Context, txCostGwei float64) (int64, error)
+}
+
+var DefaultParams = Params{
+	DisputeVotingWindow: DefaultDisputeVotingWindow,
+	DisputeUnlockWindow: DefaultDisputeUnlockWindow,
+}
+
+type Params struct {
+	DisputeVotingWindow time.Duration
+	DisputeUnlockWindow time.Duration
 }
 
 type (
-	ITellorNewDispute    = tellor.ITellorNewDispute
-	TellorNonceSubmitted = tellor.TellorNonceSubmitted
+	TellorNewDispute         = tellor.TellorNewDispute
+	TellorNonceSubmitted     = tellor.TellorNonceSubmitted
+	TellorTransferred        = tellor.TellorTransferred
+	TellorNewValue           = tellor.TellorNewValue
+	TellorDisputeVoteTallied = tellor.ExtensionDisputeVoteTallied
+	NewTellorAddress         = tellor.ExtensionNewTellorAddress
+	TellorNewChallenge       = tellor.TellorNewChallenge
+	TellorVoted              = tellor.TellorVoted
 )
 
-const (
+var (
 	BPoolABI          = balancer.BPoolABI
 	BTokenABI         = balancer.BTokenABI
 	IERC20ABI         = uniswap.IERC20ABI
 	IUniswapV2PairABI = uniswap.IUniswapV2PairABI
-	ITellorABI        = tellor.ITellorABI
+	TellorABI         = tellor.ITellorABI
 )
 
-type ITellorMesosphere struct {
-	Address common.Address
-	*tellorMesosphere.TellorMesosphere
-}
-
 type ITellor struct {
+	boundContract *bind.BoundContract
+	abi           abi.ABI
+	netID         int64
+	params        Params
 	*tellor.ITellor
-	*tellor.ITellorNewDispute
-	*lens.Main
-	Address common.Address
+	address common.Address
 }
 
-func (self *ITellor) GetAddr() *common.Address {
-	return &self.Address
+func (self *ITellor) NetID() int64 {
+	return self.netID
 }
 
-func NewITellor(client *ethclient.Client) (*ITellor, error) {
-	conractAddr, err := GetTellorAddress(client)
+func (self *ITellor) Addr() common.Address {
+	return self.address
+}
+
+func (self *ITellor) Abi() abi.ABI {
+	return self.abi
+}
+
+func (self *ITellor) DisputeVotingWindow() time.Duration {
+	return self.params.DisputeVotingWindow
+}
+
+func (self *ITellor) DisputeUnlockWindow() time.Duration {
+	return self.params.DisputeUnlockWindow
+}
+
+func (self *ITellor) UnpackLog(out interface{}, event string, log types.Log) error {
+	return self.boundContract.UnpackLog(out, event, log)
+}
+
+func (self *ITellor) WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error) {
+	return self.boundContract.WatchLogs(opts, name, query...)
+}
+
+func NewITellor(logger log.Logger, ctx context.Context, client *ethclient.Client, netID int64, params Params) (*ITellor, error) {
+	contractAddr, err := GetTellorAddress(netID)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting contract address")
 	}
-	tellorInstance, err := tellor.NewITellor(conractAddr, client)
+
+	return NewITellorWithAddr(logger, ctx, contractAddr, client, netID, params)
+}
+
+func NewITellorWithAddr(
+	logger log.Logger,
+	ctx context.Context,
+	contractAddr common.Address,
+	client *ethclient.Client,
+	netID int64,
+	params Params,
+) (*ITellor, error) {
+	if params.DisputeVotingWindow == 0 {
+		return nil, errors.New("DisputeVotingWindow should not be zero")
+	}
+	if params.DisputeUnlockWindow == 0 {
+		return nil, errors.New("DisputeUnlockWindow should not be zero")
+	}
+	tellorInstance, err := tellor.NewITellor(contractAddr, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating contract interface")
 	}
-	contractAddr, err := GetLensAddress(client)
+	level.Info(logger).Log("msg", "tellor contract address", "addr", contractAddr)
+
+	abi, err := abi.JSON(strings.NewReader(TellorABI))
 	if err != nil {
-		return nil, errors.Wrap(err, "getting contract address")
+		return nil, errors.New("parsing contract ABI")
 	}
 
-	lensInstance, err := lens.NewMain(contractAddr, client)
-	if err != nil {
-		return nil, errors.Wrap(err, "creating telllor interface")
-	}
+	boundContract := bind.NewBoundContract(contractAddr, abi, client, client, client)
 
 	return &ITellor{
-		Address: common.HexToAddress(TellorAddress),
-		ITellor: tellorInstance,
-		Main:    lensInstance,
+		abi:           abi,
+		netID:         netID,
+		address:       contractAddr,
+		boundContract: boundContract,
+		params:        params,
+		ITellor:       tellorInstance,
 	}, nil
 }
 
-func NewITellorMesosphere(client *ethclient.Client) (*ITellorMesosphere, error) {
-	conractAddr, err := GetTellorMesosphereAddress(client)
+type ITellorTest struct {
+	*tellor_testing.ITellor
+	Address common.Address
+}
+
+func NewITellorTest(ctx context.Context, client *ethclient.Client, netID int64) (*ITellorTest, error) {
+	conractAddr, err := GetTellorAddress(netID)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting contract address")
 	}
-	tellorInstance, err := tellorMesosphere.NewTellorMesosphere(conractAddr, client)
+
+	tellorInstance, err := tellor_testing.NewITellor(conractAddr, client)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating telllor interface")
+		return nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	return &ITellorMesosphere{Address: common.HexToAddress(TellorMesosphereAddress), TellorMesosphere: tellorInstance}, nil
+	return &ITellorTest{
+		Address: conractAddr,
+		ITellor: tellorInstance,
+	}, nil
 }
 
-func GetTellorMesosphereAddress(client *ethclient.Client) (common.Address, error) {
-	networkID, err := client.NetworkID(context.Background())
-	if err != nil {
-		return common.Address{}, err
-	}
-	switch netID := networkID.Int64(); netID {
-	case 421611:
-		return common.HexToAddress(TellorMesosphereAddressArbitrumTestnet), nil
-	case 4:
-		return common.HexToAddress(TellorMesosphereAddressRinkeby), nil
-	case 80001:
-		return common.HexToAddress(TellorMesosphereAddressPolygonTestnet), nil
-	case 137:
-		return common.HexToAddress(TellorMesosphereAddressPolygonMainnet), nil
-	default:
-		return common.Address{}, errors.Errorf("contract address for current network id not found:%v", netID)
-	}
+type ITellorFilterer struct {
+	*tellor.TellorFilterer
+	*tellor.ExtensionFilterer
 }
 
-func GetTellorAddress(client *ethclient.Client) (common.Address, error) {
-	networkID, err := client.NetworkID(context.Background())
+func NewITellorFilterer(addr common.Address, client *ethclient.Client) (*ITellorFilterer, error) {
+
+	ft, err := tellor.NewTellorFilterer(addr, client)
 	if err != nil {
-		return common.Address{}, err
+		return nil, errors.Wrap(err, "create log filtered")
 	}
 
-	switch netID := networkID.Int64(); netID {
-	case 31337:
-		return common.HexToAddress(TellorAddressHardhat), nil
-	case 4: // Rinkeby has the same address as mainnet.
-		fallthrough
+	fe, err := tellor.NewExtensionFilterer(addr, client)
+	if err != nil {
+		return nil, errors.Wrap(err, "create log filtered")
+	}
+	return &ITellorFilterer{
+		TellorFilterer:    ft,
+		ExtensionFilterer: fe,
+	}, nil
+
+}
+func GetTellorAddress(netID int64) (common.Address, error) {
+	switch netID {
 	case 1:
 		return common.HexToAddress(TellorAddress), nil
+	case 4:
+		return common.HexToAddress(TellorAddressRinkeby), nil
 	case 5:
 		return common.HexToAddress(TellorAddressGoerli), nil
-	default:
-		return common.Address{}, errors.Errorf("network id not supported id:%v", netID)
-	}
-}
-
-func GetLensAddress(client *ethclient.Client) (common.Address, error) {
-	networkID, err := client.NetworkID(context.Background())
-	if err != nil {
-		return common.Address{}, err
-	}
-	switch netID := networkID.Int64(); netID {
 	case 31337:
-		return common.HexToAddress(LensAddressHardhat), nil
-	case 1:
-		return common.HexToAddress(LensAddressMainnet), nil
-	case 4:
-		return common.HexToAddress(LensAddressRinkeby), nil
+		return common.HexToAddress(TellorAddressHardhat), nil
 	default:
-		return common.Address{}, errors.Errorf("contract address for current network id not found:%v", netID)
+		return common.Address{}, errors.Errorf("tellor contract address for current network id not found:%v", netID)
 	}
 }
 
-func GetDisputeLogs(ctx context.Context, client *ethclient.Client, contractAdd common.Address, lookBackDays int) ([]ITellorNewDispute, error) {
+type DisputeLog struct {
+	ID           int64
+	DataID       int64
+	DataVal      float64
+	DataTs       time.Time
+	Executed     bool
+	Passed       bool
+	Disputer     common.Address
+	Disputed     common.Address
+	DisputedSlot uint64
+	Tally        float64
+	Votes        uint64
+	Created      time.Time
+	Ends         time.Time
+	Fee          float64
+	TxHash       common.Hash
+}
 
-	abi, err := abi.JSON(strings.NewReader(ITellorABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "parse abi")
-	}
-
-	// Just use nil for most of the variables, only using this object to call UnpackLog which only uses the abi.
-	bar := bind.NewBoundContract(contractAdd, abi, nil, nil, nil)
-
+func GetDisputeLogs(
+	ctx context.Context,
+	client *ethclient.Client,
+	contract ContractCaller,
+	lookBackDuration time.Duration,
+) ([]*DisputeLog, error) {
 	header, err := client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "get latest eth block header")
 	}
 
-	blocksPerDay := (24 * 60 * 60) / tEthereum.BlockTime
-	lookBackDelta := big.NewInt(int64(lookBackDays) * blocksPerDay) // Interested in only 5 days worth of blocks in the past since disputes can be voted only for 2 days.
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereumT.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
 
 	query := ethereum.FilterQuery{
 		FromBlock: startBlock,
 		ToBlock:   nil,
-		Addresses: []common.Address{contractAdd},
-		Topics:    [][]common.Hash{{abi.Events["NewDispute"].ID}},
+		Addresses: []common.Address{contract.Addr()},
+		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameNewDispute].ID}},
 	}
 
 	logs, err := client.FilterLogs(ctx, query)
@@ -203,15 +307,216 @@ func GetDisputeLogs(ctx context.Context, client *ethclient.Client, contractAdd c
 		return nil, errors.Wrap(err, "get logs")
 	}
 
-	var unpackedLogs []ITellorNewDispute
-	for _, rawDispute := range logs {
-
-		log := ITellorNewDispute{}
-		err := bar.UnpackLog(&log, "NewDispute", rawDispute)
+	var unpackedLogs []*DisputeLog
+	for _, logRaw := range logs {
+		log := TellorNewDispute{}
+		err := contract.UnpackLog(&log, "NewDispute", logRaw)
 		if err != nil {
-			return nil, errors.Wrap(err, "unpack dispute event from logs")
+			return nil, errors.Wrap(err, "unpack event from logs")
 		}
-		unpackedLogs = append(unpackedLogs, log)
+
+		logUnpacked, err := GetDisputeInfo(ctx, log.DisputeId, contract)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting dispute details")
+		}
+		logUnpacked.TxHash = logRaw.TxHash
+		unpackedLogs = append(unpackedLogs, logUnpacked)
+
 	}
 	return unpackedLogs, err
+}
+
+func GetTallyLogs(
+	ctx context.Context,
+	client *ethclient.Client,
+	contract ContractCaller,
+	lookBackDuration time.Duration,
+) ([]*TellorDisputeVoteTallied, error) {
+
+	header, err := client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get latest eth block header")
+	}
+
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereumT.BlocksPerMinute))
+	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
+
+	query := ethereum.FilterQuery{
+		FromBlock: startBlock,
+		ToBlock:   nil,
+		Addresses: []common.Address{contract.Addr()},
+		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameTally].ID}},
+	}
+
+	logs, err := client.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "get logs")
+	}
+
+	var unpackedLogs []*TellorDisputeVoteTallied
+	for _, logRaw := range logs {
+		log := &TellorDisputeVoteTallied{}
+		err := contract.UnpackLog(log, "DisputeVoteTallied", logRaw)
+		if err != nil {
+			return nil, errors.Wrap(err, "unpack event from logs")
+		}
+		log.Raw = logRaw
+		unpackedLogs = append(unpackedLogs, log)
+
+	}
+	return unpackedLogs, err
+}
+
+func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract ContractCaller) (*DisputeLog, error) {
+	_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, disputeID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get dispute details")
+	}
+
+	rounds, err := contract.GetDisputeUintVars(
+		&bind.CallOpts{Context: ctx},
+		disputeID,
+		ethereumT.Keccak256([]byte("_DISPUTE_ROUNDS")),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "get dispute rounds")
+	}
+
+	votingEnds := time.Unix(disputeVars[3].Int64(), 0)
+	votingWindow := contract.DisputeVotingWindow()
+	created := votingEnds.Add(-votingWindow * time.Duration(rounds.Int64()))
+
+	return &DisputeLog{
+		ID:           disputeID.Int64(),
+		DataID:       disputeVars[0].Int64(),
+		DataTs:       time.Unix(disputeVars[1].Int64(), 0),
+		DataVal:      math.BigIntToFloatDiv(disputeVars[2], psr.DefaultGranularity),
+		Executed:     executed,
+		Passed:       passed,
+		Disputer:     disputer,
+		Disputed:     disputed,
+		DisputedSlot: disputeVars[6].Uint64(),
+		Tally:        math.BigIntToFloatDiv(tally, params.Ether),
+		Votes:        disputeVars[4].Uint64(),
+		Created:      created,
+		Ends:         votingEnds,
+		Fee:          math.BigIntToFloatDiv(disputeVars[8], params.Ether),
+	}, nil
+}
+
+type SubmitBlock struct {
+	Timestamp   *big.Int
+	DataIDs     [5]*big.Int
+	FinalValues map[int64]*big.Int
+	Reporters   map[int64][5]common.Address
+	Values      map[int64][5]*big.Int
+}
+
+func NewSubmitBlock() SubmitBlock {
+	return SubmitBlock{
+		FinalValues: make(map[int64]*big.Int),
+		Reporters:   make(map[int64][5]common.Address),
+		Values:      make(map[int64][5]*big.Int),
+	}
+}
+
+func GetSubmitLogs(
+	ctx context.Context,
+	client *ethclient.Client,
+	contract ContractCaller,
+	from int64,
+	lookBackDuration time.Duration,
+) ([]SubmitBlock, error) {
+	headerNow, err := client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get latest eth block header")
+	}
+
+	endBlock := headerNow.Number.Int64()
+
+	if from != 0 {
+		// Total block numbers that correspond to this TS calculated from the current time.
+		blockNums := int64(ethereumT.BlocksPerMinute * time.Since(time.Unix(from, 0)).Minutes())
+		// Subtract form the current header block number to use as the upper limit.
+		endBlock = endBlock - blockNums
+	}
+
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereumT.BlocksPerMinute))
+	startBlock := big.NewInt(0).Sub(big.NewInt(endBlock), lookBackDelta)
+
+	query := ethereum.FilterQuery{
+		FromBlock: startBlock,
+		ToBlock:   big.NewInt(endBlock),
+		Addresses: []common.Address{contract.Addr()},
+		Topics:    [][]common.Hash{{contract.Abi().Events["NewValue"].ID}},
+	}
+
+	events, err := client.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "get events")
+	}
+
+	var submitBlocks []SubmitBlock
+	for _, eventRaw := range events {
+		submitBlock := NewSubmitBlock()
+
+		eventNewBlock := &TellorNewValue{}
+		err := contract.UnpackLog(eventNewBlock, "NewValue", eventRaw)
+		if err != nil {
+			return nil, errors.Wrap(err, "unpack event from logs")
+		}
+
+		submitBlock.Timestamp = eventNewBlock.Time
+		submitBlock.DataIDs = eventNewBlock.RequestId
+		for index, dataID := range eventNewBlock.RequestId {
+			reporters, err := contract.GetMinersByRequestIdAndTimestamp(&bind.CallOpts{Context: ctx}, dataID, eventNewBlock.Time)
+			if err != nil {
+				return nil, errors.Wrap(err, "getting submit block reporters")
+			}
+			vals, err := contract.GetSubmissionsByTimestamp(&bind.CallOpts{Context: ctx}, dataID, eventNewBlock.Time)
+			if err != nil {
+				return nil, errors.Wrap(err, "getting submit block vals")
+			}
+			submitBlock.FinalValues[dataID.Int64()] = eventNewBlock.Value[index]
+			submitBlock.Reporters[dataID.Int64()] = reporters
+			submitBlock.Values[dataID.Int64()] = vals
+		}
+		submitBlocks = append(submitBlocks, submitBlock)
+	}
+	return submitBlocks, err
+}
+
+func LastSubmit(contract ContractCaller, reporter common.Address) (time.Duration, *time.Time, error) {
+	address := "000000000000000000000000" + reporter.Hex()[2:]
+	decoded, err := hex.DecodeString(address)
+	if err != nil {
+		return 0, nil, errors.Wrapf(err, "decoding address")
+	}
+	last, err := contract.GetUintVar(nil, ethereumT.Keccak256(decoded))
+
+	if err != nil {
+		return 0, nil, errors.Wrapf(err, "getting last submit time for:%v", reporter.Hex())
+	}
+	// The reporter has never submitted so put a timestamp at the beginning of unix time.
+	if last.Int64() == 0 {
+		last.Set(big.NewInt(1))
+	}
+
+	lastInt := last.Int64()
+	var lastSubmit time.Duration
+	var tm time.Time
+	if lastInt > 0 {
+		tm = time.Unix(lastInt, 0)
+		lastSubmit = time.Since(tm)
+	}
+
+	return lastSubmit, &tm, nil
+}
+
+func Slot(caller ContractCaller) (*big.Int, error) {
+	slot, err := caller.GetUintVar(nil, ethereumT.Keccak256([]byte("_SLOT_PROGRESS")))
+	if err != nil {
+		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
+	}
+	return slot, nil
 }

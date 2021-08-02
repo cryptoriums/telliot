@@ -1,13 +1,11 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package gas_price
 
-import (
-	"context"
-	"math/big"
-)
+import "context"
 
 type GasPriceQuerier interface {
-	Query(ctx context.Context) (*big.Int, error)
+	// Query returns the suggested base and tip fee in GWEI.
+	Query(ctx context.Context, confidence int) (baseFeeGwei, tipFeeGwei float64, err error)
 }

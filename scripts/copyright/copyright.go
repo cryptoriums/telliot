@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package main
@@ -14,7 +14,7 @@ import (
 
 var (
 	// license compatible for Go and Proto files.
-	license = []byte(`// Copyright (c) The Tellor Authors.
+	license = []byte(`// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 `)

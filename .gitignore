@@ -1,10 +1,9 @@
-*/saved.json
 coverage.out
 
-configs/.env
+*.env
+*.encrypted
 
 /telliot
-myconfig.json
 tmp
 db
 scripts/bindings

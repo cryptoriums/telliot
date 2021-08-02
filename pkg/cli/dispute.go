@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package cli
@@ -7,331 +7,472 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
+	"text/tabwriter"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/aggregator"
+	"github.com/cryptoriums/telliot/pkg/config"
+	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/db"
+	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/cryptoriums/telliot/pkg/math"
+	"github.com/cryptoriums/telliot/pkg/psr/tellor"
+	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/tsdb"
-	"github.com/tellor-io/telliot/pkg/aggregator"
-	"github.com/tellor-io/telliot/pkg/config"
-	"github.com/tellor-io/telliot/pkg/contracts"
-	"github.com/tellor-io/telliot/pkg/db"
-	tEthereum "github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/logging"
-	"github.com/tellor-io/telliot/pkg/math"
-	psrTellor "github.com/tellor-io/telliot/pkg/psr/tellor"
 )
 
-type disputeID struct {
-	DisputeID int64 `arg:"" required:"" help:"the dispute id"`
+type DispID struct {
+	DisputeID int64 `required:"" help:"the dispute id"`
 }
 
-type newDisputeCmd struct {
-	cfgGasAddr
-	RequestID  int64 `arg:""  help:"the request id to dispute it"`
-	Timestamp  int64 `arg:""  help:"the submitted timestamp to dispute"`
-	MinerIndex int64 `arg:""  help:"the miner index to dispute"`
+type LookBck struct {
+	LookBack time.Duration `default:"120h" help:"how far to lookback, the default only few days since disputes can be voted only for 2 days."`
 }
 
-func (self newDisputeCmd) Run() error {
+type NewDisputeCmd struct {
+	GasAccount
+	NoChks
+	RequestID int64 `required:""  help:"the request id to dispute"`
+	Timestamp int64 `required:""  help:"the submitted timestamp to dispute"`
+	Slot      int64 `required:""  help:"the reporter index to dispute"`
+}
+
+func (self *NewDisputeCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
+	if self.Slot < 0 || self.Slot > 4 {
+		return errors.Errorf("reporter index should be between 0 and 4 (got %v)", self.Slot)
 	}
 
-	client, err := tEthereum.NewClient(ctx, logger)
+	if self.Timestamp == 0 {
+		return errors.New("timestamp can't be zero")
+	}
+
+	tsTime := time.Unix(self.Timestamp, 0)
+	if time.Since(tsTime) < 0 {
+		return errors.New("timestamp can't be in the future")
+	}
+
+	client, netID, err := ethereumT.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	account, err := tEthereum.GetAccountByPubAddess(self.Addr)
+	account, err := ethereumT.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
 	}
-	contract, err := contracts.NewITellor(client)
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
 
-	if self.MinerIndex < 0 || self.MinerIndex > 4 {
-		return errors.Errorf("miner index should be between 0 and 4 (got %v)", self.MinerIndex)
+	if !self.NoChecks {
+		balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+		if err != nil {
+			return errors.Wrap(err, "fetch balance")
+		}
+
+		disputeCost, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereumT.Keccak256([]byte("_DISPUTE_FEE")))
+		if err != nil {
+			return errors.Wrap(err, "get dispute cost")
+		}
+
+		if balance.Cmp(disputeCost) < 0 {
+			return errors.Errorf("insufficient balance TRB actual: %v, TRB required:%v)",
+				math.BigIntToFloatDiv(balance, params.Ether),
+				math.BigIntToFloatDiv(disputeCost, params.Ether))
+		}
 	}
 
-	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
-	if err != nil {
-		return errors.Wrap(err, "fetch balance")
-	}
-
-	disputeCost, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, tEthereum.Keccak256([]byte("_DISPUTE_FEE")))
-	if err != nil {
-		return errors.Wrap(err, "get dispute cost")
-	}
-
-	if balance.Cmp(disputeCost) < 0 {
-		return errors.Errorf("insufficient balance TRB actual: %v, TRB required:%v)",
-			math.BigInt18eToFloat(balance),
-			math.BigInt18eToFloat(disputeCost))
-	}
-
-	var gasPrice *big.Int
-	if self.GasPrice > 0 {
-		gasPrice = big.NewInt(int64(self.GasPrice) * params.GWei)
-	}
-
-	auth, err := tEthereum.PrepareEthTransaction(ctx, client, account, gasPrice)
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.BeginDisputeGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.BeginDispute(auth, big.NewInt(self.RequestID), big.NewInt(self.Timestamp), big.NewInt(self.MinerIndex))
+	tx, err := contract.BeginDispute(opts, big.NewInt(self.RequestID), big.NewInt(self.Timestamp), big.NewInt(self.Slot))
 	if err != nil {
 		return errors.Wrap(err, "send dispute txn")
 	}
-	level.Info(logger).Log("msg", "dispute started", "tx", tx.Hash())
+	level.Info(logger).Log("msg", "dispute started",
+		"dataID", self.RequestID,
+		"ts", self.Timestamp,
+		"slot", self.Slot,
+		"tx", tx.Hash())
 	return nil
 }
 
-type voteCmd struct {
-	cfgGasAddr
-	disputeID
-	Support bool `arg:"" required:"" help:"true or false"`
+type VoteCmd struct {
+	GasAccount
+	DispID
+	NoChks
+	Support bool `required:"" help:"true or false"`
 }
 
-func (self voteCmd) Run() error {
+func (self *VoteCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	client, err := tEthereum.NewClient(ctx, logger)
+	client, netID, err := ethereumT.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	account, err := tEthereum.GetAccountByPubAddess(self.Addr)
+	account, err := ethereumT.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
 	}
-	contract, err := contracts.NewITellor(client)
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
 
-	voted, err := contract.DidVote(&bind.CallOpts{Context: ctx}, big.NewInt(self.DisputeID), account.Address)
+	dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
 	if err != nil {
-		return errors.Wrapf(err, "check if you've already voted")
+		return errors.Wrap(err, "getting dispute details")
 	}
-	if voted {
-		level.Info(logger).Log("msg", "you have already voted on this dispute")
-		return nil
-	}
-
-	var gasPrice *big.Int
-	if self.GasPrice > 0 {
-		gasPrice = big.NewInt(int64(self.GasPrice) * params.GWei)
+	if dispute.Executed {
+		return errors.New("dispute already executed")
 	}
 
-	auth, err := tEthereum.PrepareEthTransaction(ctx, client, account, gasPrice)
+	if !self.NoChecks {
+		voted, err := contract.DidVote(&bind.CallOpts{Context: ctx}, big.NewInt(self.DisputeID), account.Address)
+		if err != nil {
+			return errors.Wrapf(err, "check if you've already voted")
+		}
+		if voted {
+			level.Info(logger).Log("msg", "you have already voted on this dispute")
+			return nil
+		}
+	}
+
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
-	tx, err := contract.Vote(auth, big.NewInt(self.DisputeID), self.Support)
+	tx, err := contract.Vote(opts, big.NewInt(self.DisputeID), self.Support)
 	if err != nil {
 		return errors.Wrapf(err, "submit vote transaction")
 	}
 
-	level.Info(logger).Log("msg", "vote submitted with transaction", "tx", tx.Hash())
+	level.Info(logger).Log("msg", "vote submitted", "disputeID", self.DisputeID, "supports", self.Support, "tx", tx.Hash())
 	return nil
 }
 
-type tallyCmd struct {
-	cfgGas
-	disputeID
+type TallyCmd struct {
+	Gas
+	DispID
 }
 
-func (self tallyCmd) Run() error {
+func (self *TallyCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	client, err := tEthereum.NewClient(ctx, logger)
+	client, netID, err := ethereumT.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	accounts, err := tEthereum.GetAccounts()
-	if err != nil {
-		return err
-	}
-	contract, err := contracts.NewITellor(client)
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
 
-	var gasPrice *big.Int
-	if self.GasPrice > 0 {
-		gasPrice = big.NewInt(int64(self.GasPrice) * params.GWei)
+	dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
+	if err != nil {
+		return errors.Wrap(err, "getting dispute details")
 	}
 
-	auth, err := tEthereum.PrepareEthTransaction(ctx, client, accounts[0], gasPrice)
+	if dispute.Executed {
+		return errors.New("dispute already executed")
+	}
+
+	accounts, err := ethereumT.GetAccounts()
+	if err != nil {
+		return err
+	}
+
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.TallyGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.TallyVotes(auth, big.NewInt(self.DisputeID))
+	tx, err := contract.TallyVotes(opts, big.NewInt(self.DisputeID))
 	if err != nil {
-		return errors.Wrapf(err, "run tally votes if you've already voted")
+		return errors.Wrapf(err, "run tally votes")
 	}
 
 	level.Info(logger).Log("msg", "tally votes submitted", "tx", tx.Hash().Hex())
 	return nil
 }
 
-type listCmd struct {
-	cfg
+type TallyListCmd struct {
+	LookBck
 }
 
-func (self listCmd) Run() error {
+func (self *TallyListCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	cfg, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	client, err := tEthereum.NewClient(ctx, logger)
+	client, netID, err := ethereumT.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	contract, err := contracts.NewITellor(client)
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
+	}
+
+	logs, err := contracts.GetTallyLogs(ctx, client, contract, self.LookBack)
+	if err != nil {
+		return errors.Wrap(err, "getting latest disputes")
+	}
+
+	for _, log := range logs {
+		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
+
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Println()
+		fmt.Fprintln(w, "TxHash:\t", log.Raw.TxHash, "\t")
+		fmt.Fprintln(w, "ID:\t", log.DisputeID, "\t")
+		fmt.Fprintln(w, "Passed:\t", log.Passed, "\t")
+		fmt.Fprintln(w, "Reported:\t", log.ReportedMiner.Hex(), "\t")
+		fmt.Fprintln(w, "Reporter:\t", log.ReportingParty.Hex(), "\t")
+		w.Flush()
+	}
+
+	return nil
+}
+
+type UnlockFeeCmd struct {
+	NoChks
+	Gas
+	DispID
+}
+
+func (self *UnlockFeeCmd) Run() error {
+	logger := logging.NewLogger()
+	ctx := context.Background()
+
+	client, netID, err := ethereumT.NewClient(logger, ctx)
+	if err != nil {
+		return errors.Wrap(err, "creating ethereum client")
+	}
+
+	accounts, err := ethereumT.GetAccounts()
+	if err != nil {
+		return err
+	}
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
+	}
+
+	if !self.NoChecks {
+		tallyTs, err := contract.GetDisputeUintVars(
+			&bind.CallOpts{Context: ctx},
+			big.NewInt(self.DisputeID),
+			ethereumT.Keccak256([]byte("_TALLY_DATE")),
+		)
+		if err != nil {
+			return errors.Wrap(err, "get _TALLY_DATE")
+		}
+
+		if tallyTs.Int64() == 0 {
+			return errors.Errorf("dispute not executed yet")
+		}
+
+		timePassed := time.Since(time.Unix(tallyTs.Int64(), 0))
+
+		if timePassed < 24*time.Hour {
+			return errors.Errorf("not enough time has passed after tallying - required:24h, current:%v", timePassed)
+		}
+
+		paid, err := contract.GetDisputeUintVars(
+			&bind.CallOpts{Context: ctx},
+			big.NewInt(self.DisputeID),
+			ethereumT.Keccak256([]byte("_PAID")),
+		)
+		if err != nil {
+			return errors.Wrap(err, "get _PAID")
+		}
+
+		if paid.Int64() == 1 {
+			return errors.Errorf("dispute already paid out")
+		}
+	}
+
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.UnlockFeeGasUsage)
+	if err != nil {
+		return errors.Wrapf(err, "prepare ethereum transaction")
+	}
+
+	tx, err := contract.UnlockDisputeFee(opts, big.NewInt(self.DisputeID))
+	if err != nil {
+		return errors.Wrapf(err, "run unlock fee")
+	}
+
+	level.Info(logger).Log("msg", "unlock fee submitted", "tx", tx.Hash().Hex())
+	return nil
+}
+
+type ListCmd struct {
+	config     *config.Config
+	ShowClosed bool `help:"also show executed disputes"`
+	LookBck
+}
+
+func (self *ListCmd) SetConfig(config *config.Config) {
+	self.config = config
+}
+
+func (self *ListCmd) Run() error {
+	logger := logging.NewLogger()
+	ctx := context.Background()
+
+	client, netID, err := ethereumT.NewClient(logger, ctx)
+	if err != nil {
+		return errors.Wrap(err, "creating ethereum client")
+	}
+
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	// Open the TSDB database.
 	var querable storage.SampleAndChunkQueryable
-	if cfg.Db.RemoteHost != "" {
-		querable, err = db.NewRemoteDB(cfg.Db)
+	if self.config.Db.RemoteHost != "" {
+		querable, err = db.NewRemoteDB(self.config.Db)
 		if err != nil {
 			return errors.Wrap(err, "opening remote tsdb DB")
 		}
 	} else {
 		tsdbOptions := tsdb.DefaultOptions()
 		tsdbOptions.NoLockfile = true
-		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
+		querable, err = tsdb.Open(self.config.Db.Path, nil, nil, tsdbOptions)
 		if err != nil {
 			return errors.Wrap(err, "opening tsdb DB")
 		}
 	}
 
-	aggregator, err := aggregator.New(logger, ctx, cfg.Aggregator, querable)
+	aggregator, err := aggregator.New(logger, ctx, self.config.Aggregator, querable)
 	if err != nil {
 		return errors.Wrap(err, "creating aggregator")
 	}
 
-	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
+	psr := psrTellor.New(logger, self.config.PsrTellor, aggregator)
 
-	queryDays := int64(10)
-	logs, err := contracts.GetDisputeLogs(ctx, client, contract.Address, int(queryDays))
+	logs, err := contracts.GetDisputeLogs(ctx, client, contract, self.LookBack)
 	if err != nil {
 		return errors.Wrap(err, "getting latest disputes")
 	}
 
-	level.Info(logger).Log("msg", "disputes count", "daysLookBack", queryDays, "count", len(logs))
+	level.Info(logger).Log("msg", "disputes count", "lookBackPeriod", self.LookBack, "count", len(logs))
 
-	for _, log := range logs {
-		_, executed, votePassed, _, reportedAddr, reportingMiner, _, disputeVars, currTally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, log.DisputeId)
-		if err != nil {
-			return errors.Wrap(err, "get dispute details")
-		}
-
-		rounds, err := contract.GetDisputeUintVars(
-			&bind.CallOpts{Context: ctx},
-			log.DisputeId,
-			tEthereum.Keccak256([]byte("_DISPUTE_ROUNDS")),
-		)
-		if err != nil {
-			return errors.Wrap(err, "get dispute rounds")
-		}
-
-		votingEnds := time.Unix(disputeVars[3].Int64(), 0)
-		votingWindow := 2 * 24 * time.Hour // 2 days.
-		createdTime := votingEnds.Add(-votingWindow * time.Duration(rounds.Int64()))
-
-		level.Info(logger).Log(
-			"msg", "dispute details",
-			"created", createdTime.Format("3:04:05 PM January 02, 2006 MST"),
-			"executed", executed,
-			"passed", votePassed,
-			"disputeId", log.DisputeId.String(),
-			"requestId", log.RequestId.Uint64(),
-			"disputedTimestamp", time.Unix(log.Timestamp.Int64(), 0).Format("3:04:05 PM January 02, 2006 MST"),
-			"reported", reportedAddr.Hex(),
-			"miner", reportingMiner.Hex(),
-			"fee", math.BigInt18eToFloat(disputeVars[8]),
-		)
-
-		fmt.Println("currTally", currTally.String())
-
-		tmp := new(big.Float)
-		tmp.SetInt(currTally)
-		currTallyFloat, _ := tmp.Float64()
-		tmp.SetInt(disputeVars[7])
-		currQuorum, _ := tmp.Float64()
-		currTallyFloat += currQuorum
-		currTallyRatio := currTallyFloat / 2 * currQuorum
-
-		level.Info(logger).Log(
-			"msg", "current dispute results",
-			"currTallyRatio", fmt.Sprintf("%0.f%%", currTallyRatio*100),
-			"TRB", math.BigInt18eToFloat(disputeVars[7]),
-			"votes", disputeVars[4],
-		)
-
-		submits, err := contract.GetSubmissionsByTimestamp(
-			&bind.CallOpts{Context: ctx},
-			log.RequestId,
-			log.Timestamp,
-		)
-		if err != nil {
-			level.Error(logger).Log("msg", "getting all submits", "err", err)
+	var lastTs int64
+	var submits []Submit
+	for i, log := range logs {
+		if !self.ShowClosed && log.Executed {
 			continue
 		}
 
-		suggested, err := psr.GetValue(log.RequestId.Int64(), time.Unix(log.Timestamp.Int64(), 0))
-		if err != nil {
-			level.Error(logger).Log("msg", "look up recomended value", "id", log.RequestId.Int64(), "err", err)
+		// Print submit results only once for disputes with the same TS.
+		if lastTs != log.DataTs.Unix() {
+			printSubmits(submits)
+
+			submits = submits[:0]
+			suggested, err := psr.GetValue(log.DataID, log.DataTs)
+			if err != nil {
+				level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
+			}
+
+			_submits, err := contract.GetSubmissionsByTimestamp(
+				&bind.CallOpts{Context: ctx},
+				big.NewInt(log.DataID),
+				big.NewInt(log.DataTs.Unix()),
+			)
+			if err != nil {
+				level.Error(logger).Log("msg", "getting all submits", "err", err)
+				continue
+			}
+
+			for i, submit := range _submits {
+				var disputed bool
+				if i == int(log.DisputedSlot) {
+					disputed = true
+				}
+
+				submits = append(submits, Submit{
+					Value:      float64(submit.Int64()) / psrTellor.DefaultGranularity,
+					Suggested:  suggested / psrTellor.DefaultGranularity,
+					MinerIndex: i,
+					IsDisputed: disputed,
+				})
+
+			}
+		} else {
+			submits[log.DisputedSlot].IsDisputed = true
+		}
+		lastTs = log.DataTs.Unix()
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
+
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Println()
+		fmt.Fprintln(w, "ID:\t", log.ID, "\t")
+		fmt.Fprintln(w, "Executed:\t", log.Executed, "\t")
+		fmt.Fprintln(w, "Passed:\t", log.Passed, "\t")
+		fmt.Fprintln(w, "Fee:\t", log.Fee, "\t")
+		fmt.Fprintln(w, "Created:\t", log.Created.Format(logging.DefaultTimeFormat), "\t")
+		fmt.Fprintln(w, "Ends:\t", -time.Since(log.Ends), "\t")
+		fmt.Fprintln(w, "Tally:\t", log.Tally, "\t")
+		fmt.Fprintln(w, "Votes:\t", log.Votes, "\t")
+		fmt.Fprintln(w, "Pairs:\t", tellor.Psrs[log.DataID].Pair, "\t")
+		fmt.Fprintln(w, "DataId:\t", log.DataID, "\t")
+		fmt.Fprintln(w, "Ts:\t", strconv.Itoa(int(log.DataTs.Unix()))+"- "+log.DataTs.Format(logging.DefaultTimeFormat), "\t")
+		fmt.Fprintln(w, "Slot:\t", log.DisputedSlot, "\t")
+		fmt.Fprintln(w, "Disputer:\t", log.Disputer.Hex(), "\t")
+		fmt.Fprintln(w, "Disputed:\t", log.Disputed.Hex(), "\t")
+		fmt.Fprintln(w, "TxHash:\t", log.TxHash.Hex(), "\t")
+		w.Flush()
+
+		// Also print the submits when it is the last dispute.
+		if i == len(logs)-1 {
+			printSubmits(submits)
 		}
 
-		for i, submit := range submits {
-			var disputed bool
-			if i == int(disputeVars[6].Int64()) {
-				disputed = true
-			}
-			level.Info(logger).Log(
-				"msg", "submit details",
-				"submitValue", submit,
-				"suggestedValue", suggested,
-				"minerIndex", i,
-				"disputed", disputed,
-			)
-		}
 	}
 
 	return nil
+}
+
+type Submit struct {
+	Value      float64
+	Suggested  float64
+	MinerIndex int
+	IsDisputed bool
+}
+
+func printSubmits(submits []Submit) {
+	for _, submit := range submits {
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, disputed:%v \n",
+			submit.Value,
+			submit.Suggested,
+			submit.MinerIndex,
+			submit.IsDisputed,
+		)
+	}
+	//lint:ignore faillint looks cleaner with print instead of logs
+	fmt.Printf("\n\n")
 }

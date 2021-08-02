@@ -1,0 +1,36 @@
+namespace: tellor
+
+grafana:
+  serveFromSubPath: false
+  service:
+    port: 80
+  loadBalancing: false
+  ingress:
+    # -- Ingress class to use for grafana
+    class: nginx
+    # -- Hostname to use for accessing grafana
+    hostname: monitor
+    # -- Subpath to access grafana
+    path: /
+    tls:
+      # -- Enable/Disable TLS for grafana
+      enabled: false
+      # -- Name of TLS secret to use for grafana
+      secret: grafana-tls-secret
+  container:
+    port: 3000
+    # -- Docker image for grafana
+    image: grafana/grafana:8.1.0
+  # -- Grafana storage size in GB
+  storage: 1
+
+prometheus:
+  enabled: false
+  service:
+    port: 9090
+  container:
+    port: 9090
+    # -- Docker image for prometheus
+    image: prom/prometheus:v2.28.1
+  # -- Prometheus storage in GB
+  storage: 10

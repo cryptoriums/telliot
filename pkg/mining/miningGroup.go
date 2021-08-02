@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package mining
@@ -10,18 +10,17 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/contracts"
-	"github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/logging"
 )
 
 const ComponentName = "miner"
 
 type HashSettings struct {
-	ctx        context.Context
 	prefix     []byte
 	difficulty *big.Int
 }
@@ -76,10 +75,10 @@ type MiningGroup struct {
 	Backends         []*Backend
 	LastPrinted      time.Time
 	logger           log.Logger
-	contractInstance *contracts.ITellor
+	contractInstance contracts.ContractCaller
 }
 
-func NewMiningGroup(logger log.Logger, ctx context.Context, cfg Config, hashers []Hasher, contractInstance *contracts.ITellor) (*MiningGroup, error) {
+func NewMiningGroup(logger log.Logger, ctx context.Context, cfg Config, hashers []Hasher, contractInstance contracts.ContractCaller) (*MiningGroup, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")

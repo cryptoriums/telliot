@@ -1,16 +1,17 @@
-module github.com/tellor-io/telliot
+module github.com/cryptoriums/telliot
 
 go 1.16
 
 require (
 	github.com/alecthomas/kong v0.2.18-0.20210609031350-33ce628ecde8
 	github.com/allegro/bigcache v1.2.1 // indirect
-	github.com/bluele/gcache v0.0.2
+	github.com/bluele/gcache v0.0.3-0.20210610150759-ecee3be431d1
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/ethereum/go-ethereum v1.10.3
+	github.com/ethereum/go-ethereum v1.10.7
+	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/kit v0.10.0
 	github.com/google/go-github/v35 v35.3.1-0.20210613000602-77dd0eb64ad2
@@ -30,5 +31,6 @@ require (
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/goleak v1.1.10
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/tools v0.1.1-0.20210317201901-4599a76b0b9a // indirect
+	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
+	golang.org/x/tools v0.1.1-0.20210317201901-4599a76b0b9a
 )

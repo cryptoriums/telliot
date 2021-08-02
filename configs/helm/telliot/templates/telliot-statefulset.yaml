@@ -1,0 +1,60 @@
+{{- range $index := .Values.command }}
+{{- $val := dict "command" $index }}
+{{- $commandName := printf "%s-%s" (include "telliot.fullname" $) (include "telliot.commandName" $val) | trunc 63 | trimSuffix "-" }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $commandName }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: {{ $commandName }}
+spec:
+  serviceName: {{ $commandName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $commandName }}
+  template:
+    metadata:
+      labels:
+        app: {{ $commandName }}
+    spec:
+      containers:
+      - name: {{ $commandName }}
+        image: {{ $.Values.container.image }}
+        imagePullPolicy: Always
+        args: ["{{ $index | lower }}"]
+        ports:
+        - name: {{ $commandName }}
+          containerPort: 9090
+        volumeMounts:
+        - name: config
+          mountPath: "/configs"
+        - name: db
+          mountPath: "/db"
+        env:
+        {{- if $.Values.uniqueConfiguration }}
+        {{- $path := printf "%s/%s" "files" ($commandName | lower) }}
+        {{- else }}
+        {{- $path := "files" }}
+        {{- $file := $.Files.Get (printf "%s/%s" $path ".env") | trimSuffix "\n" }}
+        {{- range $line := splitList "\n" $file }}
+        {{- if and (contains "=" $line) (not (hasPrefix "#" $line)) }}
+        {{- $kv := splitList "=" $line }}
+        - name: {{ first $kv }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $commandName }}
+              key: {{ first $kv }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ $commandName }}
+      - name: db
+        persistentVolumeClaim:
+          claimName: {{ $commandName }}
+{{- end }}

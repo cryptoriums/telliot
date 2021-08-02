@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package web
@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/format"
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/cryptoriums/telliot/pkg/web/api"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -18,9 +21,6 @@ import (
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
-	"github.com/tellor-io/telliot/pkg/format"
-	"github.com/tellor-io/telliot/pkg/logging"
-	"github.com/tellor-io/telliot/pkg/web/api"
 )
 
 const ComponentName = "web"
@@ -87,7 +87,7 @@ func New(logger log.Logger, ctx context.Context, tsDB storage.SampleAndChunkQuer
 }
 
 func (self *Web) Start() error {
-	level.Info(self.logger).Log("msg", "starting", "addr", self.srv.Addr)
+	level.Info(self.logger).Log("msg", "starting", "logLevel", self.cfg.LogLevel, "addr", self.srv.Addr)
 	if err := self.srv.ListenAndServe(); err != http.ErrServerClosed {
 		return errors.Wrapf(err, "ListenAndServe")
 	}

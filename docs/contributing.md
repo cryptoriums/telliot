@@ -17,11 +17,11 @@ Thank you for considering to help. Contributions are very welcome and additional
 
 If you encounter any issue or you have an idea to improve, please:
 
-* Search through Google and [existing open and closed GitHub Issues](https://github.com/tellor-io/telliot/issues) for the
+* Search through Google and [existing open and closed GitHub Issues](https://github.com/cryptoriums/telliot/issues) for the
 
   answer first. If you find a relevant topic, please comment on the issue.
 
-* If not found, please add an issue to [GitHub issues](https://github.com/tellor-io/telliot/issues).
+* If not found, please add an issue to [GitHub issues](https://github.com/cryptoriums/telliot/issues).
 * If you have a quick question you might want to also ask on our [Discord](https://discord.gg/n7drGjh).
 
 {% hint style="info" %}
@@ -41,7 +41,7 @@ The following section explains various suggestions and procedures to note during
 ### First Steps
 
 * Familiarizing yourself with our [coding style guidelines.](coding-style-guide.md)
-* Familiarizing yourself with the [Makefile](https://github.com/tellor-io/telliot/blob/master/Makefile) commands, for example, `build`, `format`, `test`, `lint`.
+* Familiarizing yourself with the [Makefile](https://github.com/cryptoriums/telliot/blob/master/Makefile) commands, for example, `build`, `format`, `test`, `lint`.
 
   `make help` will print all available commands with some description.
 
@@ -53,7 +53,7 @@ The following section explains various suggestions and procedures to note during
 $ GOPATH=$(go env GOPATH)
 $ mkdir -p $GOPATH/src/github.com/tellor-io
 $ cd $GOPATH/src/github.com/tellor-io
-$ git clone https://github.com/tellor-io/telliot.git
+$ git clone https://github.com/cryptoriums/telliot.git
 $ cd telliot
 $ git remote add fork git remote add fork git@github.com/<your_github_id>/telliot.git
 $ make build

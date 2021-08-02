@@ -49,7 +49,7 @@ deps: ## Ensures fresh go.mod and go.sum.
 
 .PHONY: generate
 generate: ## Generate all dynamic files.
-generate: generate-bindings generate-config-docs
+generate: generate-bindings generate-config-docs generate-helm-docs
 
 .PHONY: generate-check
 generate-check: ## Check that all generated files are up to date. Mainly used in the CI.
@@ -58,15 +58,17 @@ generate-check: check-git generate
 
 .PHONY: generate-bindings
 generate-bindings: $(CONTRAGET)
-	@$(CONTRAGET) --addr=0x1d8efc3eabeb33bb44a75eeb967292ac8bf58e03 --download-dst=tmp --pkg-dst=pkg/contracts --name=tellor --pkg-aliases="Transfer=Transferred"
+generate-bindings: generate-bindings-tellor
 	@sleep 6
-	@$(CONTRAGET) --addr=0x577417CFaF319a1fAD90aA135E3848D2C00e68CF --download-dst=tmp --network=mainnet --pkg-dst=pkg/contracts --name=lens
-	@sleep 6
-	@$(CONTRAGET) --addr=0x9C84391B443ea3a48788079a5f98e2EaD55c9309 --download-dst=tmp --pkg-dst=pkg/contracts --name=balancer
-	@sleep 6
-	@$(CONTRAGET) --addr=0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e --download-dst=tmp --pkg-dst=pkg/contracts --name=uniswap
-	@sleep 6
-	@$(CONTRAGET) --addr=0xDcD9c3b744c2C6e5685F81Ba27388B02D96bbdC8 --download-dst=tmp --pkg-dst=pkg/contracts --name=tellorMesosphere
+	@$(CONTRAGET) --addr=0x34319564f00C924dA8fB52fD8bA6edBfd1FfEdA8 --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_testing --pkg-aliases="Transfer=Transferred"
+# @sleep 6
+# @$(CONTRAGET) --addr=0x9C84391B443ea3a48788079a5f98e2EaD55c9309 --download-dst=tmp --pkg-dst=pkg/contracts --name=balancer
+# @sleep 6
+# @$(CONTRAGET) --addr=0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e --download-dst=tmp --pkg-dst=pkg/contracts --name=uniswap
+
+.PHONY: generate-bindings-tellor
+generate-bindings-tellor: $(CONTRAGET)
+	@$(CONTRAGET) --addr=0x2754da26f634e04b26c4decd27b3eb144cf40582 --download-dst=tmp --network=mainnet --pkg-dst=pkg/contracts --name=tellor --pkg-aliases="Transfer=Transferred"
 
 .PHONY: generate-testdata
 generate-testdata:
@@ -82,6 +84,9 @@ build:
 	@[ "${GIT_HASH}" ] || ( echo ">> GIT_HASH is not set"; exit 1 )
 	go build -ldflags "-X main.GitTag=$(GIT_TAG) -X main.GitHash=$(GIT_HASH) -s -w" ./cmd/telliot
 
+.PHONY: generate-helm-docs
+generate-helm-docs: $(HELM_DOCS)
+	@$(HELM_DOCS) --chart-search-root configs/helm
 
 .PHONY: generate-config-docs
 generate-config-docs: ## Auto generating the cli, config, and env.example documents using a golang script.
@@ -149,7 +154,7 @@ go-lint: check-git deps $(GOLANGCI_LINT) $(FAILLINT) $(MISSPELL)
 	@echo ">> linting all of the Go files GOGC=${GOGC}"
 	@$(GOLANGCI_LINT) run
 	@echo ">> detecting misspells"
-	@find . -type f | grep -v pkg/contracts/tellor | grep -v pkg/contracts/lens | grep -v tmp | grep -v go.sum | grep -vE '\./\..*' | xargs $(MISSPELL) -error
+	@find . -type f | grep -v pkg/contracts/tellor | grep -v tmp | grep -v go.sum | grep -vE '\./\..*' | xargs $(MISSPELL) -error
 	@echo ">> ensuring Copyright headers"
 	@go run ./scripts/copyright
 	$(call require_clean_work_tree,'detected files without copyright, run make lint and commit changes')

@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package ethereum
@@ -7,7 +7,8 @@ package ethereum
 // 	balanceAtFN    = "0x70a08231"
 // 	top50FN        = "0xb5413029"
 // 	currentVarsFN  = "0xa22e407a"
-// 	getRequestVars = "0xe1eee6d6"
+// getRequestVars = "0xe1eee6d6"
+
 // 	didMineFN      = "0x63bb82ad"
 // 	getUintVarFN   = "0x612c8f7f"
 // 	decimalsFN     = "0x313ce567"

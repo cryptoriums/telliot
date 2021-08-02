@@ -17,11 +17,11 @@ GO     ?= $(shell which go)
 #	@echo "Running contraget"
 #	@$(CONTRAGET) <flags/args..>
 #
-CONTRAGET := $(GOBIN)/contraget-v0.0.0-20210715114415-635683ad3e5b
+CONTRAGET := $(GOBIN)/contraget-v0.0.0-20210819100247-63447b75d6f9
 $(CONTRAGET): $(BINGO_DIR)/contraget.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/contraget-v0.0.0-20210715114415-635683ad3e5b"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=contraget.mod -o=$(GOBIN)/contraget-v0.0.0-20210715114415-635683ad3e5b "github.com/cryptoriums/contraget/cmd/contraget"
+	@echo "(re)installing $(GOBIN)/contraget-v0.0.0-20210819100247-63447b75d6f9"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=contraget.mod -o=$(GOBIN)/contraget-v0.0.0-20210819100247-63447b75d6f9 "github.com/cryptoriums/contraget/cmd/contraget"
 
 FAILLINT := $(GOBIN)/faillint-v1.5.0
 $(FAILLINT): $(BINGO_DIR)/faillint.mod
@@ -40,6 +40,12 @@ $(GOLANGCI_LINT): $(BINGO_DIR)/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/golangci-lint-v1.41.1"
 	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.41.1 "github.com/golangci/golangci-lint/cmd/golangci-lint"
+
+HELM_DOCS := $(GOBIN)/helm-docs-v1.6.0
+$(HELM_DOCS): $(BINGO_DIR)/helm-docs.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/helm-docs-v1.6.0"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=helm-docs.mod -o=$(GOBIN)/helm-docs-v1.6.0 "github.com/norwoodj/helm-docs/cmd/helm-docs"
 
 MISSPELL := $(GOBIN)/misspell-v0.3.5-0.20180309020325-c0b55c823952
 $(MISSPELL): $(BINGO_DIR)/misspell.mod

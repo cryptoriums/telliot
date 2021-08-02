@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package aggregator
@@ -13,13 +13,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
-	"github.com/tellor-io/telliot/pkg/format"
-	"github.com/tellor-io/telliot/pkg/logging"
-	"github.com/tellor-io/telliot/pkg/tracker/index"
 )
 
 const ComponentName = "aggregator"
@@ -72,32 +71,36 @@ func New(
 	}, nil
 }
 
-func (self *Aggregator) ManualValue(oracleName string, reqID int64, ts time.Time) (float64, error) {
+func (self *Aggregator) ManualValue(oracleName string, reqID int64, ts time.Time) (float64, bool, error) {
 	jsonFile, err := os.Open(self.cfg.ManualDataFile)
 	if err != nil {
-		return 0, errors.Wrapf(err, "manual data file read Error")
+		if os.IsNotExist(err) {
+			return 0, false, nil
+		}
+		return 0, false, errors.Wrapf(err, "manual data file read Error")
 	}
 	defer jsonFile.Close()
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	var result map[string]map[string]map[string]float64
 	err = json.Unmarshal([]byte(byteValue), &result)
 	if err != nil {
-		return 0, errors.Wrap(err, "unmarshal manual data file")
+		return 0, false, errors.Wrap(err, "unmarshal manual data file")
 	}
 
 	oracleManualVals, ok := result[oracleName]
 	if !ok {
-		return 0, errors.Wrapf(err, "malformatted json file for oracle:%v", oracleName)
+		return 0, false, errors.Wrapf(err, "malformatted json file for oracle:%v", oracleName)
 	}
 	val := oracleManualVals[strconv.FormatInt(reqID, 10)]["VALUE"]
 	if val != 0 {
 		_timestamp := int64(oracleManualVals[strconv.FormatInt(reqID, 10)]["DATE"])
 		timestamp := time.Unix(_timestamp, 0)
 		if ts.After(timestamp) {
-			return 0, errors.Errorf("manual entry value has expired:%v", ts)
+			return 0, false, errors.Errorf("manual entry value has expired:%v", ts)
 		}
+		return val, true, nil
 	}
-	return val, nil
+	return 0, false, nil
 }
 
 func (self *Aggregator) MedianAt(symbol string, at time.Time) (float64, float64, error) {
@@ -150,7 +153,7 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 			max = val
 		}
 	}
-	return priceSum / float64(len(vals)), confidenceInDifference(min, max)
+	return priceSum / float64(len(vals)), ConfidenceInDifference(min, max)
 }
 
 // TimeWeightedAvg returns price and confidence level for a given symbol.
@@ -162,7 +165,7 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 //
 // Example for 1h.
 // maxDataPointCount is calculated by deviding the seconds in 1h by how often the tracker queries the APIs.
-// avg(count_over_time(indexTracker_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/indexTracker_interval)).
+// avg(count_over_time(trackerIndex_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/trackerIndex_interval)).
 func (self *Aggregator) TimeWeightedAvg(
 	symbol string,
 	start time.Time,
@@ -177,17 +180,17 @@ func (self *Aggregator) TimeWeightedAvg(
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg_over_time(
-			`+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`"}
+			`+index.MetricSubmitValue+`{symbol="`+symbol+`"}
 		[`+lookBack.String()+`])`,
 		start,
 	)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 	_result := query.Exec(self.ctx)
 	if _result.Err != nil {
-		return 0, 0, errors.Wrapf(_result.Err, "error evaluating query:%v", query.Statement())
+		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", query.Statement())
 	}
 	if len(_result.Value.(promql.Vector)) == 0 {
 		return 0, 0, errors.Errorf("no result for TWAP vals query:%v", query.Statement())
@@ -200,7 +203,7 @@ func (self *Aggregator) TimeWeightedAvg(
 		self.tsDB,
 		`avg(
 			count_over_time(
-				`+index.ValueMetricName+`{ symbol="`+format.SanitizeMetricName(symbol)+`" }
+				`+index.MetricSubmitValue+`{ symbol="`+symbol+`" }
 			[`+lookBack.String()+`:`+resolution.String()+`])
 			/
 			(`+strconv.Itoa(int(lookBack.Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
@@ -209,12 +212,12 @@ func (self *Aggregator) TimeWeightedAvg(
 	)
 
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 	confidence := query.Exec(self.ctx)
 	if confidence.Err != nil {
-		return 0, 0, errors.Wrapf(confidence.Err, "error evaluating query:%v", query.Statement())
+		return 0, 0, errors.Wrapf(confidence.Err, "evaluating query:%v", query.Statement())
 	}
 
 	if len(confidence.Value.(promql.Vector)) == 0 {
@@ -233,7 +236,7 @@ func (self *Aggregator) TimeWeightedAvg(
 // maxDataPointCount is calculated by deviding the seconds in 1h by how often the tracker queries the APIs.
 //
 // Example for 1h.
-// avg(count_over_time(indexTracker_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/30s)).
+// avg(count_over_time(trackerIndex_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/30s)).
 //
 // vals are calculated using the official VWAP formula from
 // https://tradingtuitions.com/vwap-trading-strategy-excel-sheet/
@@ -256,21 +259,21 @@ func (self *Aggregator) VolumWeightedAvg(
 		`avg(
 			sum_over_time(
 				(
-					sum_over_time( `+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`_VOLUME"}[`+aggrWindow.String()+`]
+					sum_over_time( `+index.MetricSubmitValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`]
 					) * on(domain)
-					avg_over_time(`+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`"}[`+aggrWindow.String()+`])
+					avg_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`"}[`+aggrWindow.String()+`])
 				)
 			[`+timeWindow+`:`+aggrWindow.String()+`])
 			/ on(domain)
 			sum_over_time(
-					sum_over_time(`+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`_VOLUME"}[`+aggrWindow.String()+`])
+					sum_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`])
 			[`+timeWindow+`:`+aggrWindow.String()+`])
 		)`,
 		end,
 	)
 
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 
@@ -279,7 +282,7 @@ func (self *Aggregator) VolumWeightedAvg(
 
 	_result := query.Exec(self.ctx)
 	if _result.Err != nil {
-		return 0, 0, errors.Wrapf(_result.Err, "error evaluating query:%v", qStmt)
+		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", qStmt)
 	}
 	result := _result.Value.(promql.Vector)
 	if len(result) == 0 {
@@ -290,20 +293,20 @@ func (self *Aggregator) VolumWeightedAvg(
 	query, err = self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg(
-			count_over_time(`+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`"}[`+timeWindow+`])
+			count_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`"}[`+timeWindow+`])
 			/
 			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
 		)`,
 		end,
 	)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 
 	confidenceP := query.Exec(self.ctx)
 	if confidenceP.Err != nil {
-		return 0, 0, errors.Wrapf(confidenceP.Err, "error evaluating query:%v", query.Statement())
+		return 0, 0, errors.Wrapf(confidenceP.Err, "evaluating query:%v", query.Statement())
 	}
 
 	// Confidence level for volumes.
@@ -314,19 +317,19 @@ func (self *Aggregator) VolumWeightedAvg(
 	query, err = self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg(
-			count_over_time(`+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`_VOLUME"}[`+timeWindow+`])
+			count_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`_VOLUME"}[`+timeWindow+`])
 			/
 			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
 		)`,
 		end,
 	)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 	confidenceV := query.Exec(self.ctx)
 	if confidenceV.Err != nil {
-		return 0, 0, errors.Wrapf(confidenceV.Err, "error evaluating query:%v", query.Statement())
+		return 0, 0, errors.Wrapf(confidenceV.Err, "evaluating query:%v", query.Statement())
 	}
 
 	if len(confidenceP.Value.(promql.Vector)) == 0 || len(confidenceV.Value.(promql.Vector)) == 0 {
@@ -343,6 +346,8 @@ func (self *Aggregator) VolumWeightedAvg(
 	return result[len(result)-1].V, confidence * 100, nil
 }
 
+// median returns the median and the confidence calculated with
+// the difference between the min and max values.
 func (self *Aggregator) median(vals []float64) (float64, float64) {
 	if len(vals) == 1 {
 		return vals[0], 100
@@ -360,14 +365,14 @@ func (self *Aggregator) median(vals []float64) (float64, float64) {
 		price = (vals[position-1] + vals[position]) / 2
 	}
 
-	return price, confidenceInDifference(vals[0], vals[len(vals)-1])
+	return price, ConfidenceInDifference(vals[0], vals[len(vals)-1])
 }
 
-// confidenceInDifference calculates the percentage difference between the max and min and subtract this from 100%.
+// ConfidenceInDifference calculates the percentage difference between the max and min and subtract this from 100%.
 // Example:
 // min 1, max 2
 // Difference is 1 which is 100% so the final confidence is 100-100 equals 0%.
-func confidenceInDifference(min, max float64) float64 {
+func ConfidenceInDifference(min, max float64) float64 {
 	return 100 - (math.Abs(min-max)/min)*100
 }
 
@@ -378,7 +383,7 @@ func confidenceInDifference(min, max float64) float64 {
 // maxDataPointCount = timeWindow/trackerCycle
 //
 // Example confidence for 1h.
-// avg(count_over_time(indexTracker_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/30s)).
+// avg(count_over_time(trackerIndex_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/30s)).
 func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]float64, float64, error) {
 	resolution, err := self.resolution(symbol, at)
 	if err != nil {
@@ -399,19 +404,19 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg(
-			count_over_time(`+index.ValueMetricName+`{ symbol="`+format.SanitizeMetricName(symbol)+`" }[`+lookBack.String()+`] )
+			count_over_time(`+index.MetricSubmitValue+`{ symbol="`+symbol+`" }[`+lookBack.String()+`] )
 			/
 			(`+strconv.Itoa(int(lookBack.Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
 		)`,
 		at,
 	)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 	confidence := query.Exec(self.ctx)
 	if confidence.Err != nil {
-		return nil, 0, errors.Wrapf(confidence.Err, "error evaluating query:%v", query.Statement())
+		return nil, 0, errors.Wrapf(confidence.Err, "evaluating query:%v", query.Statement())
 	}
 	if len(confidence.Value.(promql.Vector)) == 0 {
 		return nil, 0, errors.Errorf("no vals for confidence at:%v, query:%v", at, query.Statement())
@@ -424,16 +429,16 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 func (self *Aggregator) valsAt(symbol string, at time.Time, lookBack time.Duration) (promql.Vector, error) {
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`last_over_time( `+index.ValueMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`"} [`+lookBack.String()+`])`,
+		`last_over_time( `+index.MetricSubmitValue+`{symbol="`+symbol+`"} [`+lookBack.String()+`])`,
 		at,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 	result := query.Exec(self.ctx)
 	if result.Err != nil {
-		return nil, errors.Wrapf(result.Err, "error evaluating query:%v", query.Statement())
+		return nil, errors.Wrapf(result.Err, "evaluating query:%v", query.Statement())
 	}
 
 	return result.Value.(promql.Vector), nil
@@ -442,16 +447,16 @@ func (self *Aggregator) valsAt(symbol string, at time.Time, lookBack time.Durati
 func (self *Aggregator) resolution(symbol string, at time.Time) (time.Duration, error) {
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`last_over_time(`+index.IntervalMetricName+`{symbol="`+format.SanitizeMetricName(symbol)+`"}[3h])`, // The interval is recorded on every index tracker cycle so this lookback should be sufficient.
+		`last_over_time(`+index.MetricInterval+`{symbol="`+symbol+`"}[3h])`, // The interval is recorded on every index tracker cycle so this lookback should be sufficient.
 		at,
 	)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
 	_trackerInterval := query.Exec(self.ctx)
 	if _trackerInterval.Err != nil {
-		return 0, errors.Wrapf(_trackerInterval.Err, "error evaluating query:%v", query.Statement())
+		return 0, errors.Wrapf(_trackerInterval.Err, "evaluating query:%v", query.Statement())
 	}
 	if len(_trackerInterval.Value.(promql.Vector)) == 0 {
 		return 0, errors.Errorf("no vals for tracker interval at:%v, query:%v", at, query.Statement())

@@ -1,0 +1,12 @@
+container:
+  # -- Docker image for telliot
+  image: cryptoriums/telliot:master
+  port: 9090
+service:
+  port: 9090
+# -- Array of commands to spawn separate instances of telliot instances with
+command:
+  - dataserver
+# -- telliot persistent storage size in GB
+storage: 1
+namespace: tellor

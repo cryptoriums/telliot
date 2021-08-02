@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package mining
@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/contracts"
-	"github.com/tellor-io/telliot/pkg/logging"
 )
 
 type Config struct {
@@ -28,7 +28,7 @@ type SolutionSink interface {
 
 const NumProcessors = 1
 
-func SetupMiningGroup(logger log.Logger, ctx context.Context, cfg Config, contractInstance *contracts.ITellor) (*MiningGroup, error) {
+func SetupMiningGroup(logger log.Logger, ctx context.Context, cfg Config, contractInstance contracts.ContractCaller) (*MiningGroup, error) {
 	var hashers []Hasher
 	level.Info(logger).Log("msg", "starting CPU mining", "threads", NumProcessors)
 	for i := 0; i < NumProcessors; i++ {
@@ -49,23 +49,23 @@ func SetupMiningGroup(logger log.Logger, ctx context.Context, cfg Config, contra
 // the manager needs to complete few transaction to gather the tx cost for each slot.
 type MiningMgr struct {
 	ctx              context.Context
-	close            context.CancelFunc
+	stop             context.CancelFunc
 	logger           log.Logger
 	ethClient        *ethclient.Client
 	group            *MiningGroup
 	taskerCh         chan *Work
 	submitterCh      chan *Result
-	contractInstance *contracts.ITellor
+	contractInstance contracts.ContractCaller
 	toMineInput      chan *Work
 	solutionOutput   chan *Result
 }
 
-// NewMiningManager is the MiningMgr constructor.
-func NewMiningManager(
+// NewManager is the MiningMgr constructor.
+func NewManager(
 	logger log.Logger,
 	ctx context.Context,
 	cfg Config,
-	contractInstance *contracts.ITellor,
+	contractInstance contracts.ContractCaller,
 	taskerCh chan *Work,
 	submitterCh chan *Result,
 	client *ethclient.Client,
@@ -82,10 +82,10 @@ func NewMiningManager(
 		return nil, errors.Wrap(err, "setup MiningGroup")
 	}
 
-	ctx, close := context.WithCancel(ctx)
+	ctx, stop := context.WithCancel(ctx)
 	mng := &MiningMgr{
 		ctx:              ctx,
-		close:            close,
+		stop:             stop,
 		logger:           logger,
 		group:            group,
 		taskerCh:         taskerCh,
@@ -100,6 +100,8 @@ func NewMiningManager(
 
 // Start will start the mining run loop.
 func (mgr *MiningMgr) Start() error {
+	level.Info(mgr.logger).Log("msg", "starting")
+
 	// Start the mining group.
 	go mgr.group.Mine(mgr.ctx, mgr.toMineInput, mgr.solutionOutput)
 
@@ -130,5 +132,5 @@ func (mgr *MiningMgr) Start() error {
 
 // Stop will take care of stopping the miner component.
 func (mgr *MiningMgr) Stop() {
-	mgr.close()
+	mgr.stop()
 }

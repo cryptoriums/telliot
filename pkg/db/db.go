@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package db
@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/pkg/errors"
 	promConfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -18,7 +19,6 @@ import (
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
 	"github.com/prometheus/prometheus/tsdb"
-	"github.com/tellor-io/telliot/pkg/format"
 )
 
 const ComponentName = "db"
@@ -61,10 +61,6 @@ func Add(ctx context.Context, tsdb *tsdb.DB, lbls labels.Labels, value float64) 
 	var err error
 	appender := tsdb.Appender(ctx)
 
-	// Round up the time so that all appends happen with the same TS and
-	// avoid out of order samples errors.
-	ts := timestamp.FromTime(time.Now().Round(5 * time.Second))
-
 	defer func() { // An appender always needs to be committed or rolled back.
 		if err != nil {
 			if errR := appender.Rollback(); errR != nil {
@@ -78,9 +74,10 @@ func Add(ctx context.Context, tsdb *tsdb.DB, lbls labels.Labels, value float64) 
 	}()
 	sort.Sort(lbls) // This is important! The labels need to be sorted to avoid creating the same series with duplicate reference.
 
+	ts := timestamp.FromTime(time.Now())
 	_, err = appender.Append(0, lbls, ts, float64(value))
 	if err != nil {
-		return errors.Wrap(err, "append values to the DB")
+		return errors.Wrapf(err, "append values to the DB ts:%v val:%v", ts, float64(value))
 	}
 	return nil
 }

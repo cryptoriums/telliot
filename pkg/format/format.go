@@ -1,11 +1,10 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package format
 
 import (
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -41,8 +40,4 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	default:
 		return errors.Errorf("invalid duration")
 	}
-}
-
-func SanitizeMetricName(input string) string {
-	return strings.ReplaceAll(input, "/", "_")
 }

@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package mining
@@ -13,12 +13,12 @@ package mining
 // 	"testing"
 // 	"time"
 
-// 	"github.com/tellor-io/telliot/pkg/config"
-// 	"github.com/tellor-io/telliot/pkg/contracts"
-// 	"github.com/tellor-io/telliot/pkg/logging"
-// 	"github.com/tellor-io/telliot/pkg/rpc"
-// 	"github.com/tellor-io/telliot/pkg/testutil"
-// 	"github.com/tellor-io/telliot/pkg/util"
+// 	"github.com/cryptoriums/telliot/pkg/config"
+// 	"github.com/cryptoriums/telliot/pkg/contracts"
+// 	"github.com/cryptoriums/telliot/pkg/logging"
+// 	"github.com/cryptoriums/telliot/pkg/rpc"
+// 	"github.com/cryptoriums/telliot/pkg/testutil"
+// 	"github.com/cryptoriums/telliot/pkg/util"
 
 // 	"github.com/ethereum/go-ethereum/common/math"
 // )
@@ -62,7 +62,7 @@ package mining
 // 		Top50Requests: []*big.Int{},
 // 	}
 // 	client := ethereum.NewMockClientWithValues(opts)
-// 	contract, err := contracts.NewITellor(client)
+// 	contract, err := contracts.NewITellor(logger,ctx, client,netID)
 // 	if err != nil {
 // 		testutil.Ok(t, errors.Wrap(err, "creating new contract instance"))
 // 	}
@@ -130,7 +130,7 @@ package mining
 // 		Top50Requests: []*big.Int{},
 // 	}
 // 	client := ethereum.NewMockClientWithValues(opts)
-// 	contract, err := contracts.NewITellor(client)
+// 	contract, err := contracts.NewITellor(logger,ctx, client,netID)
 // 	testutil.Ok(t, err)
 
 // 	var hashers []Hasher

@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package ethereum
@@ -11,11 +11,13 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -25,7 +27,10 @@ const (
 	PrivateKeysEnvName = "ETH_PRIVATE_KEYS"
 	NodeURLEnvName     = "NODE_URL"
 	ComponentName      = "ethereum"
-	BlockTime          = int64(15)
+	BlockTime          = float64(15)
+	BlocksPerSecond    = float64(1 / BlockTime)
+	BlocksPerMinute    = float64(60 / BlockTime)
+	ReorgEventWait     = time.Minute
 )
 
 var ethAddressRE *regexp.Regexp = regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
@@ -83,20 +88,45 @@ func PrepareEthTransaction(
 	ctx context.Context,
 	client *ethclient.Client,
 	account *Account,
-	gasPrice *big.Int,
+	baseFeeGwei float64,
+	tipFeeGwei float64,
+	gasLimit uint64,
 ) (*bind.TransactOpts, error) {
+
+	var baseFee *big.Int
+	if baseFeeGwei > 0 {
+		baseFee = big.NewInt(int64(baseFeeGwei) * params.GWei)
+	}
+	var tipFee *big.Int
+	if tipFeeGwei > 0 {
+		tipFee = big.NewInt(int64(tipFeeGwei) * params.GWei)
+	}
 
 	nonce, err := client.PendingNonceAt(ctx, account.GetAddress())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting pending nonce")
 	}
 
-	if gasPrice == nil {
-		gasPrice, err = client.SuggestGasPrice(ctx)
+	if tipFee == nil {
+		tipFee, err = client.SuggestGasTipCap(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "getting gas price")
+			return nil, errors.Wrap(err, "getting suggested gas tip")
 		}
 	}
+
+	if baseFee == nil {
+		header, err := client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting chain header")
+		}
+		// Add 25% more for the base fee as a safe margin in case of a network load surge.
+		// At high network load the base fee increases 12.5% per block
+		// so 25% will allow including the TX in the next 2 blocks if the network load surges.
+		safeMargin := big.NewInt(0).Div(header.BaseFee, big.NewInt(4))
+		baseFee = big.NewInt(0).Add(header.BaseFee, safeMargin)
+	}
+
+	gasPriceCap := big.NewInt(0).Add(baseFee, tipFee)
 
 	ethBalance, err := client.BalanceAt(ctx, account.GetAddress(), nil)
 	if err != nil {
@@ -104,7 +134,7 @@ func PrepareEthTransaction(
 	}
 
 	cost := new(big.Int)
-	cost.Mul(gasPrice, big.NewInt(700000))
+	cost.Mul(gasPriceCap, big.NewInt(700000))
 	if ethBalance.Cmp(cost) < 0 {
 		return nil, errors.Errorf("insufficient ethereum to send a transaction: %v < %v", ethBalance, cost)
 	}
@@ -114,15 +144,21 @@ func PrepareEthTransaction(
 		return nil, errors.Wrap(err, "getting network id")
 	}
 
-	auth, err := bind.NewKeyedTransactorWithChainID(account.GetPrivateKey(), netID)
+	opts, err := bind.NewKeyedTransactorWithChainID(account.GetPrivateKey(), netID)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating transactor")
 	}
-	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)        // in wei
-	auth.GasLimit = uint64(3_000_000) // in units
-	auth.GasPrice = gasPrice
-	return auth, nil
+	opts.Nonce = big.NewInt(int64(nonce))
+	opts.Value = big.NewInt(0) // in wei
+
+	if gasLimit == 0 {
+		gasLimit = 3_000_000
+	}
+	opts.GasLimit = gasLimit // in units
+	opts.GasTipCap = tipFee
+	opts.GasFeeCap = gasPriceCap
+	opts.Context = ctx
+	return opts, nil
 }
 
 func Keccak256(input []byte) [32]byte {
@@ -186,31 +222,31 @@ func GetAccounts() ([]*Account, error) {
 	return accounts, nil
 }
 
-func NewClient(ctx context.Context, logger log.Logger) (*ethclient.Client, error) {
+func NewClient(logger log.Logger, ctx context.Context) (*ethclient.Client, int64, error) {
 	nodeURL := os.Getenv(NodeURLEnvName)
 
 	client, err := ethclient.DialContext(ctx, nodeURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "create rpc client instance")
+		return nil, 0, errors.Wrap(err, "create rpc client instance")
 	}
 
 	if !strings.Contains(strings.ToLower(nodeURL), "arbitrum") { // Arbitrum nodes doesn't support sync checking.
 		// Issue #55, halt if client is still syncing with Ethereum network
 		s, err := client.SyncProgress(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "determining if Ethereum client is syncing")
+			return nil, 0, errors.Wrap(err, "determining if Ethereum client is syncing")
 		}
 		if s != nil {
-			return nil, errors.New("ethereum node is still syncing with the network")
+			return nil, 0, errors.New("ethereum node is still syncing with the network")
 		}
 	}
 
 	id, err := client.NetworkID(ctx)
 	if err != nil {
-		return nil, level.Error(logger).Log("msg", "get nerwork ID", "err", err)
+		return nil, 0, errors.Wrap(err, "get nerwork ID")
 	}
 
-	level.Info(logger).Log("msg", "client created", "netID", id.String())
+	level.Info(logger).Log("msg", "created ethereum client", "netID", id.Int64())
 
-	return client, nil
+	return client, id.Int64(), nil
 }

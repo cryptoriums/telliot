@@ -6,7 +6,7 @@
 
 > ### ⚠️ Note!
 >
-> Telliot docs are synced from the project repository. To edit please visit: [Telliot gitbook space](https://app.gitbook.com/@tellor-2/s/telliot/) or [Telliot github repo](https://github.com/tellor-io/telliot/tree/master/docs)
+> Telliot docs are synced from the project repository. To edit please visit: [Telliot gitbook space](https://app.gitbook.com/@tellor-2/s/telliot/) or [Telliot github repo](https://github.com/cryptoriums/telliot/tree/master/docs)
 
 ## Telliot - the tellor.io tasker
 

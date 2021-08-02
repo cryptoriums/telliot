@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package tellor
@@ -7,16 +7,91 @@ import (
 	"math"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/aggregator"
 )
+
+type PsrID struct {
+	Pair string
+	Aggr string
+}
 
 const (
 	ComponentName      = "psrTellor"
 	DefaultGranularity = 1000000
+
+	Median             = "Median"
+	MedianEOD          = "Median EOD"
+	Mean               = "Mean"
+	TimeWeightedAvg1h  = "TWAP 1h"
+	TimeWeightedAvg24h = "TWAP 24h"
 )
+
+var Psrs = map[int64]PsrID{
+	1: {Pair: "ETH/USD", Aggr: Median},
+	2: {Pair: "BTC/USD", Aggr: Median},
+	3: {Pair: "BNB/USD", Aggr: Median},
+	4: {Pair: "BTC/USD", Aggr: TimeWeightedAvg24h},
+	5: {Pair: "ETH/BTC", Aggr: Median},
+	6: {Pair: "BNB/BTC", Aggr: Median},
+	7: {Pair: "BNB/ETH", Aggr: Median},
+	8: {Pair: "ETH/USD", Aggr: TimeWeightedAvg24h},
+	9: {Pair: "ETH/USD", Aggr: MedianEOD},
+	// For more details see https://docs.google.com/document/d/1RFCApk1PznMhSRVhiyFl_vBDPA4mP2n1dTmfqjvuTNw/edit
+	// For now this uses third party APIs and don't do local aggregation.
+	10: {Pair: "AMPL/USD/VWAP", Aggr: Median},
+	11: {Pair: "ZEC/ETH", Aggr: Median},
+	12: {Pair: "TRX/ETH", Aggr: Median},
+	13: {Pair: "XRP/USD", Aggr: Median},
+	14: {Pair: "XMR/ETH", Aggr: Median},
+	15: {Pair: "ATOM/USD", Aggr: Median},
+	16: {Pair: "LTC/USD", Aggr: Median},
+	17: {Pair: "WAVES/BTC", Aggr: Median},
+	18: {Pair: "REP/BTC", Aggr: Median},
+	19: {Pair: "TUSD/ETH", Aggr: Median},
+	20: {Pair: "EOS/USD", Aggr: Median},
+	21: {Pair: "IOTA/USD", Aggr: Median},
+	22: {Pair: "ETC/USD", Aggr: Median},
+	23: {Pair: "ETH/PAX", Aggr: Median},
+	24: {Pair: "ETH/BTC", Aggr: TimeWeightedAvg1h},
+	25: {Pair: "USDC/USDT", Aggr: Median},
+	26: {Pair: "XTZ/USD", Aggr: Median},
+	27: {Pair: "LINK/USD", Aggr: Median},
+	28: {Pair: "ZRX/BNB", Aggr: Median},
+	29: {Pair: "ZEC/USD", Aggr: Median},
+	30: {Pair: "XAU/USD", Aggr: Median},
+	31: {Pair: "MATIC/USD", Aggr: Median},
+	32: {Pair: "BAT/USD", Aggr: Median},
+	33: {Pair: "ALGO/USD", Aggr: Median},
+	34: {Pair: "ZRX/USD", Aggr: Median},
+	35: {Pair: "COS/USD", Aggr: Median},
+	36: {Pair: "BCH/USD", Aggr: Median},
+	37: {Pair: "REP/USD", Aggr: Median},
+	38: {Pair: "GNO/USD", Aggr: Median},
+	39: {Pair: "DAI/USD", Aggr: Median},
+	40: {Pair: "STEEM/BTC", Aggr: Median},
+	41: {Pair: "USPCE", Aggr: Median},
+	42: {Pair: "BTC/USD", Aggr: MedianEOD},
+	43: {Pair: "TRB/ETH", Aggr: Median},
+	44: {Pair: "BTC/USD", Aggr: TimeWeightedAvg1h},
+	45: {Pair: "TRB/USD", Aggr: MedianEOD},
+	46: {Pair: "ETH/USD", Aggr: TimeWeightedAvg1h},
+	47: {Pair: "BSV/USD", Aggr: Median},
+	48: {Pair: "MAKER/USD", Aggr: Median},
+	49: {Pair: "BCH/USD", Aggr: TimeWeightedAvg24h},
+	50: {Pair: "TRB/USD", Aggr: Median},
+	51: {Pair: "XMR/USD", Aggr: Median},
+	52: {Pair: "XFT/USD", Aggr: Median},
+	53: {Pair: "BTCDOMINANCE", Aggr: Median},
+	54: {Pair: "WAVES/USD", Aggr: Median},
+	55: {Pair: "OGN/USD", Aggr: Median},
+	56: {Pair: "VIXEOD", Aggr: Median},
+	57: {Pair: "DEFITVL", Aggr: Median},
+	58: {Pair: "DEFIMCAP", Aggr: Mean},
+	59: {Pair: "ETH/JPY", Aggr: Median},
+}
 
 func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr {
 	return &Psr{
@@ -36,144 +111,47 @@ type Psr struct {
 	cfg        Config
 }
 
-func (self *Psr) GetValue(reqID int64, ts time.Time) (int64, error) {
+func (self *Psr) ConfidenceThreshold() float64 {
+	return self.cfg.MinConfidence
+}
+
+func (self *Psr) GetValue(reqID int64, ts time.Time) (float64, error) {
 	val, err := self.getValue(reqID, ts)
-	return int64(math.Round(val * DefaultGranularity)), err
+	return math.Round(val * DefaultGranularity), err
 }
 
 func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
-	val, err := self.aggregator.ManualValue("tellor", reqID, ts)
+	val, found, err := self.aggregator.ManualValue("tellor", reqID, ts)
 	if err != nil {
 		level.Error(self.logger).Log("msg", "get manual value", "reqID", reqID, "err", err)
 	}
-	if val != 0 {
+	if found {
 		level.Warn(self.logger).Log("msg", "USING MANUAL VALUE", "reqID", reqID, "val", val)
 		return val, nil
 	}
 
-	var conf float64
-	switch reqID {
-	case 1:
-		val, conf, err = self.aggregator.MedianAt("ETH/USD", ts)
-	case 2:
-		val, conf, err = self.aggregator.MedianAt("BTC/USD", ts)
-	case 3:
-		val, conf, err = self.aggregator.MedianAt("BNB/USD", ts)
-	case 4:
-		val, conf, err = self.aggregator.TimeWeightedAvg("BTC/USD", ts, 24*time.Hour)
-	case 5:
-		val, conf, err = self.aggregator.MedianAt("ETH/BTC", ts)
-	case 6:
-		val, conf, err = self.aggregator.MedianAt("BNB/BTC", ts)
-	case 7:
-		val, conf, err = self.aggregator.MedianAt("BNB/ETH", ts)
-	case 8:
-		val, conf, err = self.aggregator.TimeWeightedAvg("ETH/USD", ts, 24*time.Hour)
-	case 9:
-		val, conf, err = self.aggregator.MedianAtEOD("ETH/USD", ts)
-	case 10: // For more details see https://docs.google.com/document/d/1RFCApk1PznMhSRVhiyFl_vBDPA4mP2n1dTmfqjvuTNw/edit
-		// For now this uses third party APIs and don't do local aggregation.
-		val, conf, err = self.aggregator.MedianAt("AMPL/USD/VWAP", ts)
-	case 11:
-		val, conf, err = self.aggregator.MedianAt("ZEC/ETH", ts)
-	case 12:
-		val, conf, err = self.aggregator.MedianAt("TRX/ETH", ts)
-	case 13:
-		val, conf, err = self.aggregator.MedianAt("XRP/USD", ts)
-	case 14:
-		val, conf, err = self.aggregator.MedianAt("XMR/ETH", ts)
-	case 15:
-		val, conf, err = self.aggregator.MedianAt("ATOM/USD", ts)
-	case 16:
-		val, conf, err = self.aggregator.MedianAt("LTC/USD", ts)
-	case 17:
-		val, conf, err = self.aggregator.MedianAt("WAVES/BTC", ts)
-	case 18:
-		val, conf, err = self.aggregator.MedianAt("REP/BTC", ts)
-	case 19:
-		val, conf, err = self.aggregator.MedianAt("TUSD/ETH", ts)
-	case 20:
-		val, conf, err = self.aggregator.MedianAt("EOS/USD", ts)
-	case 21:
-		val, conf, err = self.aggregator.MedianAt("IOTA/USD", ts)
-	case 22:
-		val, conf, err = self.aggregator.MedianAt("ETC/USD", ts)
-	case 23:
-		val, conf, err = self.aggregator.MedianAt("ETH/PAX", ts)
-	case 24:
-		val, conf, err = self.aggregator.TimeWeightedAvg("ETH/BTC", ts, time.Hour)
-	case 25:
-		val, conf, err = self.aggregator.MedianAt("USDC/USDT", ts)
-	case 26:
-		val, conf, err = self.aggregator.MedianAt("XTZ/USD", ts)
-	case 27:
-		val, conf, err = self.aggregator.MedianAt("LINK/USD", ts)
-	case 28:
-		val, conf, err = self.aggregator.MedianAt("ZRX/BNB", ts)
-	case 29:
-		val, conf, err = self.aggregator.MedianAt("ZEC/USD", ts)
-	case 30:
-		val, conf, err = self.aggregator.MedianAt("XAU/USD", ts)
-	case 31:
-		val, conf, err = self.aggregator.MedianAt("MATIC/USD", ts)
-	case 32:
-		val, conf, err = self.aggregator.MedianAt("BAT/USD", ts)
-	case 33:
-		val, conf, err = self.aggregator.MedianAt("ALGO/USD", ts)
-	case 34:
-		val, conf, err = self.aggregator.MedianAt("ZRX/USD", ts)
-	case 35:
-		val, conf, err = self.aggregator.MedianAt("COS/USD", ts)
-	case 36:
-		val, conf, err = self.aggregator.MedianAt("BCH/USD", ts)
-	case 37:
-		val, conf, err = self.aggregator.MedianAt("REP/USD", ts)
-	case 38:
-		val, conf, err = self.aggregator.MedianAt("GNO/USD", ts)
-	case 39:
-		val, conf, err = self.aggregator.MedianAt("DAI/USD", ts)
-	case 40:
-		val, conf, err = self.aggregator.MedianAt("STEEM/BTC", ts)
-	case 41:
-		// ID 41 is always manual so it sholud never get here.
-		// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
+	// ID 41 is always manual so it sholud never get here.
+	// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
+	if reqID == 41 && val == 0 {
 		return 0, errors.New("no manual entry for request ID 41")
-	case 42:
-		val, conf, err = self.aggregator.MedianAtEOD("BTC/USD", ts)
-	case 43:
-		val, conf, err = self.aggregator.MedianAt("TRB/ETH", ts)
-	case 44:
-		val, conf, err = self.aggregator.TimeWeightedAvg("BTC/USD", ts, time.Hour)
-	case 45:
-		val, conf, err = self.aggregator.MedianAtEOD("TRB/USD", ts)
-	case 46:
-		val, conf, err = self.aggregator.TimeWeightedAvg("ETH/USD", ts, time.Hour)
-	case 47:
-		val, conf, err = self.aggregator.MedianAt("BSV/USD", ts)
-	case 48:
-		val, conf, err = self.aggregator.MedianAt("MAKER/USD", ts)
-	case 49:
-		val, conf, err = self.aggregator.TimeWeightedAvg("BCH/USD", ts, 24*time.Hour)
-	case 50:
-		val, conf, err = self.aggregator.MedianAt("TRB/USD", ts)
-	case 51:
-		val, conf, err = self.aggregator.MedianAt("XMR/USD", ts)
-	case 52:
-		val, conf, err = self.aggregator.MedianAt("XFT/USD", ts)
-	case 53:
-		val, conf, err = self.aggregator.MedianAt("BTCDOMINANCE", ts)
-	case 54:
-		val, conf, err = self.aggregator.MedianAt("WAVES/USD", ts)
-	case 55:
-		val, conf, err = self.aggregator.MedianAt("OGN/USD", ts)
-	case 56:
-		val, conf, err = self.aggregator.MedianAt("VIXEOD", ts)
-	case 57:
-		val, conf, err = self.aggregator.MedianAt("DEFITVL", ts)
-	case 58:
-		val, conf, err = self.aggregator.MeanAt("DEFIMCAP", ts)
-	default:
-		return 0, errors.Errorf("undeclared request ID:%v", reqID)
+	}
+
+	if _, ok := Psrs[reqID]; !ok {
+		return 0, errors.Errorf("invalid reqID id:%v", reqID)
+	}
+
+	var conf float64
+	switch Psrs[reqID].Aggr {
+	case Median:
+		val, conf, err = self.aggregator.MedianAt(Psrs[reqID].Pair, ts)
+	case TimeWeightedAvg24h:
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, ts, 24*time.Hour)
+	case TimeWeightedAvg1h:
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, ts, time.Hour)
+	case MedianEOD:
+		val, conf, err = self.aggregator.MedianAtEOD(Psrs[reqID].Pair, ts)
+	case Mean:
+		val, conf, err = self.aggregator.MeanAt(Psrs[reqID].Pair, ts)
 	}
 
 	if err != nil {
@@ -181,8 +159,121 @@ func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
 	}
 
 	if conf < self.cfg.MinConfidence {
-		return 0, errors.Errorf("not enough confidence - value:%v, conf:%v,confidence threshold:%v", val, conf, self.cfg.MinConfidence)
+		return 0, errors.Errorf("not enough confidence based on the aggregator calculations - value:%v, conf:%v,confidence threshold:%v", val, conf, self.cfg.MinConfidence)
 	}
 
 	return val, err
+}
+
+func IsInactive(id int64) bool {
+	switch id {
+	case 3:
+		return true
+	case 4:
+		return true
+	case 5:
+		return true
+	case 6:
+		return true
+	case 7:
+		return true
+	case 8:
+		return true
+	case 9:
+		return true
+	case 11:
+		return true
+	case 12:
+		return true
+	case 13:
+		return true
+	case 14:
+		return true
+	case 15:
+		return true
+	case 16:
+		return true
+	case 17:
+		return true
+	case 18:
+		return true
+	case 19:
+		return true
+	case 20:
+		return true
+	case 21:
+		return true
+	case 22:
+		return true
+	case 23:
+		return true
+	case 24:
+		return true
+	case 25:
+		return true
+	case 26:
+		return true
+	case 27:
+		return true
+	case 28:
+		return true
+	case 29:
+		return true
+	case 30:
+		return true
+	case 32:
+		return true
+	case 33:
+		return true
+	case 34:
+		return true
+	case 35:
+		return true
+	case 36:
+		return true
+	case 37:
+		return true
+	case 38:
+		return true
+	case 39:
+		return true
+	case 40:
+		return true
+	case 41:
+		return true
+	case 42:
+		return true
+	case 43:
+		return true
+	case 44:
+		return true
+	case 45:
+		return true
+	case 46:
+		return true
+	case 47:
+		return true
+	case 48:
+		return true
+	case 49:
+		return true
+	case 51:
+		return true
+	case 52:
+		return true
+	case 53:
+		return true
+	case 54:
+		return true
+	case 55:
+		return true
+	case 56:
+		return true
+	case 57:
+		return true
+	case 58:
+		return true
+	default:
+		return false
+	}
 }

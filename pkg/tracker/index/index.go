@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package index
@@ -8,44 +8,46 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/cryptoriums/telliot/pkg/db"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/telliot/pkg/format"
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/cryptoriums/telliot/pkg/web"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/itchyny/gojq"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/tsdb"
-	"github.com/tellor-io/telliot/pkg/db"
-	"github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/format"
-	"github.com/tellor-io/telliot/pkg/logging"
-	"github.com/tellor-io/telliot/pkg/web"
 	"github.com/yalp/jsonpath"
 )
 
 const (
-	ComponentName      = "indexTracker"
-	ValueSuffix        = "value"
-	IntervalSuffix     = "interval"
-	ValueMetricName    = ComponentName + "_" + ValueSuffix
-	IntervalMetricName = ComponentName + "_" + IntervalSuffix
+	ComponentName = "trackerIndex"
+
+	MetricSubmitValue = ComponentName + "_value"
+	MetricInterval    = ComponentName + "_interval"
+	MetricRecCount    = ComponentName + "_requests_total"
+
+	paramNameValue = "value"
+	paramNameTs    = "timestamp"
 )
 
 type DataSource interface {
 	// Source returns the data source.
 	Source() string
 	// Get returns current api value.
-	Get(context.Context) (float64, error)
+	Get(context.Context) (float64, float64, error)
 	// The recommended interval for calling the Get method.
 	// Some APIs will return an error if called more often
 	// Due to API rate limiting of the provider.
@@ -53,7 +55,7 @@ type DataSource interface {
 }
 
 type Parser interface {
-	Parse([]byte) (value float64, timestamp time.Time, err error)
+	Parse(data []byte, paramName string) (value float64, err error)
 }
 
 type Config struct {
@@ -62,97 +64,73 @@ type Config struct {
 	IndexFile string
 }
 
-type IndexTracker struct {
+type TrackerIndex struct {
 	logger      log.Logger
 	ctx         context.Context
 	stop        context.CancelFunc
-	tsDB        *tsdb.DB
+	db          *tsdb.DB
 	cfg         Config
 	dataSources map[string][]DataSource
-	value       *prometheus.GaugeVec
-	getErrors   *prometheus.CounterVec
-	getCount    *prometheus.CounterVec
+
+	mtx              sync.Mutex
+	requestCount     map[string]float64
+	requestCountErrs map[string]float64
 }
 
 func New(
 	logger log.Logger,
 	ctx context.Context,
 	cfg Config,
-	tsDB *tsdb.DB,
-	client *ethclient.Client,
-) (*IndexTracker, error) {
+	db *tsdb.DB,
+) (*TrackerIndex, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")
 	}
 
-	dataSources, err := createDataSources(ctx, cfg, client)
+	dataSources, err := createDataSources(logger, ctx, cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "create data sources")
 	}
 
 	ctx, stop := context.WithCancel(ctx)
 
-	return &IndexTracker{
-		logger:      log.With(logger, "component", ComponentName),
-		ctx:         ctx,
-		stop:        stop,
-		dataSources: dataSources,
-		tsDB:        tsDB,
-		cfg:         cfg,
-		getErrors: promauto.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "telliot",
-			Subsystem: ComponentName,
-			Name:      "errors_total",
-			Help:      "The total number of get errors. Usually caused by API throtling.",
-		}, []string{"source", "domain"}),
-		getCount: promauto.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "telliot",
-			Subsystem: ComponentName,
-			Name:      "count_total",
-			Help:      "The total number of requests.",
-		}, []string{"source", "domain"}),
-		value: promauto.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: "telliot",
-			Subsystem: ComponentName,
-			Name:      ValueSuffix,
-			Help:      "The current tracker value",
-		},
-			[]string{"symbol", "domain", "source"},
-		),
+	return &TrackerIndex{
+		logger:           log.With(logger, "component", ComponentName),
+		ctx:              ctx,
+		stop:             stop,
+		dataSources:      dataSources,
+		db:               db,
+		cfg:              cfg,
+		requestCount:     make(map[string]float64),
+		requestCountErrs: make(map[string]float64),
 	}, nil
 }
 
-func createDataSources(ctx context.Context, cfg Config, client *ethclient.Client) (map[string][]DataSource, error) {
+func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[string][]DataSource, error) {
 	// Load index file.
-	byteValue, err := ioutil.ReadFile(cfg.IndexFile)
-	if err != nil {
-		return nil, errors.Wrapf(err, "read index file path:%s", cfg.IndexFile)
-	}
-	// Parse to json.
 	indexes := make(map[string]Apis)
-	err = json.Unmarshal(byteValue, &indexes)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse index file")
+	{
+		file, err := os.Open(cfg.IndexFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "open index file")
+		}
+		dec := json.NewDecoder(file)
+		dec.DisallowUnknownFields()
+		for {
+			if err := dec.Decode(&indexes); err == io.EOF {
+				break
+			} else if err != nil {
+				return nil, errors.Wrap(err, "parse config")
+			}
+
+		}
 	}
 
 	dataSources := make(map[string][]DataSource)
-
+	var err error
 	for symbol, api := range indexes {
 		for _, endpoint := range api.Endpoints {
-			var err error
-
-			endpoint.URL = web.ExpandTimeVars(endpoint.URL)
-			endpoint.URL = os.Expand(endpoint.URL, func(key string) string {
-				if os.Getenv(key) == "" {
-					err = errors.Errorf("missing required env variable in index url:%v", key)
-				}
-				return os.Getenv(key)
-			})
-			if err != nil {
-				return nil, err
-			}
-
 			var source DataSource
 
 			// Default value for the api type.
@@ -163,6 +141,10 @@ func createDataSources(ctx context.Context, cfg Config, client *ethclient.Client
 			// Default value for the parser.
 			if endpoint.Parser == "" {
 				endpoint.Parser = jsonPathParser
+			}
+
+			if api.Interval.Duration == 0 {
+				api.Interval = cfg.Interval
 			}
 			switch endpoint.Type {
 			case httpSource:
@@ -181,13 +163,13 @@ func createDataSources(ctx context.Context, cfg Config, client *ethclient.Client
 				}
 			case ethereumSource:
 				{
-					// Getting current network id from geth node.
-					networkID, err := client.NetworkID(ctx)
+					client, netID, err := ethereum.NewClient(logger, ctx)
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "creating ethereum client")
 					}
+
 					// Validate and pick an ethereum address for current network id.
-					address, err := ethereum.GetAddressForNetwork(endpoint.URL, networkID.Int64())
+					address, err := ethereum.GetAddressForNetwork(endpoint.URL, netID)
 					if err != nil {
 						return nil, errors.Wrap(err, "getting address for network id")
 					}
@@ -212,17 +194,12 @@ func createDataSources(ctx context.Context, cfg Config, client *ethclient.Client
 
 }
 
-func (self *IndexTracker) Run() error {
+func (self *TrackerIndex) Start() error {
+	level.Info(self.logger).Log("msg", "starting", "logLevel", self.cfg.LogLevel)
 	delay := time.Second
 	for symbol, dataSources := range self.dataSources {
 		for _, dataSource := range dataSources {
-			// Use the default interval when not set.
-			interval := dataSource.Interval()
-			if int64(interval) == 0 {
-				interval = self.cfg.Interval.Duration
-			}
-
-			go self.record(delay, symbol, interval, dataSource)
+			go self.record(delay, symbol, dataSource)
 			delay += time.Second
 		}
 	}
@@ -233,7 +210,7 @@ func (self *IndexTracker) Run() error {
 // record from all API calls.
 // The request delay is used to avoid rate limiting at startup
 // for when all API calls try to happen at the same time.
-func (self *IndexTracker) record(delay time.Duration, symbol string, interval time.Duration, dataSource DataSource) {
+func (self *TrackerIndex) record(delay time.Duration, symbol string, dataSource DataSource) {
 	delayTicker := time.NewTicker(delay)
 	select {
 	case <-delayTicker.C:
@@ -244,7 +221,7 @@ func (self *IndexTracker) record(delay time.Duration, symbol string, interval ti
 	}
 	delayTicker.Stop()
 
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(dataSource.Interval())
 	logger := log.With(self.logger, "source", dataSource.Source())
 
 	url, err := url.Parse(dataSource.Source())
@@ -254,22 +231,52 @@ func (self *IndexTracker) record(delay time.Duration, symbol string, interval ti
 	}
 
 	for {
-		// Record the source interval to use it for the confidence calculation.
-		// Confidence = avg(actualSamplesCount/expectedMaxSamplesCount) for a given period.
-		if err := self.recordInterval(interval, symbol, url); err != nil {
-			level.Error(logger).Log("msg", "record interval to the DB", "err", err)
-		}
+		func() {
+			self.mtx.Lock()
+			defer self.mtx.Unlock()
+			self.requestCount[url.String()]++
 
-		value, err := self.recordValue(symbol, dataSource)
-		if err != nil {
-			level.Error(logger).Log("msg", "record value to the DB", "err", err)
-		}
+			// Record the source interval to use it for the confidence calculation.
+			// Confidence = avg(actualSamplesCount/expectedMaxSamplesCount) for a given period.
+			if err := self.recordInterval(dataSource.Interval(), symbol, url); err != nil {
+				level.Error(logger).Log("msg", "record interval", "err", err)
+			}
 
-		level.Debug(logger).Log("msg", "added value and interval to db", "source", url.String(), "host", url.Host, "symbol", format.SanitizeMetricName(symbol), "value", value, "interval", interval)
+			if err := self.recordValue(symbol, dataSource); err != nil {
+				self.requestCountErrs[url.String()]++
+				level.Error(logger).Log("msg", "record value", "err", err)
+			}
+
+			// Record the count metric.
+			{
+				lbls := labels.Labels{
+					labels.Label{Name: "__name__", Value: MetricRecCount},
+					labels.Label{Name: "source", Value: url.String()},
+					labels.Label{Name: "domain", Value: url.Host},
+					labels.Label{Name: "status", Value: "success"},
+				}
+				if err := db.Add(self.ctx, self.db, lbls, self.requestCount[dataSource.Source()]); err != nil {
+					level.Error(logger).Log("msg", "add values to the DB", "err", err)
+				}
+			}
+
+			// Record the count err metric.
+			{
+				lbls := labels.Labels{
+					labels.Label{Name: "__name__", Value: MetricRecCount},
+					labels.Label{Name: "source", Value: url.String()},
+					labels.Label{Name: "domain", Value: url.Host},
+					labels.Label{Name: "status", Value: "fail"},
+				}
+				if err := db.Add(self.ctx, self.db, lbls, self.requestCountErrs[dataSource.Source()]); err != nil {
+					level.Error(logger).Log("msg", "add values to the DB", "err", err)
+				}
+			}
+		}()
 
 		select {
 		case <-self.ctx.Done():
-			level.Debug(self.logger).Log("msg", "values record loop exited")
+			level.Debug(logger).Log("msg", "values record loop exited")
 			return
 		case <-ticker.C:
 			continue
@@ -277,65 +284,56 @@ func (self *IndexTracker) record(delay time.Duration, symbol string, interval ti
 	}
 }
 
-func (self *IndexTracker) recordInterval(interval time.Duration, symbol string, url *url.URL) (err error) {
+func (self *TrackerIndex) recordInterval(interval time.Duration, symbol string, url *url.URL) (err error) {
 	lbls := labels.Labels{
-		labels.Label{Name: "__name__", Value: IntervalMetricName},
+		labels.Label{Name: "__name__", Value: MetricInterval},
 		labels.Label{Name: "source", Value: url.String()},
 		labels.Label{Name: "domain", Value: url.Host},
-		labels.Label{Name: "symbol", Value: format.SanitizeMetricName(symbol)},
+		labels.Label{Name: "symbol", Value: symbol},
 	}
 
-	return db.Add(self.ctx, self.tsDB, lbls, float64(interval))
+	if err := db.Add(self.ctx, self.db, lbls, float64(interval)); err != nil {
+		return errors.Wrap(err, "add values to the DB")
+	}
+	return nil
 }
 
-func (self *IndexTracker) recordValue(symbol string, dataSource DataSource) (float64, error) {
+func (self *TrackerIndex) recordValue(symbol string, dataSource DataSource) error {
 	source, err := url.Parse(dataSource.Source())
 	if err != nil {
-		return 0, errors.Wrap(err, "parsing url from data source")
+		return errors.Wrap(err, "parsing url from data source")
 	}
 
-	value, err := dataSource.Get(self.ctx)
+	value, timestamp, err := dataSource.Get(self.ctx)
 	if err != nil {
-		self.getErrors.With(
-			prometheus.Labels{
-				"source": dataSource.Source(),
-				"domain": source.Host,
-			},
-		).Inc()
-		return 0, errors.Wrap(err, "getting values from data source")
+		return errors.Wrap(err, "getting values from data source")
 	}
 
-	self.getCount.With(
-		prometheus.Labels{
-			"source": dataSource.Source(),
-			"domain": source.Host,
-		},
-	).Inc()
+	// When value is older then the interval can skip it
+	// as it makes sense to add only recent data.
+	timeFromNow := time.Since(time.Unix(int64(timestamp), 0))
+	// Few times the data source interval
+	// as some exchanges don't process many orders
+	// and don't update the price so often.
+	// Still a good failsafe to not use data that is hours or days old.
+	if timeFromNow > 4*dataSource.Interval() {
+		return errors.Errorf("data source returned old data timeFromNow:%v, dataSource interval:%v", timeFromNow, dataSource.Interval())
+	}
 
 	lbls := labels.Labels{
-		labels.Label{Name: "__name__", Value: ValueMetricName},
+		labels.Label{Name: "__name__", Value: MetricSubmitValue},
 		labels.Label{Name: "source", Value: dataSource.Source()},
 		labels.Label{Name: "domain", Value: source.Host},
-		labels.Label{Name: "symbol", Value: format.SanitizeMetricName(symbol)},
+		labels.Label{Name: "symbol", Value: symbol},
+	}
+	if err = db.Add(self.ctx, self.db, lbls, value); err != nil {
+		return errors.Wrap(err, "append values to the DB")
 	}
 
-	err = db.Add(self.ctx, self.tsDB, lbls, value)
-	if err != nil {
-		return 0, errors.Wrap(err, "append values to the DB")
-	}
-
-	self.value.With(
-		prometheus.Labels{
-			"source": dataSource.Source(),
-			"domain": source.Host,
-			"symbol": format.SanitizeMetricName(symbol),
-		},
-	).Set(value)
-
-	return value, nil
+	return nil
 }
 
-func (self *IndexTracker) Stop() {
+func (self *TrackerIndex) Stop() {
 	self.stop()
 }
 
@@ -359,10 +357,12 @@ const (
 )
 
 type Endpoint struct {
-	URL    string
-	Type   IndexType
-	Parser ParserType
-	Param  string
+	URL        string
+	Type       IndexType
+	Parser     ParserType
+	Value      string
+	Time       string
+	TimeFormat string
 }
 
 // Apis will be used in parsing index file.
@@ -380,70 +380,77 @@ type Apis struct {
 // which counts total added data points.
 func NewJSONapiVolume(interval time.Duration, url string, parser Parser) *JSONapiVolume {
 	return &JSONapiVolume{
-		JSONapi: &JSONapi{
-			url:      url,
-			interval: interval,
-			Parser:   parser,
-		},
+		JSONapi: NewJSONapi(interval, url, parser),
 	}
+}
+
+type URLEnvExpander struct {
+	url string
+}
+
+func (self *URLEnvExpander) UrlExpanded() (string, error) {
+	var err error
+	url := web.ExpandTimeVars(self.url)
+	url = os.Expand(url, func(key string) string {
+		if os.Getenv(key) == "" {
+			err = errors.Errorf("missing required env variable in index url:%v", key)
+		}
+		return os.Getenv(key)
+	})
+	if err != nil {
+		return "", err
+	}
+	return url, err
+}
+
+func (self *URLEnvExpander) UrlRaw() string {
+	return self.url
 }
 
 type JSONapiVolume struct {
 	*JSONapi
-	lastTS time.Time
+	lastTS float64
 }
 
-func (self *JSONapiVolume) Get(ctx context.Context) (float64, error) {
-	vals, err := web.Get(ctx, self.url, nil)
+func (self *JSONapiVolume) Get(ctx context.Context) (float64, float64, error) {
+	url, err := self.UrlExpanded()
 	if err != nil {
-		return 0, errors.Wrapf(err, "fetching data from API url:%v", self.url)
+		return 0, 0, errors.Wrap(err, "getting api url")
 	}
-	val, ts, err := self.Parse(vals)
+	vals, err := web.Get(ctx, url, nil)
 	if err != nil {
-		return 0, errors.Wrapf(err, "parsing data from API url:%v", self.url)
+		return 0, 0, errors.Wrapf(err, "fetching data from API url:%v", url)
+	}
+	value, err := self.Parse(vals, paramNameValue)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing data from API url:%v", url)
+	}
+	timestamp, err := self.Parse(vals, paramNameTs)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing data from API url:%v", url)
 	}
 
 	// Use 0 value for the volume as this has already been requested.
-	if self.lastTS.Equal(ts) {
-		val = 0
+	if self.lastTS == timestamp {
+		value = 0
 	}
-	self.lastTS = ts
+	self.lastTS = timestamp
 
-	return val, nil
+	return value, timestamp, nil
 
 }
 
 func NewJSONapi(interval time.Duration, url string, parser Parser) *JSONapi {
 	return &JSONapi{
-		url:      url,
-		interval: interval,
-		Parser:   parser,
+		interval:    interval,
+		Parser:      parser,
+		URLExpander: &URLEnvExpander{url: url},
 	}
 }
 
 func NewBravenewcoin(interval time.Duration, urlString string, parser Parser) (*Bravenewcoin, error) {
-	u, err := url.Parse(urlString)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse bravecoin url")
-	}
-
-	apiKey := u.Query().Get("rapidapi-key")
-	if apiKey == "" {
-		return nil, errors.New("rapid api key is empty")
-	}
-
-	bearerToken, err := getBearer(apiKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "get rapid bearer token")
-	}
 	return &Bravenewcoin{
-		apiKey:      apiKey,
-		bearerToken: bearerToken,
-		JSONapi: &JSONapi{
-			url:      urlString,
-			interval: interval,
-			Parser:   parser,
-		},
+		JSONapi: NewJSONapi(interval, urlString, parser),
 	}, nil
 }
 
@@ -453,40 +460,75 @@ type Bravenewcoin struct {
 	*JSONapi
 }
 
-func (self *Bravenewcoin) Get(ctx context.Context) (float64, error) {
+func (self *Bravenewcoin) Get(ctx context.Context) (float64, float64, error) {
+	withRefresh := false
+	if self.apiKey == "" || self.bearerToken == "" {
+		withRefresh = true
+	}
+	return self.get(ctx, withRefresh, true)
+}
 
+func (self *Bravenewcoin) get(ctx context.Context, withRefresh, withRetry bool) (float64, float64, error) {
+	if withRefresh {
+		if err := self.refreshApiKey(); err != nil {
+			return 0, 0, errors.Wrap(err, "refresh api key")
+		}
+		if err := self.refreshBearer(); err != nil {
+			return 0, 0, errors.Wrap(err, "refresh bearer token")
+		}
+	}
 	headers := make(map[string]string)
-
 	headers["x-rapidapi-key"] = self.apiKey
-
 	headers["authorization"] = "Bearer " + self.bearerToken
 	headers["x-rapidapi-host"] = "bravenewcoin.p.rapidapi.com"
 
-	vals, err := web.Get(ctx, self.url, headers)
+	urlExpanded, err := self.UrlExpanded()
 	if err != nil {
-		// Refresh the bearer token and try again
-		bearerToken, err := getBearer(self.apiKey)
-		if err != nil {
-			return 0, errors.Wrap(err, "get rapid bearer token")
-		}
-		self.bearerToken = bearerToken
-		vals, err = web.Get(ctx, self.url, headers)
-		if err != nil {
-			return 0, errors.Wrapf(err, "fetching data rapid API url:%v", self.url)
-		}
+		return 0, 0, errors.Wrap(err, "getting api url")
 	}
-	val, _, err := self.Parse(vals)
-	return val, err
+
+	result, err := web.Get(ctx, urlExpanded, headers)
+	if err != nil {
+		if withRetry {
+			return self.get(ctx, true, false)
+		}
+		return 0, 0, errors.Wrap(err, "fetching data")
+	}
+	value, err := self.Parse(result, paramNameValue)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing value")
+	}
+	timestamp, err := self.Parse(result, paramNameTs)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing timestamp")
+	}
+	return value, timestamp, err
+}
+func (self *Bravenewcoin) refreshApiKey() error {
+	urlExpanded, err := self.UrlExpanded()
+	if err != nil {
+		return errors.Wrap(err, "expanding url")
+	}
+	u, err := url.Parse(urlExpanded)
+	if err != nil {
+		return errors.Wrap(err, "parse bravecoin url")
+	}
+	apiKey := u.Query().Get("rapidapi-key")
+	if apiKey == "" {
+		return errors.New("rapid api key is empty")
+	}
+	self.apiKey = apiKey
+	return nil
 }
 
-func getBearer(apiKey string) (string, error) {
-	url := "https://bravenewcoin.p.rapidapi.com/oauth/token?rapidapi-key=" + apiKey
+func (self *Bravenewcoin) refreshBearer() error {
+	url := "https://bravenewcoin.p.rapidapi.com/oauth/token?rapidapi-key=" + self.apiKey
 
 	payload := strings.NewReader("{\n    \"audience\": \"https://api.bravenewcoin.com\",\n    \"client_id\": \"oCdQoZoI96ERE9HY3sQ7JmbACfBf55RY\",\n    \"grant_type\": \"client_credentials\"\n}")
 
 	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
-		return "", errors.Wrap(err, "create client request")
+		return errors.Wrap(err, "create client request")
 	}
 
 	req.Header.Add("content-type", "application/json")
@@ -500,17 +542,17 @@ func getBearer(apiKey string) (string, error) {
 	res, err := client.Do(req)
 
 	if err != nil {
-		return "", errors.Wrap(err, "client request")
+		return errors.Wrap(err, "client request")
 	}
 
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", errors.Wrapf(err, "read body")
+		return errors.Wrapf(err, "read body")
 	}
 
 	if res.StatusCode/100 != 2 {
-		return "", errors.Wrapf(err, "request status not ok:%v", string(body))
+		return errors.Wrapf(err, "request status not ok:%v", string(body))
 	}
 
 	output := struct {
@@ -519,25 +561,42 @@ func getBearer(apiKey string) (string, error) {
 
 	err = json.Unmarshal(body, &output)
 	if err != nil {
-		return "", errors.Wrapf(err, "json marshal:%v", string(body))
+		return errors.Wrapf(err, "json marshal:%v", string(body))
 	}
 
-	return output.Access_token, nil
+	self.bearerToken = output.Access_token
+	return nil
 }
 
 type JSONapi struct {
-	url      string
 	interval time.Duration
 	Parser
+	URLExpander
 }
 
-func (self *JSONapi) Get(ctx context.Context) (float64, error) {
-	vals, err := web.Get(ctx, self.url, nil)
+type URLExpander interface {
+	UrlExpanded() (string, error)
+	UrlRaw() string
+}
+
+func (self *JSONapi) Get(ctx context.Context) (float64, float64, error) {
+	url, err := self.UrlExpanded()
 	if err != nil {
-		return 0, errors.Wrapf(err, "fetching data from API url:%v", self.url)
+		return 0, 0, errors.Wrapf(err, "getting api url")
 	}
-	val, _, err := self.Parse(vals)
-	return val, err
+	result, err := web.Get(ctx, url, nil)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "fetching data from API url:%v", url)
+	}
+	value, err := self.Parse(result, paramNameValue)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing value")
+	}
+	timestamp, err := self.Parse(result, paramNameTs)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing timestamp")
+	}
+	return value, timestamp, err
 }
 
 func (self *JSONapi) Interval() time.Duration {
@@ -545,135 +604,186 @@ func (self *JSONapi) Interval() time.Duration {
 }
 
 func (self *JSONapi) Source() string {
-	return self.url
+	return self.UrlRaw()
+}
+
+type params struct {
+	valueParam      string
+	timeParam       string
+	timeFormatParam string
 }
 
 type JsonPathParser struct {
-	param string
+	params
 }
 
-func (self *JsonPathParser) Parse(input []byte) (float64, time.Time, error) {
-	var inputToParse interface{}
+func (self *JsonPathParser) Parse(input []byte, paramName string) (float64, error) {
+	switch paramName {
+	case paramNameValue:
+		result, err := self.parse(input, self.valueParam, false)
+		if err != nil {
+			return 0, errors.Wrap(err, "parsing value")
+		}
+		return result, nil
+	case paramNameTs:
+		if self.timeParam != "" {
+			result, err := self.parse(input, self.timeParam, true)
+			if err != nil {
+				return 0, errors.Wrap(err, "parsing timestamp")
+			}
+			if result > 9999999999 { // The TS is with Millisecond granularity.
+				result = result / 1000
+			}
+			if result <= 0 {
+				return 0, errors.Errorf("timestamp parsing returns invalid number:%v", result)
+			}
+			return result, nil
+		}
 
+		return float64(time.Now().Unix()), nil
+	default:
+		return 0, errors.New("invalid param name:" + paramName)
+	}
+}
+
+func (self *JsonPathParser) parse(input []byte, query string, isTime bool) (float64, error) {
 	maxErrL := len(string(input)) - 1
 	if maxErrL > 200 {
 		maxErrL = 200
 	}
 
+	var inputToParse interface{}
 	err := json.Unmarshal(input, &inputToParse)
 	if err != nil {
-		return 0, time.Time{}, errors.Wrapf(err, "json marshal:%v", string(input)[:maxErrL])
+		return 0, errors.Wrapf(err, "json marshal:%v", string(input)[:maxErrL])
 	}
 
-	output, err := jsonpath.Read(inputToParse, self.param)
+	out, err := jsonpath.Read(inputToParse, query)
 	if err != nil {
-		return 0, time.Time{}, errors.Wrapf(err, "json path read:%v", string(input)[:maxErrL])
+		return 0, errors.Wrapf(err, "json path read:%v", string(input)[:maxErrL])
 	}
+	str := fmt.Sprintf("%v", out)
 
-	value, timestamp, err := parseInterface(output)
-	if err != nil {
-		return 0, time.Time{}, errors.Wrapf(err, "parse interface:%v", string(input)[:maxErrL])
-	}
-
-	return value, timestamp, nil
+	return parseStrToFloat(str, isTime, self.timeFormatParam)
 }
 
 type JqParser struct {
-	param string
+	params
 }
 
-func (self *JqParser) Parse(input []byte) (float64, time.Time, error) {
-	var inputToParse interface{}
+func (self *JqParser) Parse(input []byte, paramName string) (float64, error) {
 
+	switch paramName {
+	case paramNameValue:
+		result, err := self.parse(input, self.valueParam, false)
+		if err != nil {
+			return 0, errors.Wrap(err, "parsing value")
+		}
+		return result, nil
+	case paramNameTs:
+		if self.timeParam != "" {
+			result, err := self.parse(input, self.timeParam, true)
+			if err != nil {
+				return 0, errors.Wrap(err, "parsing timestamp")
+			}
+			if result > 9999999999 { // The TS is with Millisecond granularity.
+				result = result / 1000
+			}
+			if result <= 0 {
+				return 0, errors.Errorf("timestamp parsing returns invalid number:%v", result)
+			}
+			return result, nil
+		}
+
+		return float64(time.Now().Unix()), nil
+	default:
+		return 0, errors.New("invalid param name:" + paramName)
+	}
+}
+
+func (self *JqParser) parse(input []byte, _query string, isTime bool) (float64, error) {
 	maxErrL := len(string(input)) - 1
 	if maxErrL > 200 {
 		maxErrL = 200
 	}
 
+	var inputToParse interface{}
 	err := json.Unmarshal(input, &inputToParse)
 	if err != nil {
-		return 0, time.Time{}, errors.Wrapf(err, "json marshal:%v", string(input)[:maxErrL])
+		return 0, errors.Wrapf(err, "json marshal:%v", string(input)[:maxErrL])
 	}
 
-	query, err := gojq.Parse(self.param)
+	query, err := gojq.Parse(_query)
 	if err != nil {
-		return 0, time.Time{}, errors.Wrapf(err, "jq read:%v", string(input)[:maxErrL])
+		return 0, errors.Wrapf(err, "jq qyery:%v", string(input)[:maxErrL])
 	}
+
 	iter := query.Run(inputToParse)
 
 	output, ok := iter.Next()
 	if !ok {
-		return 0, time.Time{}, errors.Wrapf(err, "jq iterate:%v", string(input)[:maxErrL])
+		return 0, errors.Wrapf(err, "jq iterate:%v", string(input)[:maxErrL])
 	}
 
 	_, ok = iter.Next()
 	if ok {
-		return 0, time.Time{}, errors.Errorf("jq parsing contains multiple values:%v", string(input)[:maxErrL])
+		return 0, errors.Errorf("jq parsing contains multiple values:%v", string(input)[:maxErrL])
 	}
 
 	if err, ok := output.(error); ok {
-		return 0, time.Time{}, errors.Wrapf(err, "jq parse:%v", string(input)[:maxErrL])
+		return 0, errors.Wrapf(err, "jq parse:%v", string(input)[:maxErrL])
 	}
 
-	value, timestamp, err := parseInterface(output)
-	if err != nil {
-		return 0, time.Time{}, errors.Wrapf(err, "parse interface:%v", string(input)[:maxErrL])
+	if v, ok := output.(float64); ok {
+		return v, nil
+	}
+	if v, ok := output.(string); ok {
+		return parseStrToFloat(v, isTime, self.timeFormatParam)
 	}
 
-	return value, timestamp, nil
-}
-
-func parseInterface(data interface{}) (float64, time.Time, error) {
-	timestamp := time.Now()
-
-	// Expect result to be a slice of float or a single float value.
-	var resultList []interface{}
-	switch result := data.(type) {
-	case []interface{}:
-		resultList = result
-	default:
-		resultList = []interface{}{result}
-	}
-	// Parse each item of slice to a float.
-	var value float64
-	for i, a := range resultList {
-		strValue := fmt.Sprintf("%v", a)
-		// Normalize based on american locale.
-		strValue = strings.Replace(strValue, ",", "", -1)
-
-		switch i {
-		case 0:
-			val, err := strconv.ParseFloat(strValue, 64)
-			if err != nil {
-				return 0, timestamp, errors.Wrapf(err, "value needs to be a valid float:%v", strValue)
-			}
-			value = val
-		case 1:
-			val, err := strconv.ParseFloat(strValue, 64)
-			if err != nil {
-				return 0, timestamp, errors.Wrapf(err, "timestamp needs to be a valid float:%v", strValue)
-			}
-			timestamp = time.Unix(int64(val), 0)
-			if int64(val) > 9999999999 { // The TS is with Millisecond granularity.
-				timestamp = time.Unix(0, int64(val)*int64(time.Millisecond))
-			}
-		}
-	}
-
-	return value, timestamp, nil
+	return 0, errors.Errorf("jq results not a supported type:%+v", output)
 }
 
 func NewParser(t Endpoint) Parser {
 	switch t.Parser {
 	case jsonPathParser:
 		return &JsonPathParser{
-			param: t.Param,
+			params{
+				valueParam:      t.Value,
+				timeParam:       t.Time,
+				timeFormatParam: t.TimeFormat,
+			},
 		}
 	case jqParser:
 		return &JqParser{
-			param: t.Param,
+			params{
+				valueParam:      t.Value,
+				timeParam:       t.Time,
+				timeFormatParam: t.TimeFormat,
+			},
 		}
 	default:
 		return nil
 	}
+}
+
+func parseStrToFloat(input string, isTime bool, timeFormat string) (float64, error) {
+	var value float64
+	if !isTime {
+		return strconv.ParseFloat(input, 64)
+	}
+
+	value, err := strconv.ParseFloat(input, 64)
+	if err != nil {
+		if timeFormat == "" {
+			timeFormat = time.RFC3339Nano
+		}
+		t, err := time.Parse(timeFormat, input)
+		if err != nil {
+			return 0, errors.Wrapf(err, "value not a supported time format or a timestamp:%v", input)
+		}
+		return float64(t.Unix()), nil
+
+	}
+	return value, nil
 }

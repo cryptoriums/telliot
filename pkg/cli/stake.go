@@ -1,4 +1,4 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package cli
@@ -8,51 +8,62 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/config"
-	"github.com/tellor-io/telliot/pkg/contracts"
-	"github.com/tellor-io/telliot/pkg/ethereum"
-	"github.com/tellor-io/telliot/pkg/logging"
-	"github.com/tellor-io/telliot/pkg/math"
 )
 
-type depositCmd struct {
-	cfgGasAddr
+type DepositCmd struct {
+	GasAccount
+	ContractFlag
 }
 
-func (self depositCmd) Run() error {
+func (self *DepositCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-	client, err := ethereum.NewClient(ctx, logger)
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(self.Addr)
+	account, err := ethereum.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
 	}
-	contract, err := contracts.NewITellor(client)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
+
+	var contractCaller contracts.ContractCaller
+	if self.Contract != "" {
+		contractCaller, err = contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
+		if err != nil {
+			return errors.Wrap(err, "creating contract interface")
+		}
+	} else {
+		contractCaller, err = contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+		if err != nil {
+			return errors.Wrap(err, "creating contract interface")
+		}
 	}
 
-	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+	addrToCheck := account.Address
+	// When using proxy contract need to get its status.
+	if self.Contract != "" {
+		addrToCheck = common.HexToAddress(self.Contract)
+	}
+
+	balance, err := contractCaller.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
 	if err != nil {
 		return errors.Wrap(err, "get TRB balance")
 	}
 
-	status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+	status, startTime, err := contractCaller.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}
@@ -62,28 +73,23 @@ func (self depositCmd) Run() error {
 		return nil
 	}
 
-	stakeAmt, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
+	stakeAmt, err := contractCaller.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
 	if err != nil {
 		return errors.Wrap(err, "fetching stake amount")
 	}
 
 	if balance.Cmp(stakeAmt) < 0 {
-		return errors.Errorf("insufficient mining stake TRB balance actual: %v, required:%v",
-			math.BigInt18eToFloat(balance),
-			math.BigInt18eToFloat(stakeAmt))
+		return errors.Errorf("insufficient reporting stake TRB balance actual: %v, required:%v",
+			math.BigIntToFloatDiv(balance, params.Ether),
+			math.BigIntToFloatDiv(stakeAmt, params.Ether))
 	}
 
-	var gasPrice *big.Int
-	if self.GasPrice > 0 {
-		gasPrice = big.NewInt(int64(self.GasPrice) * params.GWei)
-	}
-
-	auth, err := ethereum.PrepareEthTransaction(ctx, client, account, gasPrice)
+	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.DepositStakeGasUsage)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.DepositStake(auth)
+	tx, err := contractCaller.DepositStake(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract failed")
 	}
@@ -91,29 +97,24 @@ func (self depositCmd) Run() error {
 	return nil
 }
 
-type withdrawCmd struct {
-	cfgGasAddr
+type WithdrawCmd struct {
+	GasAccount
 }
 
-func (self withdrawCmd) Run() error {
+func (self *WithdrawCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	client, err := ethereum.NewClient(ctx, logger)
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(self.Addr)
+	account, err := ethereum.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
 	}
-	contract, err := contracts.NewITellor(client)
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
@@ -128,17 +129,12 @@ func (self withdrawCmd) Run() error {
 		return nil
 	}
 
-	var gasPrice *big.Int
-	if self.GasPrice > 0 {
-		gasPrice = big.NewInt(int64(self.GasPrice) * params.GWei)
-	}
-
-	auth, err := ethereum.PrepareEthTransaction(ctx, client, account, gasPrice)
+	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.WithdrawStakeGasUsage)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.WithdrawStake(auth)
+	tx, err := contract.WithdrawStake(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract")
 	}
@@ -147,28 +143,23 @@ func (self withdrawCmd) Run() error {
 	return nil
 }
 
-type requestCmd struct {
-	cfgGasAddr
+type RequestCmd struct {
+	GasAccount
 }
 
-func (self requestCmd) Run() error {
+func (self *RequestCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	client, err := ethereum.NewClient(ctx, logger)
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-	account, err := ethereum.GetAccountByPubAddess(self.Addr)
+	account, err := ethereum.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
 	}
-	contract, err := contracts.NewITellor(client)
+	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
@@ -182,17 +173,12 @@ func (self requestCmd) Run() error {
 		return nil
 	}
 
-	var gasPrice *big.Int
-	if self.GasPrice > 0 {
-		gasPrice = big.NewInt(int64(self.GasPrice) * params.GWei)
-	}
-
-	auth, err := ethereum.PrepareEthTransaction(ctx, client, account, gasPrice)
+	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.RequestStakingWithdrawGasUsage)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.RequestStakingWithdraw(auth)
+	tx, err := contract.RequestStakingWithdraw(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract")
 	}
@@ -202,36 +188,36 @@ func (self requestCmd) Run() error {
 	return nil
 }
 
-type statusCmd struct {
-	cfgAddr
+type StatusCmd struct {
+	AccountArg
+	ContractFlag
 }
 
-func (self statusCmd) Run() error {
+func (self *StatusCmd) Run() error {
 	logger := logging.NewLogger()
 	ctx := context.Background()
 
-	_, err := config.ParseConfig(logger, string(self.Config)) // Load the env file.
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	client, err := ethereum.NewClient(ctx, logger)
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	contract, err := contracts.NewITellor(client)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
+	var contractCaller contracts.ContractCaller
+	if self.Contract != "" {
+		contractCaller, err = contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
+		if err != nil {
+			return errors.Wrap(err, "creating contract interface")
+		}
+	} else {
+		contractCaller, err = contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+		if err != nil {
+			return errors.Wrap(err, "creating contract interface")
+		}
 	}
 
-	valid := common.IsHexAddress(self.Addr)
-	if !valid {
-		return errors.Errorf("invalid etherum address:%v", self.Addr)
-	}
-	addr := common.HexToAddress(self.Addr)
+	addr := common.HexToAddress(self.Account)
 
-	status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addr)
+	status, startTime, err := contractCaller.GetStakerInfo(&bind.CallOpts{Context: ctx}, addr)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}

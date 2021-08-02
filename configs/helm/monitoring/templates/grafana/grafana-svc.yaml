@@ -1,0 +1,30 @@
+{{- if .Values.grafana.loadBalancing }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "grafana.fullname" . }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ template "grafana.fullname" . }}
+  ports:
+  - protocol: TCP
+    port: {{ .Values.grafana.service.port }}
+    targetPort: {{ .Values.grafana.container.port }}
+    name: http
+{{- else}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "grafana.fullname" . }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  type: NodePort
+  selector:
+    app: {{ template "grafana.fullname" . }}
+  ports:
+    - port: {{ .Values.grafana.service.port }}
+      targetPort: {{ .Values.grafana.container.port }}
+      nodePort: 30000
+{{- end }}

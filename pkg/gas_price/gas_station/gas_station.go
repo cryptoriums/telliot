@@ -1,32 +1,22 @@
-// Copyright (c) The Tellor Authors.
+// Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
 package gas_station
 
 import (
 	"context"
-	"encoding/json"
-	"math/big"
-	"time"
 
+	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
-	"github.com/tellor-io/telliot/pkg/format"
-	"github.com/tellor-io/telliot/pkg/web"
 )
 
 const ComponentName = "gasPriceGasStation"
 
-type Config struct {
-	TimeWait format.Duration
-}
-
 type GasStation struct {
 	netID  int64
-	cfg    Config
+	ctx    context.Context
 	client *ethclient.Client
 	logger log.Logger
 }
@@ -38,67 +28,75 @@ type GasStationModel struct {
 	Average float32 `json:"average"`
 }
 
-func New(logger log.Logger, cfg Config, client *ethclient.Client) (*GasStation, error) {
-	ctx, cncl := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cncl()
-	netID, err := client.NetworkID(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "get network id")
-	}
-
+func New(logger log.Logger, ctx context.Context, client *ethclient.Client, netID int64) (*GasStation, error) {
 	return &GasStation{
-		netID:  netID.Int64(),
-		cfg:    cfg,
+		netID:  netID,
+		ctx:    ctx,
 		client: client,
 		logger: log.With(logger, "component", ComponentName),
 	}, nil
 
 }
 
-func (self *GasStation) Query(ctx context.Context) (gasPriceFinal *big.Int, errFinal error) {
-	if self.netID != 1 {
-		gasPrice, err := self.client.SuggestGasPrice(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting suggested gas price")
-		}
-		return gasPrice, nil
-	}
-
-	defer func() {
-		if errFinal != nil {
-			level.Error(self.logger).Log("msg", "fetching eth gas price falling back to client suggested price", "err", errFinal)
-			gasPrice, err := self.client.SuggestGasPrice(ctx)
-			if err != nil {
-				errFinal = errors.Wrapf(errFinal, "failed to get price from chain client:%v", err)
-				return
-			}
-			gasPriceFinal = gasPrice
-		}
-	}()
-
-	ctx, cncl := context.WithTimeout(ctx, 15*time.Second)
-	defer cncl()
-	resp, err := web.Get(ctx, "https://ethgasstation.info/json/ethgasAPI.json", nil)
+// Query implements the gas query interface.
+// For now gas station doesn't have 1559 api so just returning the client suggested values.
+func (self *GasStation) Query(ctx context.Context, confidence int) (baseFeeGwei, tipFeeGwei float64, err error) {
+	header, err := self.client.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetch price from provider")
+		return 0, 0, err
 	}
+	baseFeeGwei = math.BigIntToFloatDiv(header.BaseFee, params.GWei)
 
-	gpModel := GasStationModel{}
-	err = json.Unmarshal(resp, &gpModel)
+	tipFee, err := self.client.SuggestGasTipCap(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "provider response json unmarshal")
+		return 0, 0, err
 	}
+	tipFeeGwei = math.BigIntToFloatDiv(tipFee, params.GWei)
+	return
 
-	var gasPrice float32
-	switch t := self.cfg.TimeWait.Duration; {
-	case t < 5*time.Minute:
-		gasPrice = gpModel.Average
-	case t < 2*time.Minute:
-		gasPrice = gpModel.Fast
-	case t < 30*time.Second:
-		gasPrice = gpModel.Fastest
-	}
+	// ctx, cncl := context.WithTimeout(self.ctx, 5*time.Second)
+	// defer cncl()
+	// if self.netID != 1 {
+	// 	gasPrice, err := self.client.SuggestGasPrice(ctx)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "getting suggested gas price")
+	// 	}
+	// 	return gasPrice, nil
+	// }
 
-	gasPriceB := big.NewInt(int64(gasPrice / 10))
-	return big.NewInt(0).Mul(gasPriceB, big.NewInt(params.GWei)), nil
+	// defer func() {
+	// 	if errFinal != nil {
+	// 		level.Error(self.logger).Log("msg", "fetching eth gas price falling back to client suggested price", "err", errFinal)
+	// 		gasPrice, err := self.client.SuggestGasPrice(ctx)
+	// 		if err != nil {
+	// 			errFinal = errors.Wrapf(errFinal, "failed to get price from chain client:%v", err)
+	// 			return
+	// 		}
+	// 		gasPriceFinal = gasPrice
+	// 	}
+	// }()
+
+	// resp, err := web.Get(ctx, "https://ethgasstation.info/json/ethgasAPI.json", nil)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "fetch price from provider")
+	// }
+
+	// gpModel := GasStationModel{}
+	// err = json.Unmarshal(resp, &gpModel)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "provider response json unmarshal")
+	// }
+
+	// var gasPrice float32
+	// switch conf := confidence; {
+	// case conf < 60:
+	// 	gasPrice = gpModel.Average
+	// case conf < 80:
+	// 	gasPrice = gpModel.Fast
+	// case conf < 100:
+	// 	gasPrice = gpModel.Fastest
+	// }
+
+	// gasPriceB := big.NewInt(int64(gasPrice / 10))
+	// return big.NewInt(0).Mul(gasPriceB, big.NewInt(params.GWei)), nil
 }
