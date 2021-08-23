@@ -40,9 +40,6 @@ jobs:
 
       - name: Running tests
         run: make test
-        env:
-          VIXEOD_KEY: ${{ secrets.VIXEOD_KEY }}
-
       - name: Check generated files # Ensure generated files are up to date.
         run: make generate-check
         
