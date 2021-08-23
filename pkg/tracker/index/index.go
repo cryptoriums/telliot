@@ -146,6 +146,19 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 			if api.Interval.Duration == 0 {
 				api.Interval = cfg.Interval
 			}
+
+			// Fail early when the url has env that is not set.
+			url := web.ExpandTimeVars(endpoint.URL)
+			endpoint.URL = os.Expand(url, func(key string) string {
+				if os.Getenv(key) == "" {
+					err = errors.Errorf("missing required env variable in index url:%v", key)
+				}
+				return os.Getenv(key)
+			})
+			if err != nil {
+				return nil, err
+			}
+
 			switch endpoint.Type {
 			case httpSource:
 				{
