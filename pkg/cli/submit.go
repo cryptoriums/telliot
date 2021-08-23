@@ -73,7 +73,7 @@ func (self *SubmitCmd) Run() error {
 
 	shouldContinue := FinalPrompt(logger, self.SkipConfirm, resp.RequestIds, vals)
 	if !shouldContinue {
-		return errors.New("cancelled")
+		return errors.New("canceled")
 	}
 
 	account, err := self.SelectAccount(logger)
