@@ -24,6 +24,7 @@ import (
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -52,66 +53,46 @@ func (self *SubmitCmd) Run() error {
 		return errors.Wrap(err, "creating ethereum client")
 	}
 
-	var accounts []*ethereum.Account
-	if self.Account != "" {
-		acc, err := ethereum.GetAccountByPubAddess(self.Account)
-		if err != nil {
-			return errors.Wrap(err, "getting accounts")
-		}
-		accounts = append(accounts, acc)
-	} else {
-		accounts, err = ethereum.GetAccounts()
-		if err != nil {
-			return errors.Wrap(err, "getting accounts")
-		}
-	}
-
-	address := accounts[0].Address
-	if len(accounts) > 1 {
-		level.Warn(logger).Log("msg", "multiple accounts loaded, but will use the first one on the list", "address", address)
-	}
-
-	var contractCaller contracts.ContractCaller
-	if self.Contract != "" {
-		contractCaller, err = contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
-		if err != nil {
-			return errors.Wrap(err, "creating contract interface")
-		}
-	} else {
-		contractCaller, err = contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-		if err != nil {
-			return errors.Wrap(err, "creating contract interface")
-		}
+	contractCaller, err := self.GetContractCaller(ctx, logger, client, netID)
+	if err != nil {
+		return errors.Wrap(err, "creating contract interface")
 	}
 
 	resp, err := contractCaller.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return errors.Wrap(err, "get current DATA ids")
 	}
+	ids := resp.RequestIds
+	var vals [5]*big.Int
 
-	vals, err := self.getValuesFromDB(logger, ctx, resp.RequestIds)
+	vals, _, _, err = self.GetValuesFromDB(ctx, logger, ids)
 	if err != nil {
 		level.Error(logger).Log("msg", "couldn't get values from the DB so will proceed with manual submit", "err", err)
-		vals = getValuesFromInput(logger, resp.RequestIds)
+		vals = GetValuesFromInput(logger, resp.RequestIds)
 	}
 
-	shouldContinue := finalPrompt(logger, self.SkipConfirm, resp.RequestIds, vals)
+	shouldContinue := FinalPrompt(logger, self.SkipConfirm, resp.RequestIds, vals)
 	if !shouldContinue {
-		return nil
+		return errors.New("cancelled")
 	}
 
-	level.Info(logger).Log(
-		"msg", "submitting",
-		"ids", fmt.Sprintf("%+v", resp.RequestIds),
-		"vals", fmt.Sprintf("%+v", vals),
-	)
+	account, err := self.SelectAccount(logger)
+	if err != nil {
+		return err
+	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.SubmitMiningSolutionGasUsage)
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.SubmitMiningSolutionGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contractCaller.SubmitMiningSolution(opts, "xxx", resp.RequestIds, vals)
+	level.Info(logger).Log(
+		"msg", "submitting",
+		"ids", fmt.Sprintf("%+v", ids),
+		"vals", fmt.Sprintf("%+v", vals),
+	)
+
+	tx, err := contractCaller.SubmitMiningSolution(opts, "xxx", ids, vals)
 	if err != nil {
 		return errors.Wrap(err, "creting TX")
 	}
@@ -123,7 +104,37 @@ func (self *SubmitCmd) Run() error {
 	return nil
 }
 
-func getValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
+func (self *SubmitCmd) GetContractCaller(ctx context.Context, logger log.Logger, client *ethclient.Client, netID int64) (contracts.ContractCaller, error) {
+	if self.Contract != "" {
+		return contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
+	} else {
+		return contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	}
+}
+
+func (self *SubmitCmd) SelectAccount(logger log.Logger) (*ethereum.Account, error) {
+	var accounts []*ethereum.Account
+	var err error
+	if self.Account != "" {
+		acc, err := ethereum.GetAccountByPubAddess(self.Account)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting accounts")
+		}
+		accounts = append(accounts, acc)
+	} else {
+		accounts, err = ethereum.GetAccounts()
+		if err != nil {
+			return nil, errors.Wrap(err, "getting accounts")
+		}
+	}
+
+	if len(accounts) > 1 {
+		level.Warn(logger).Log("msg", "multiple accounts loaded, but will use the first one on the list", "address", accounts[0].Address)
+	}
+	return accounts[0], nil
+}
+
+func GetValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
 	var vals [5]*big.Int
 	for i, dataID := range dataIDs {
 		if psrTellor.IsInactive(dataID.Int64()) {
@@ -153,14 +164,14 @@ func getValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
 	return vals
 }
 
-func (self *SubmitCmd) getValuesFromDB(logger log.Logger, ctx context.Context, dataIDs [5]*big.Int) ([5]*big.Int, error) {
+func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, dataIDs [5]*big.Int) ([5]*big.Int, storage.SampleAndChunkQueryable, *aggregator.Aggregator, error) {
 	var vals [5]*big.Int
 	var querable storage.SampleAndChunkQueryable
 	var err error
 	if self.config.Db.RemoteHost != "" {
 		querable, err = db.NewRemoteDB(self.config.Db)
 		if err != nil {
-			return vals, errors.Wrap(err, "coudn't open remote DB")
+			return vals, nil, nil, errors.Wrap(err, "coudn't open remote DB")
 		}
 		level.Info(logger).Log("msg", "connected to remote DB",
 			"host", self.config.Db.RemoteHost,
@@ -171,21 +182,21 @@ func (self *SubmitCmd) getValuesFromDB(logger log.Logger, ctx context.Context, d
 		tsdbOptions.NoLockfile = true
 		querable, err = tsdb.Open(self.config.Db.Path, nil, nil, tsdbOptions)
 		if err != nil {
-			return vals, errors.Wrap(err, "coudn't open local DB")
+			return vals, nil, nil, errors.Wrap(err, "coudn't open local DB")
 		}
 	}
 	aggregator, err := aggregator.New(logger, ctx, self.config.Aggregator, querable)
 	if err != nil {
-		return vals, errors.Wrap(err, "couldn't create aggregator")
+		return vals, nil, nil, errors.Wrap(err, "couldn't create aggregator")
 
 	}
 
 	psr := psrTellor.New(logger, self.config.PsrTellor, aggregator)
 	vals, err = requestVals(logger, psr, dataIDs)
 	if err != nil {
-		return vals, errors.Wrap(err, "getting variable values")
+		return vals, nil, nil, errors.Wrap(err, "getting variable values")
 	}
-	return vals, nil
+	return vals, querable, aggregator, nil
 }
 
 func requestVals(logger log.Logger, psr *psrTellor.Psr, dataIDs [5]*big.Int) ([5]*big.Int, error) {
@@ -205,7 +216,7 @@ func requestVals(logger log.Logger, psr *psrTellor.Psr, dataIDs [5]*big.Int) ([5
 	return vals, nil
 }
 
-func finalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int) bool {
+func FinalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int) bool {
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
 
@@ -231,8 +242,8 @@ func finalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int)
 	}
 	promptResp, err = prompt.Prompt("Press Y if you want to enter values manually?:", false)
 	if err == nil && strings.ToLower(promptResp) == "y" {
-		vals = getValuesFromInput(logger, dataIDs)
-		return finalPrompt(logger, skipConfirm, dataIDs, vals)
+		vals = GetValuesFromInput(logger, dataIDs)
+		return FinalPrompt(logger, skipConfirm, dataIDs, vals)
 	}
 	return false
 }

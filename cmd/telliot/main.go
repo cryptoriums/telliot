@@ -38,7 +38,7 @@ func main() {
 	}
 
 	ctx := kong.Parse(&cli.CLIDefault, kong.Name("telliot"),
-		kong.Description("The official Tellor cli tool"),
+		kong.Description("The unofficial Tellor cli tool"),
 		kong.UsageOnError())
 
 	ctx.FatalIfErrorf(ctx.Run(*ctx))
