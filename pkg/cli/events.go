@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/tracker/events"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -27,13 +25,9 @@ type eventsCmd struct {
 }
 
 func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	client, netID, err := ethereum.NewClient(logger, ctx)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
 	if err != nil {
-		return errors.Wrap(err, "creating ethereum client")
-	}
-	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
+		return err
 	}
 
 	ctx, cncl := context.WithCancel(ctx)

@@ -164,9 +164,17 @@ func (self *ITellor) WatchLogs(opts *bind.WatchOpts, name string, query ...[]int
 	return self.boundContract.WatchLogs(opts, name, query...)
 }
 
-func NewITellor(logger log.Logger, address common.Address, client *ethclient.Client, netID int64, params Params) (*ITellor, error) {
+func NewITellor(
+	ctx context.Context,
+	logger log.Logger,
+	client *ethclient.Client,
+	netID int64,
+	address common.Address,
+	params Params,
+) (*ITellor, error) {
+
 	var contractAddr common.Address
-	if address.String() != "" {
+	if address != (common.Address{}) {
 		contractAddr = address
 	} else {
 		var err error
@@ -176,7 +184,11 @@ func NewITellor(logger log.Logger, address common.Address, client *ethclient.Cli
 		}
 	}
 
-	return newITellorWithAddr(logger, contractAddr, client, netID, params)
+	contract, err := newITellorWithAddr(logger, contractAddr, client, netID, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating contract instance")
+	}
+	return contract, nil
 }
 
 func newITellorWithAddr(

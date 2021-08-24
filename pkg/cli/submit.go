@@ -22,7 +22,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/prompt"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -37,16 +36,7 @@ type SubmitCmd struct {
 }
 
 func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	client, netID, err := ethereum.NewClient(logger, ctx)
-	if err != nil {
-		return errors.Wrap(err, "creating ethereum client")
-	}
-	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
-	}
-
-	cfg, err := config.LoadConfig(logger, cli.Config)
+	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}

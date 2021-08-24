@@ -9,11 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -178,13 +180,9 @@ type AccountsCmd struct {
 }
 
 func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	client, netID, err := ethereum.NewClient(logger, ctx)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
 	if err != nil {
-		return errors.Wrap(err, "creating ethereum client")
-	}
-	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
+		return err
 	}
 	accounts, err := ethereum.GetAccounts()
 	if err != nil {
@@ -243,4 +241,34 @@ func CheckNewVersion(repo string, current string) (string, error) {
 	}
 
 	return "", nil
+}
+
+func ConfigClientContract(
+	ctx context.Context,
+	logger log.Logger,
+	configPath string,
+	contractAddr string,
+	params contracts.Params,
+) (*config.Config, *ethclient.Client, contracts.ContractCaller, error) {
+	cfg, err := config.LoadConfig(logger, configPath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	client, netID, err := ethereum.NewClient(ctx, logger)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "creating ethereum client")
+	}
+
+	if params == (contracts.Params{}) {
+		params = contracts.DefaultParams
+	}
+
+	contract, err := contracts.NewITellor(ctx, logger, client, netID, common.HexToAddress(contractAddr), params)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "create tellor contract instance")
+	}
+
+	return cfg, client, contract, nil
+
 }

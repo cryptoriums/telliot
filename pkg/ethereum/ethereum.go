@@ -222,7 +222,7 @@ func GetAccounts() ([]*Account, error) {
 	return accounts, nil
 }
 
-func NewClient(logger log.Logger, ctx context.Context) (*ethclient.Client, int64, error) {
+func NewClient(ctx context.Context, logger log.Logger) (*ethclient.Client, int64, error) {
 	nodeURL := os.Getenv(NodeURLEnvName)
 
 	client, err := ethclient.DialContext(ctx, nodeURL)

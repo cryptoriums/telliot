@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
-	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
@@ -21,7 +20,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	transactorTellor "github.com/cryptoriums/telliot/pkg/transactor/tellor"
 	"github.com/cryptoriums/telliot/pkg/web"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
@@ -34,19 +32,11 @@ type ReportCmd struct {
 }
 
 func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	client, netID, err := ethereum.NewClient(logger, ctx)
-	if err != nil {
-		return errors.Wrap(err, "creating ethereum client")
-	}
-	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
-	}
-
-	cfg, err := config.LoadConfig(logger, cli.Config)
+	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
+
 	accounts, err := ethereum.GetAccounts()
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")

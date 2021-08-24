@@ -11,9 +11,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -25,13 +23,9 @@ type DataCmd struct {
 }
 
 func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	client, netID, err := ethereum.NewClient(logger, ctx)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
 	if err != nil {
-		return errors.Wrap(err, "creating ethereum client")
-	}
-	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
+		return err
 	}
 
 	level.Info(logger).Log("msg", "params", "from", self.From, "lookBack", self.LookBack)
@@ -46,7 +40,7 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	for _, submit := range submits {
 		for i, id := range submit.DataIDs {
 			if i == 0 {
-				fmt.Fprintf(w, "ts:%v\t0\t1\tmedian:2\t3\t4\t \n",
+				fmt.Fprintf(w, "ts: %v\t0\t1\tmedian:2\t3\t4\t \n",
 					submit.Timestamp,
 				)
 			}
