@@ -29,8 +29,7 @@ import (
 
 const (
 	TellorAddress        = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	TellorAddressRinkeby = "0xD98C2C046721B297567ACfC41414Dd425721DC7a"
-	// TellorAddressRinkeby = "0x370C526CA64f24803C87f5Ae4e1C2285C4368a88" // Proxy.
+	TellorAddressRinkeby = TellorAddress
 	TellorAddressGoerli  = "0xf6c0da9600526C4D8411Ce5BD18059F1088a9580"
 	TellorAddressHardhat = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
