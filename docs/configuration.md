@@ -22,8 +22,9 @@ Usage: telliot accounts
 Show accounts
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
@@ -40,6 +41,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -59,8 +61,9 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
@@ -72,12 +75,13 @@ Usage: telliot data
 Retrieve data from the contract
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
-      --from=UINT-64     the unix timestamp to use as a starting point for the
-                         data retrieval
-      --look-back=2h     how far to lookback
+      --from=UINT-64       the unix timestamp to use as a starting point for the
+                           data retrieval
+      --look-back=2h       how far to lookback
 
 ```
 
@@ -89,8 +93,9 @@ Usage: telliot dataserver
 launch only a dataserver instance
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
@@ -105,8 +110,9 @@ Arguments:
   <file>    the file to encrypt
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
@@ -118,8 +124,9 @@ Usage: telliot dispute <command>
 Perform commands related to disputes
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 Commands:
   dispute new --request-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
@@ -151,12 +158,13 @@ Usage: telliot dispute list
 list open disputes
 
 Flags:
-  -h, --help              Show context-sensitive help.
-      --config=STRING     path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
-      --show-closed       also show executed disputes
-      --look-back=120h    how far to lookback, the default only few days since
-                          disputes can be voted only for 2 days.
+      --show-closed        also show executed disputes
+      --look-back=120h     how far to lookback, the default only few days since
+                           disputes can be voted only for 2 days.
 
 ```
 
@@ -173,6 +181,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -195,6 +204,7 @@ tally votes for a dispute ID, need to run unlock fee after that
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -210,11 +220,12 @@ Usage: telliot dispute tally-list
 list tally for disputes
 
 Flags:
-  -h, --help              Show context-sensitive help.
-      --config=STRING     path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
-      --look-back=120h    how far to lookback, the default only few days since
-                          disputes can be voted only for 2 days.
+      --look-back=120h     how far to lookback, the default only few days since
+                           disputes can be voted only for 2 days.
 
 ```
 
@@ -229,6 +240,7 @@ reported based on the voting
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
@@ -252,6 +264,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -275,8 +288,9 @@ Arguments:
   <file>    the file to encrypt
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
@@ -290,9 +304,9 @@ Subscribe to watch logs from the network.
 Flags:
   -h, --help                  Show context-sensitive help.
       --config=STRING         path to config file
+      --contract=STRING       provide valid hex address
 
       --look-back=DURATION    how far to look for the initiali qyery
-      --contract=STRING       provide valid hex address
       --event-name=STRING     the name of the log to watch
       --reorg-wait=3s         how long to wait for removed logs from reorg
                               events
@@ -307,8 +321,9 @@ Usage: telliot report
 Submit data to the oracle contracts
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
@@ -320,8 +335,9 @@ Usage: telliot stake <command>
 Perform one of the stake operations
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 Commands:
   stake deposit <account>
@@ -351,10 +367,11 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --contract=STRING          provide valid hex address
+      --proxy=STRING             when the reporter uses a proxy contract
 
 ```
 
@@ -371,6 +388,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -390,7 +408,6 @@ Arguments:
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-
       --contract=STRING    provide valid hex address
 
 ```
@@ -408,6 +425,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -427,10 +445,10 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --contract=STRING          provide valid hex address
       --skip-confirm             submit without confirming, useful for testing
 
 ```
@@ -448,6 +466,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
+      --contract=STRING          provide valid hex address
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -464,8 +483,9 @@ Usage: telliot version
 Show the CLI version information
 
 Flags:
-  -h, --help             Show context-sensitive help.
-      --config=STRING    path to config file
+  -h, --help               Show context-sensitive help.
+      --config=STRING      path to config file
+      --contract=STRING    provide valid hex address
 
 ```
 
