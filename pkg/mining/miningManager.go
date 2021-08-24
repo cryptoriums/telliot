@@ -62,8 +62,8 @@ type MiningMgr struct {
 
 // NewManager is the MiningMgr constructor.
 func NewManager(
-	logger log.Logger,
 	ctx context.Context,
+	logger log.Logger,
 	cfg Config,
 	contractInstance contracts.ContractCaller,
 	taskerCh chan *Work,

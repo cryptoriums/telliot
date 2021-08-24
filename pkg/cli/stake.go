@@ -10,7 +10,6 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,16 +21,17 @@ import (
 
 type DepositCmd struct {
 	GasAccount
-	ContractFlag
+	ProxyFlag
 }
 
-func (self *DepositCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
+	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	account, err := ethereum.GetAccountByPubAddess(self.Account)
@@ -39,31 +39,18 @@ func (self *DepositCmd) Run() error {
 		return err
 	}
 
-	var contractCaller contracts.ContractCaller
-	if self.Contract != "" {
-		contractCaller, err = contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
-		if err != nil {
-			return errors.Wrap(err, "creating contract interface")
-		}
-	} else {
-		contractCaller, err = contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-		if err != nil {
-			return errors.Wrap(err, "creating contract interface")
-		}
-	}
-
 	addrToCheck := account.Address
 	// When using proxy contract need to get its status.
-	if self.Contract != "" {
-		addrToCheck = common.HexToAddress(self.Contract)
+	if self.Proxy != "" {
+		addrToCheck = common.HexToAddress(self.Proxy)
 	}
 
-	balance, err := contractCaller.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
+	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
 	if err != nil {
 		return errors.Wrap(err, "get TRB balance")
 	}
 
-	status, startTime, err := contractCaller.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
+	status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}
@@ -73,7 +60,7 @@ func (self *DepositCmd) Run() error {
 		return nil
 	}
 
-	stakeAmt, err := contractCaller.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
+	stakeAmt, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
 	if err != nil {
 		return errors.Wrap(err, "fetching stake amount")
 	}
@@ -89,7 +76,7 @@ func (self *DepositCmd) Run() error {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contractCaller.DepositStake(opts)
+	tx, err := contract.DepositStake(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract failed")
 	}
@@ -101,22 +88,19 @@ type WithdrawCmd struct {
 	GasAccount
 }
 
-func (self *WithdrawCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
+	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	account, err := ethereum.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
-	}
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	status, startTime, err := contract.GetStakerInfo(nil, account.Address)
@@ -147,21 +131,19 @@ type RequestCmd struct {
 	GasAccount
 }
 
-func (self *RequestCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
+	}
+
 	account, err := ethereum.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
-	}
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	status, startTime, err := contract.GetStakerInfo(nil, account.Address)
@@ -190,34 +172,21 @@ func (self *RequestCmd) Run() error {
 
 type StatusCmd struct {
 	AccountArg
-	ContractFlag
 }
 
-func (self *StatusCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *StatusCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	var contractCaller contracts.ContractCaller
-	if self.Contract != "" {
-		contractCaller, err = contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
-		if err != nil {
-			return errors.Wrap(err, "creating contract interface")
-		}
-	} else {
-		contractCaller, err = contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-		if err != nil {
-			return errors.Wrap(err, "creating contract interface")
-		}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	addr := common.HexToAddress(self.Account)
 
-	status, startTime, err := contractCaller.GetStakerInfo(&bind.CallOpts{Context: ctx}, addr)
+	status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addr)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}

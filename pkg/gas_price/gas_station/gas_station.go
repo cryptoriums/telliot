@@ -28,7 +28,7 @@ type GasStationModel struct {
 	Average float32 `json:"average"`
 }
 
-func New(logger log.Logger, ctx context.Context, client *ethclient.Client, netID int64) (*GasStation, error) {
+func New(ctx context.Context, logger log.Logger, client *ethclient.Client, netID int64) (*GasStation, error) {
 	return &GasStation{
 		netID:  netID,
 		ctx:    ctx,

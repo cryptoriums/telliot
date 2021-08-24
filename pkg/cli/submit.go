@@ -19,12 +19,10 @@ import (
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/prompt"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -33,39 +31,34 @@ import (
 )
 
 type SubmitCmd struct {
-	config *config.Config
 	Gas
-	ContractFlag
 	AccountArgOptional
 	SkipConfirm bool `help:"submit without confirming, useful for testing"`
 }
 
-func (self *SubmitCmd) SetConfig(config *config.Config) {
-	self.config = config
-}
-
-func (self *SubmitCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contractCaller, err := self.GetContractCaller(ctx, logger, client, netID)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
-		return errors.Wrap(err, "creating contract interface")
+		return errors.Wrap(err, "create tellor contract instance")
 	}
 
-	resp, err := contractCaller.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
+	cfg, err := config.LoadConfig(logger, cli.Config)
+	if err != nil {
+		return err
+	}
+
+	resp, err := contract.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return errors.Wrap(err, "get current DATA ids")
 	}
 	ids := resp.RequestIds
 	var vals [5]*big.Int
 
-	vals, _, _, err = self.GetValuesFromDB(ctx, logger, ids)
+	vals, _, _, err = self.GetValuesFromDB(ctx, logger, cfg, ids)
 	if err != nil {
 		level.Error(logger).Log("msg", "couldn't get values from the DB so will proceed with manual submit", "err", err)
 		vals = GetValuesFromInput(logger, resp.RequestIds)
@@ -92,7 +85,7 @@ func (self *SubmitCmd) Run() error {
 		"vals", fmt.Sprintf("%+v", vals),
 	)
 
-	tx, err := contractCaller.SubmitMiningSolution(opts, "xxx", ids, vals)
+	tx, err := contract.SubmitMiningSolution(opts, "xxx", ids, vals)
 	if err != nil {
 		return errors.Wrap(err, "creting TX")
 	}
@@ -102,14 +95,6 @@ func (self *SubmitCmd) Run() error {
 	)
 
 	return nil
-}
-
-func (self *SubmitCmd) GetContractCaller(ctx context.Context, logger log.Logger, client *ethclient.Client, netID int64) (contracts.ContractCaller, error) {
-	if self.Contract != "" {
-		return contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
-	} else {
-		return contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-	}
 }
 
 func (self *SubmitCmd) SelectAccount(logger log.Logger) (*ethereum.Account, error) {
@@ -164,34 +149,34 @@ func GetValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
 	return vals
 }
 
-func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, dataIDs [5]*big.Int) ([5]*big.Int, storage.SampleAndChunkQueryable, *aggregator.Aggregator, error) {
+func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, cfg *config.Config, dataIDs [5]*big.Int) ([5]*big.Int, storage.SampleAndChunkQueryable, *aggregator.Aggregator, error) {
 	var vals [5]*big.Int
 	var querable storage.SampleAndChunkQueryable
 	var err error
-	if self.config.Db.RemoteHost != "" {
-		querable, err = db.NewRemoteDB(self.config.Db)
+	if cfg.Db.RemoteHost != "" {
+		querable, err = db.NewRemoteDB(cfg.Db)
 		if err != nil {
 			return vals, nil, nil, errors.Wrap(err, "coudn't open remote DB")
 		}
 		level.Info(logger).Log("msg", "connected to remote DB",
-			"host", self.config.Db.RemoteHost,
-			"port", self.config.Db.RemotePort,
+			"host", cfg.Db.RemoteHost,
+			"port", cfg.Db.RemotePort,
 		)
 	} else {
 		tsdbOptions := tsdb.DefaultOptions()
 		tsdbOptions.NoLockfile = true
-		querable, err = tsdb.Open(self.config.Db.Path, nil, nil, tsdbOptions)
+		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
 		if err != nil {
 			return vals, nil, nil, errors.Wrap(err, "coudn't open local DB")
 		}
 	}
-	aggregator, err := aggregator.New(logger, ctx, self.config.Aggregator, querable)
+	aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, querable)
 	if err != nil {
 		return vals, nil, nil, errors.Wrap(err, "couldn't create aggregator")
 
 	}
 
-	psr := psrTellor.New(logger, self.config.PsrTellor, aggregator)
+	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
 	vals, err = requestVals(logger, psr, dataIDs)
 	if err != nil {
 		return vals, nil, nil, errors.Wrap(err, "getting variable values")

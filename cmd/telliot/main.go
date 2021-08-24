@@ -4,18 +4,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/alecthomas/kong"
 	"github.com/cryptoriums/telliot/pkg/cli"
+	"github.com/cryptoriums/telliot/pkg/github"
+	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 var GitTag string
 var GitHash string
 
 func main() {
+	l := logging.NewLogger()
+	c := context.Background()
 	// Don't show the version message when it's an help command.
 	shouldShowVersionMessage := true
 	for _, arg := range os.Args {
@@ -28,16 +34,16 @@ func main() {
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Printf(cli.VersionMessage, GitTag, GitHash)
 
-		newRelease, err := cli.CheckNewVersion("cryptoriums", GitTag)
+		newRelease, err := github.CheckNewVersion("cryptoriums", GitTag)
 		if err != nil {
-			log.Printf("ERROR checking for a new release:%v", err.Error())
+			level.Error(l).Log("msg", "checking for new release", "err", err)
 		}
 		if newRelease != "" {
-			log.Printf("THERE IS A NEW RELEASE: %v", newRelease)
+			level.Error(l).Log("msg", "THERE IS A NEW RELEASE", "version", newRelease)
 		}
 	}
 
-	ctx := kong.Parse(&cli.CLIDefault, kong.Name("telliot"),
+	ctx := kong.Parse(&cli.CLIDefault, kong.BindTo(c, (*context.Context)(nil)), kong.BindTo(l, (*log.Logger)(nil)), kong.Name("telliot"),
 		kong.Description("The unofficial Tellor cli tool"),
 		kong.UsageOnError())
 

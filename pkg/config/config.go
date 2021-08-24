@@ -80,6 +80,19 @@ var DefaultConfig = Config{
 	EnvFile: "configs/.env",
 }
 
+func LoadConfig(logger log.Logger, path string) (*Config, error) {
+	cfg, err := Parse(logger, string(path))
+	if err != nil {
+		return nil, errors.Wrap(err, "creating config")
+	}
+
+	err = LoadEnvFile(logger, cfg.EnvFile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "loading the enf file:%v", cfg.EnvFile)
+	}
+	return cfg, nil
+}
+
 func Parse(logger log.Logger, path string) (*Config, error) {
 
 	cfg := &Config{}

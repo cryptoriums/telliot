@@ -16,13 +16,16 @@ import (
 	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
 	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/storage"
@@ -45,9 +48,15 @@ type NewDisputeCmd struct {
 	Slot      int64 `required:""  help:"the reporter index to dispute"`
 }
 
-func (self *NewDisputeCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
+func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	client, netID, err := ethereum.NewClient(logger, ctx)
+	if err != nil {
+		return errors.Wrap(err, "creating ethereum client")
+	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
+	}
 
 	if self.Slot < 0 || self.Slot > 4 {
 		return errors.Errorf("reporter index should be between 0 and 4 (got %v)", self.Slot)
@@ -62,18 +71,9 @@ func (self *NewDisputeCmd) Run() error {
 		return errors.New("timestamp can't be in the future")
 	}
 
-	client, netID, err := ethereumT.NewClient(logger, ctx)
-	if err != nil {
-		return errors.Wrap(err, "creating ethereum client")
-	}
-
 	account, err := ethereumT.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
-	}
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	if !self.NoChecks {
@@ -118,22 +118,19 @@ type VoteCmd struct {
 	Support bool `required:"" help:"true or false"`
 }
 
-func (self *VoteCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	client, netID, err := ethereumT.NewClient(logger, ctx)
+func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
+	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	account, err := ethereumT.GetAccountByPubAddess(self.Account)
 	if err != nil {
 		return err
-	}
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
@@ -173,15 +170,12 @@ type TallyCmd struct {
 	DispID
 }
 
-func (self *TallyCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	client, netID, err := ethereumT.NewClient(logger, ctx)
+func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
@@ -218,16 +212,12 @@ type TallyListCmd struct {
 	LookBck
 }
 
-func (self *TallyListCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	client, netID, err := ethereumT.NewClient(logger, ctx)
+func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
@@ -259,22 +249,19 @@ type UnlockFeeCmd struct {
 	DispID
 }
 
-func (self *UnlockFeeCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	client, netID, err := ethereumT.NewClient(logger, ctx)
+func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
+	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	accounts, err := ethereumT.GetAccounts()
 	if err != nil {
 		return err
-	}
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-	if err != nil {
-		return errors.Wrap(err, "create tellor contract instance")
 	}
 
 	if !self.NoChecks {
@@ -326,51 +313,47 @@ func (self *UnlockFeeCmd) Run() error {
 }
 
 type ListCmd struct {
-	config     *config.Config
 	ShowClosed bool `help:"also show executed disputes"`
 	LookBck
 }
 
-func (self *ListCmd) SetConfig(config *config.Config) {
-	self.config = config
-}
-
-func (self *ListCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	client, netID, err := ethereumT.NewClient(logger, ctx)
+func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
 
+	cfg, err := config.LoadConfig(logger, cli.Config)
+	if err != nil {
+		return err
+	}
+
 	// Open the TSDB database.
 	var querable storage.SampleAndChunkQueryable
-	if self.config.Db.RemoteHost != "" {
-		querable, err = db.NewRemoteDB(self.config.Db)
+	if cfg.Db.RemoteHost != "" {
+		querable, err = db.NewRemoteDB(cfg.Db)
 		if err != nil {
 			return errors.Wrap(err, "opening remote tsdb DB")
 		}
 	} else {
 		tsdbOptions := tsdb.DefaultOptions()
 		tsdbOptions.NoLockfile = true
-		querable, err = tsdb.Open(self.config.Db.Path, nil, nil, tsdbOptions)
+		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
 		if err != nil {
 			return errors.Wrap(err, "opening tsdb DB")
 		}
 	}
 
-	aggregator, err := aggregator.New(logger, ctx, self.config.Aggregator, querable)
+	aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, querable)
 	if err != nil {
 		return errors.Wrap(err, "creating aggregator")
 	}
 
-	psr := psrTellor.New(logger, self.config.PsrTellor, aggregator)
+	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
 
 	logs, err := contracts.GetDisputeLogs(ctx, client, contract, self.LookBack)
 	if err != nil {

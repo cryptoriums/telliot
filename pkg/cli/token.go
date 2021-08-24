@@ -8,11 +8,11 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 )
@@ -42,21 +42,17 @@ func (self *tokenCmd) Validate() error {
 
 type TransferCmd tokenCmd
 
-func (self *TransferCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	from := common.HexToAddress(self.From)
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
+
+	from := common.HexToAddress(self.From)
 
 	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, from)
 	if err != nil {
@@ -100,16 +96,12 @@ func (self *TransferCmd) Run() error {
 
 type ApproveCmd tokenCmd
 
-func (self *ApproveCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
@@ -157,16 +149,12 @@ type BalanceCmd struct {
 	AccountArg
 }
 
-func (self *BalanceCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
+func (self *BalanceCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}

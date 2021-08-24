@@ -9,14 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/google/go-github/v35/github"
 	"github.com/pkg/errors"
@@ -59,6 +58,7 @@ var CLIDefault = CLI{
 
 type CLI struct {
 	Cfg
+	ContractFlag
 
 	Dataserver DataserverCmd `cmd:"" help:"launch only a dataserver instance"`
 	Report     ReportCmd     `cmd:"" help:"Submit data to the oracle contracts"`
@@ -75,27 +75,6 @@ type CLI struct {
 	Decrypt  DecryptCmd  `cmd:"" help:"Decrypts an ecrypted file and write the decrytped version to disk"`
 	Events   eventsCmd   `cmd:"" help:"Subscribe to watch logs from the network."`
 	Version  VersionCmd  `cmd:"" help:"Show the CLI version information"`
-}
-
-func (self *CLI) AfterApply() error {
-	logger := logging.NewLogger()
-
-	cfg, err := config.Parse(logger, string(self.Config))
-	if err != nil {
-		return errors.Wrap(err, "creating config")
-	}
-
-	err = config.LoadEnvFile(logger, cfg.EnvFile)
-	if err != nil {
-		return errors.Wrapf(err, "loading the enf file:%v", cfg.EnvFile)
-	}
-
-	self.Dataserver.SetConfig(cfg)
-	self.Report.SetConfig(cfg)
-	self.Submit.SetConfig(cfg)
-	self.Dispute.List.SetConfig(cfg)
-
-	return nil
 }
 
 type disputeCmd struct {
@@ -117,7 +96,7 @@ type stakeCmd struct {
 type VersionCmd struct {
 }
 
-func (cmd VersionCmd) Run() error {
+func (cmd VersionCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	// The main entry point prints the version message so
 	// here just return nil and the message will be printed.
 	return nil
@@ -161,6 +140,10 @@ type ContractFlag struct {
 	Contract string `optional:"" help:"provide valid hex address"`
 }
 
+type ProxyFlag struct {
+	Proxy string `optional:"" help:"when the reporter uses a proxy contract"`
+}
+
 func (self *ContractFlag) Validate() error {
 	if self.Contract == "" {
 		return nil
@@ -194,23 +177,18 @@ type GasAccount struct {
 type AccountsCmd struct {
 }
 
-func (self *AccountsCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	accounts, err := ethereum.GetAccounts()
-	if err != nil {
-		return errors.Wrap(err, "getting accounts")
-	}
-
+func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
+	}
+	accounts, err := ethereum.GetAccounts()
+	if err != nil {
+		return errors.Wrap(err, "getting accounts")
 	}
 
 	for i, account := range accounts {

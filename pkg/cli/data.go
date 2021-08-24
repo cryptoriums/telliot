@@ -12,8 +12,9 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 )
@@ -23,21 +24,17 @@ type DataCmd struct {
 	LookBack time.Duration `default:"2h" help:"how far to lookback"`
 }
 
-func (self *DataCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx := context.Background()
-
-	level.Info(logger).Log("msg", "params", "from", self.From, "lookBack", self.LookBack)
-
+func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	contract, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
 		return errors.Wrap(err, "create tellor contract instance")
 	}
+
+	level.Info(logger).Log("msg", "params", "from", self.From, "lookBack", self.LookBack)
 
 	submits, err := contracts.GetSubmitLogs(ctx, client, contract, int64(self.From), self.LookBack)
 	if err != nil {

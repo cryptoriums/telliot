@@ -40,7 +40,7 @@ type Web struct {
 	srv    *http.Server
 }
 
-func New(logger log.Logger, ctx context.Context, tsDB storage.SampleAndChunkQueryable, cfg Config) (*Web, error) {
+func New(ctx context.Context, logger log.Logger, tsDB storage.SampleAndChunkQueryable, cfg Config) (*Web, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")

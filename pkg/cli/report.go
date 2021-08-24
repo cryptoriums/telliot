@@ -14,7 +14,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/gas_price/gas_station"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/mining"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	tellorSubmit "github.com/cryptoriums/telliot/pkg/submitter/tellor"
@@ -22,6 +21,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	transactorTellor "github.com/cryptoriums/telliot/pkg/transactor/tellor"
 	"github.com/cryptoriums/telliot/pkg/web"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
@@ -31,24 +31,22 @@ import (
 )
 
 type ReportCmd struct {
-	config *config.Config
 }
 
-func (self *ReportCmd) SetConfig(config *config.Config) {
-	self.config = config
-}
-
-func (self *ReportCmd) Run() error {
-	logger := logging.NewLogger()
-
-	// Defining a global context for starting and stopping of components.
-	ctx := context.Background()
-
+func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
+	if err != nil {
+		return errors.Wrap(err, "create tellor contract instance")
+	}
 
+	cfg, err := config.LoadConfig(logger, cli.Config)
+	if err != nil {
+		return err
+	}
 	accounts, err := ethereum.GetAccounts()
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")
@@ -59,22 +57,22 @@ func (self *ReportCmd) Run() error {
 	// Run groups.
 	{
 		// Handle interupts.
-		g.Add(run.SignalHandler(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM))
+		g.Add(run.SignalHandler(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM))
 
 		// Open a local or remote instance of the TSDB database.
 		var tsDB storage.SampleAndChunkQueryable
-		if self.config.Db.RemoteHost != "" {
-			tsDB, err = db.NewRemoteDB(self.config.Db)
+		if cfg.Db.RemoteHost != "" {
+			tsDB, err = db.NewRemoteDB(cfg.Db)
 			if err != nil {
 				return errors.Wrap(err, "opening remote tsdb DB")
 			}
-			level.Info(logger).Log("msg", "connected to remote db", "host", self.config.Db.RemoteHost, "port", self.config.Db.RemotePort)
+			level.Info(logger).Log("msg", "connected to remote db", "host", cfg.Db.RemoteHost, "port", cfg.Db.RemotePort)
 		} else {
 			// Open the TSDB database.
 			tsdbOptions := tsdb.DefaultOptions()
 			// 30 days are enough as the maximum data we need it for disputes which don't run for more than 2-3 days.
 			tsdbOptions.RetentionDuration = int64(30 * 24 * time.Hour)
-			_tsDB, err := tsdb.Open(self.config.Db.Path, nil, nil, tsdbOptions)
+			_tsDB, err := tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
 			if err != nil {
 				return errors.Wrap(err, "opening local tsdb DB")
 			}
@@ -84,13 +82,13 @@ func (self *ReportCmd) Run() error {
 				}
 			}()
 			tsDB = _tsDB
-			level.Info(logger).Log("msg", "opened local db", "path", self.config.Db.Path)
+			level.Info(logger).Log("msg", "opened local db", "path", cfg.Db.Path)
 			level.Warn(logger).Log("msg", "FOR NEW DB INSTANCES IT IS NORMAL TO SEE SOME QUERY ERRORS AS THE DATABASE IS NOT YET POPULATED WITH VALUES")
 		}
 
 		// Web/Api server.
 		{
-			srv, err := web.New(logger, ctx, tsDB, self.config.Web)
+			srv, err := web.New(ctx, logger, tsDB, cfg.Web)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+web.ComponentName)
 			}
@@ -104,20 +102,20 @@ func (self *ReportCmd) Run() error {
 		}
 
 		// Aggregator.
-		aggregator, err := aggregator.New(logger, ctx, self.config.Aggregator, tsDB)
+		aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, tsDB)
 		if err != nil {
 			return errors.Wrap(err, "creating aggregator")
 		}
 
 		// Run these only when not using remote DB as it needs to write to the local db.
-		if self.config.Db.RemoteHost == "" {
+		if cfg.Db.RemoteHost == "" {
 			_tsDB, ok := tsDB.(*tsdb.DB)
 			if !ok {
 				return errors.New("tsdb is not a writable DB instance")
 			}
 
 			// Index Tracker.
-			trackerIndex, err := index.New(logger, ctx, self.config.TrackerIndex, _tsDB)
+			trackerIndex, err := index.New(ctx, logger, cfg.TrackerIndex, _tsDB)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+index.ComponentName)
 			}
@@ -131,19 +129,14 @@ func (self *ReportCmd) Run() error {
 			})
 		}
 
-		gasPriceQuerier, err := gas_station.New(logger, ctx, client, netID)
+		gasPriceQuerier, err := gas_station.New(ctx, logger, client, contract.NetID())
 		if err != nil {
 			return errors.Wrap(err, "creating gas price tracker")
 		}
 
-		if self.config.SubmitterTellor.Enabled {
-			contractTellor, err := contracts.NewITellor(logger, ctx, client, netID, contracts.DefaultParams)
-			if err != nil {
-				return errors.Wrap(err, "create tellor contract instance")
-			}
-
+		if cfg.SubmitterTellor.Enabled {
 			// Event tasker.
-			taskerE, taskerChs, err := tasker.New(ctx, logger, self.config.Tasker, client, contractTellor, accounts)
+			taskerE, taskerChs, err := tasker.New(ctx, logger, cfg.Tasker, client, contract, accounts)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+tasker.ComponentName)
 			}
@@ -155,7 +148,7 @@ func (self *ReportCmd) Run() error {
 				taskerE.Stop()
 			})
 
-			psr := psrTellor.New(logger, self.config.PsrTellor, aggregator)
+			psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
 
 			// Create a submitter for each account.
 			for _, account := range accounts {
@@ -163,13 +156,12 @@ func (self *ReportCmd) Run() error {
 
 				transactor, err := transactorTellor.New(
 					loggerWithAddr,
-					self.config.TransactorTellor,
+					cfg.TransactorTellor,
 					gasPriceQuerier,
 					client,
-					netID,
 					account,
 					nil,
-					contractTellor,
+					contract,
 				)
 				if err != nil {
 					return errors.Wrap(err, "creating transactor")
@@ -179,9 +171,9 @@ func (self *ReportCmd) Run() error {
 				submitter, submitterCh, err := tellorSubmit.New(
 					ctx,
 					loggerWithAddr,
-					self.config.SubmitterTellor,
+					cfg.SubmitterTellor,
 					client,
-					contractTellor,
+					contract,
 					account,
 					transactor,
 					psr,
@@ -198,7 +190,7 @@ func (self *ReportCmd) Run() error {
 				})
 
 				// The Miner component.
-				miner, err := mining.NewManager(loggerWithAddr, ctx, self.config.Mining, contractTellor, taskerChs[account.Address.Hex()], submitterCh, client)
+				miner, err := mining.NewManager(ctx, loggerWithAddr, cfg.Mining, contract, taskerChs[account.Address.Hex()], submitterCh, client)
 				if err != nil {
 					return errors.Wrap(err, "creating component:"+mining.ComponentName)
 				}

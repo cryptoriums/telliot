@@ -84,6 +84,13 @@ type ContractCaller interface {
 	GetNewValueCountbyRequestId(opts *bind.CallOpts, _requestId *big.Int) (*big.Int, error)
 	GetTimestampbyRequestIDandIndex(opts *bind.CallOpts, _requestID *big.Int, _index *big.Int) (*big.Int, error)
 	GetRequestUintVars(opts *bind.CallOpts, _requestId *big.Int, _data [32]byte) (*big.Int, error)
+	BeginDispute(opts *bind.TransactOpts, _requestId *big.Int, _timestamp *big.Int, _minerIndex *big.Int) (*types.Transaction, error)
+	DidVote(opts *bind.CallOpts, _disputeId *big.Int, _address common.Address) (bool, error)
+	Vote(opts *bind.TransactOpts, _disputeId *big.Int, _supportsDispute bool) (*types.Transaction, error)
+	WithdrawStake(opts *bind.TransactOpts) (*types.Transaction, error)
+	RequestStakingWithdraw(opts *bind.TransactOpts) (*types.Transaction, error)
+	Transfer(*bind.TransactOpts, common.Address, *big.Int) (*types.Transaction, error)
+	Approve(opts *bind.TransactOpts, dst common.Address, amt *big.Int) (*types.Transaction, error)
 }
 
 type RewardQuerier interface {
@@ -157,18 +164,23 @@ func (self *ITellor) WatchLogs(opts *bind.WatchOpts, name string, query ...[]int
 	return self.boundContract.WatchLogs(opts, name, query...)
 }
 
-func NewITellor(logger log.Logger, ctx context.Context, client *ethclient.Client, netID int64, params Params) (*ITellor, error) {
-	contractAddr, err := GetTellorAddress(netID)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting contract address")
+func NewITellor(logger log.Logger, address common.Address, client *ethclient.Client, netID int64, params Params) (*ITellor, error) {
+	var contractAddr common.Address
+	if address.String() != "" {
+		contractAddr = address
+	} else {
+		var err error
+		contractAddr, err = GetTellorAddress(netID)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting contract address")
+		}
 	}
 
-	return NewITellorWithAddr(logger, ctx, contractAddr, client, netID, params)
+	return newITellorWithAddr(logger, contractAddr, client, netID, params)
 }
 
-func NewITellorWithAddr(
+func newITellorWithAddr(
 	logger log.Logger,
-	ctx context.Context,
 	contractAddr common.Address,
 	client *ethclient.Client,
 	netID int64,

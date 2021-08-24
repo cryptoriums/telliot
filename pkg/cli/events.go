@@ -11,44 +11,33 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/tracker/events"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
 )
 
 type eventsCmd struct {
-	LookBack time.Duration `help:"how far to look for the initiali qyery"`
-	ContractFlag
+	LookBack  time.Duration `help:"how far to look for the initiali qyery"`
 	EventName string        `required:"" enum:"NonceSubmitted,NewTellorAddress" help:"the name of the log to watch"`
 	ReorgWait time.Duration `default:"3s" help:"how long to wait for removed logs from reorg events"`
 }
 
-func (self *eventsCmd) Run() error {
-	logger := logging.NewLogger()
-	ctx, cncl := context.WithCancel(context.Background())
-	defer cncl()
-
+func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	client, netID, err := ethereum.NewClient(logger, ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating ethereum client")
 	}
-
-	if self.Contract == "" {
-		contractAddr, err := contracts.GetTellorAddress(netID)
-		if err != nil {
-			return errors.Wrap(err, "getting tellor address")
-		}
-		self.Contract = contractAddr.Hex()
-	}
-
-	contract, err := contracts.NewITellorWithAddr(logger, ctx, common.HexToAddress(self.Contract), client, netID, contracts.DefaultParams)
+	contract, err := contracts.NewITellor(logger, common.HexToAddress(cli.Contract), client, netID, contracts.DefaultParams)
 	if err != nil {
-		return errors.Wrap(err, "creating contract instance")
+		return errors.Wrap(err, "create tellor contract instance")
 	}
+
+	ctx, cncl := context.WithCancel(ctx)
+	defer cncl()
 
 	trackerEvents, output, err := events.New(
 		ctx,
@@ -68,7 +57,7 @@ func (self *eventsCmd) Run() error {
 	// Run groups.
 	{
 		// Handle interupts.
-		g.Add(run.SignalHandler(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM))
+		g.Add(run.SignalHandler(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM))
 
 		g.Add(func() error {
 			err := trackerEvents.Start()

@@ -78,8 +78,8 @@ type TrackerIndex struct {
 }
 
 func New(
-	logger log.Logger,
 	ctx context.Context,
+	logger log.Logger,
 	cfg Config,
 	db *tsdb.DB,
 ) (*TrackerIndex, error) {

@@ -34,8 +34,7 @@ type Config struct {
 
 // Tellor implements the Transactor interface.
 type Tellor struct {
-	contracts.ContractCaller
-	netID           int64
+	contract        contracts.ContractCaller
 	cfg             Config
 	logger          log.Logger
 	gasPriceQuerier gas_price.GasPriceQuerier
@@ -50,10 +49,9 @@ func New(
 	cfg Config,
 	gasPriceQuerier gas_price.GasPriceQuerier,
 	client *ethclient.Client,
-	netID int64,
 	account *ethereum.Account,
 	rewardQ contracts.RewardQuerier,
-	contractCaller contracts.ContractCaller,
+	contract contracts.ContractCaller,
 ) (*Tellor, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
@@ -61,7 +59,6 @@ func New(
 	}
 
 	return &Tellor{
-		netID:           netID,
 		cfg:             cfg,
 		logger:          log.With(logger, "component", ComponentName),
 		gasPriceQuerier: gasPriceQuerier,
@@ -69,12 +66,12 @@ func New(
 		account:         account,
 		rewardQ:         rewardQ,
 		gasEstimator:    gas_estimator.NewDefault(),
-		ContractCaller:  contractCaller,
+		contract:        contract,
 	}, nil
 }
 
 func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.Int, vals [5]*big.Int) (*types.Transaction, error) {
-	slot, err := contracts.Slot(self.ContractCaller)
+	slot, err := contracts.Slot(self.contract)
 	if err != nil {
 		level.Error(self.logger).Log("msg", "getting slot number", "err", err)
 	}
@@ -147,7 +144,7 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 			return nil, errors.Errorf("insufficient funds to send transaction: %v gwei < %v gwei", balanceGwei, txCostGwei)
 		}
 
-		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, big.NewInt(self.netID))
+		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, big.NewInt(self.contract.NetID()))
 		if err != nil {
 			return nil, errors.Wrap(err, "creating transactor")
 		}
@@ -168,7 +165,7 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 		opts.GasTipCap = big.NewInt(0).Mul(big.NewInt(int64(gasTipGwei)), big.NewInt(int64(params.GWei)))
 		opts.GasFeeCap = gasFeeCap
 
-		tx, err := self.ContractCaller.SubmitMiningSolution(opts, solution, ids, vals)
+		tx, err := self.contract.SubmitMiningSolution(opts, solution, ids, vals)
 		if err != nil {
 			if strings.Contains(strings.ToLower(err.Error()), "nonce too low") { // Can't use error type matching because of the way the eth client is implemented.
 				nonce = nonce + 1

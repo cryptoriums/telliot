@@ -41,8 +41,8 @@ type Aggregator struct {
 }
 
 func New(
-	logger log.Logger,
 	ctx context.Context,
+	logger log.Logger,
 	cfg Config,
 	tsDB storage.SampleAndChunkQueryable,
 ) (*Aggregator, error) {
