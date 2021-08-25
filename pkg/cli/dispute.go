@@ -309,7 +309,6 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	} else {
 		tsdbOptions := tsdb.DefaultOptions()
-		tsdbOptions.NoLockfile = true
 		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
 		if err != nil {
 			return errors.Wrap(err, "opening tsdb DB")
@@ -330,100 +329,65 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 	level.Info(logger).Log("msg", "disputes count", "lookBackPeriod", self.LookBack, "count", len(logs))
 
-	var lastTs int64
-	var submits []Submit
-	for i, log := range logs {
+	for _, log := range logs {
 		if !self.ShowClosed && log.Executed {
 			continue
 		}
-
-		// Print submit results only once for disputes with the same TS.
-		if lastTs != log.DataTs.Unix() {
-			printSubmits(submits)
-
-			submits = submits[:0]
-			suggested, err := psr.GetValue(log.DataID, log.DataTs)
-			if err != nil {
-				level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
-			}
-
-			_submits, err := contract.GetSubmissionsByTimestamp(
-				&bind.CallOpts{Context: ctx},
-				big.NewInt(log.DataID),
-				big.NewInt(log.DataTs.Unix()),
-			)
-			if err != nil {
-				level.Error(logger).Log("msg", "getting all submits", "err", err)
-				continue
-			}
-
-			for i, submit := range _submits {
-				var disputed bool
-				if i == int(log.DisputedSlot) {
-					disputed = true
-				}
-
-				submits = append(submits, Submit{
-					Value:      float64(submit.Int64()) / psrTellor.DefaultGranularity,
-					Suggested:  suggested / psrTellor.DefaultGranularity,
-					MinerIndex: i,
-					IsDisputed: disputed,
-				})
-
-			}
-		} else {
-			submits[log.DisputedSlot].IsDisputed = true
-		}
-		lastTs = log.DataTs.Unix()
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
 
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Println()
-		fmt.Fprintln(w, "ID:\t", log.ID, "\t")
-		fmt.Fprintln(w, "Executed:\t", log.Executed, "\t")
-		fmt.Fprintln(w, "Passed:\t", log.Passed, "\t")
-		fmt.Fprintln(w, "Fee:\t", log.Fee, "\t")
-		fmt.Fprintln(w, "Created:\t", log.Created.Format(logging.DefaultTimeFormat), "\t")
-		fmt.Fprintln(w, "Ends:\t", -time.Since(log.Ends), "\t")
-		fmt.Fprintln(w, "Tally:\t", log.Tally, "\t")
-		fmt.Fprintln(w, "Votes:\t", log.Votes, "\t")
-		fmt.Fprintln(w, "Pairs:\t", tellor.Psrs[log.DataID].Pair, "\t")
-		fmt.Fprintln(w, "DataId:\t", log.DataID, "\t")
-		fmt.Fprintln(w, "Ts:\t", strconv.Itoa(int(log.DataTs.Unix()))+"- "+log.DataTs.Format(logging.DefaultTimeFormat), "\t")
+		fmt.Fprintln(w, "ID: \t", log.ID, "\t")
+		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
+		fmt.Fprintln(w, "Passed: \t", log.Passed, "\t")
+		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
+		fmt.Fprintln(w, "Created :\t", log.Created.Format(logging.DefaultTimeFormat), "\t")
+		fmt.Fprintln(w, "Ends: \t", -time.Since(log.Ends), "\t")
+		fmt.Fprintln(w, "Tally: \t", log.Tally, "\t")
+		fmt.Fprintln(w, "Votes: \t", log.Votes, "\t")
+		fmt.Fprintln(w, "Pairs: \t", tellor.Psrs[log.DataID].Pair, "\t")
+		fmt.Fprintln(w, "DataId: \t", log.DataID, "\t")
+		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(log.DataTime.Unix()))+" "+log.DataTime.Format(logging.DefaultTimeFormat), "\t")
 		fmt.Fprintln(w, "Slot:\t", log.DisputedSlot, "\t")
-		fmt.Fprintln(w, "Disputer:\t", log.Disputer.Hex(), "\t")
-		fmt.Fprintln(w, "Disputed:\t", log.Disputed.Hex(), "\t")
-		fmt.Fprintln(w, "TxHash:\t", log.TxHash.Hex(), "\t")
+		fmt.Fprintln(w, "Disputer: \t", log.Disputer.Hex(), "\t")
+		fmt.Fprintln(w, "Disputed: \t", log.Disputed.Hex(), "\t")
+		fmt.Fprintln(w, "TxHash: \t", log.TxHash.Hex(), "\t")
 		w.Flush()
 
-		// Also print the submits when it is the last dispute.
-		if i == len(logs)-1 {
-			printSubmits(submits)
+		suggested, err := psr.GetValue(log.DataID, log.DataTime)
+		if err != nil {
+			level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
 		}
+
+		_submits, err := contract.GetSubmissionsByTimestamp(
+			&bind.CallOpts{Context: ctx},
+			big.NewInt(log.DataID),
+			big.NewInt(log.DataTime.Unix()),
+		)
+		if err != nil {
+			level.Error(logger).Log("msg", "getting all submits", "err", err)
+			continue
+		}
+
+		for i, submit := range _submits {
+			var disputed bool
+			if i == int(log.DisputedSlot) {
+				disputed = true
+			}
+
+			//lint:ignore faillint looks cleaner with print instead of logs
+			fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, disputed:%v \n",
+				float64(submit.Int64())/psrTellor.DefaultGranularity,
+				suggested/psrTellor.DefaultGranularity,
+				i,
+				disputed,
+			)
+		}
+
+		fmt.Printf("\n\n")
 
 	}
 
 	return nil
-}
-
-type Submit struct {
-	Value      float64
-	Suggested  float64
-	MinerIndex int
-	IsDisputed bool
-}
-
-func printSubmits(submits []Submit) {
-	for _, submit := range submits {
-		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, disputed:%v \n",
-			submit.Value,
-			submit.Suggested,
-			submit.MinerIndex,
-			submit.IsDisputed,
-		)
-	}
-	//lint:ignore faillint looks cleaner with print instead of logs
-	fmt.Printf("\n\n")
 }
