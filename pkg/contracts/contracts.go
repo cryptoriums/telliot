@@ -37,7 +37,7 @@ const (
 	RequestStakingWithdrawGasUsage = 100_000
 	TallyGasUsage                  = 150_000
 	DepositStakeGasUsage           = 160_000
-	UnlockFeeGasUsage              = 200_000
+	UnlockFeeGasUsage              = 300_000
 	VoteGasUSage                   = 200_000
 	BeginDisputeGasUsage           = 700_000
 	SubmitMiningSolutionGasUsage   = 3_000_000
@@ -290,7 +290,7 @@ type DisputeLog struct {
 	ID           int64
 	DataID       int64
 	DataVal      float64
-	DataTs       time.Time
+	DataTime     time.Time
 	Executed     bool
 	Passed       bool
 	Disputer     common.Address
@@ -412,7 +412,7 @@ func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract ContractCa
 	return &DisputeLog{
 		ID:           disputeID.Int64(),
 		DataID:       disputeVars[0].Int64(),
-		DataTs:       time.Unix(disputeVars[1].Int64(), 0),
+		DataTime:     time.Unix(disputeVars[1].Int64(), 0),
 		DataVal:      math.BigIntToFloatDiv(disputeVars[2], psr.DefaultGranularity),
 		Executed:     executed,
 		Passed:       passed,
