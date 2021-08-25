@@ -154,7 +154,6 @@ func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, c
 		)
 	} else {
 		tsdbOptions := tsdb.DefaultOptions()
-		tsdbOptions.NoLockfile = true
 		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
 		if err != nil {
 			return vals, nil, nil, errors.Wrap(err, "coudn't open local DB")
