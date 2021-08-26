@@ -70,7 +70,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		{
 			srv, err := web.New(ctx, logger, tsDB, cfg.Web)
 			if err != nil {
-				return errors.Wrap(err, "creating component:"+index.ComponentName)
+				return errors.Wrap(err, "creating component:"+web.ComponentName)
 			}
 			g.Add(func() error {
 				err := srv.Start()
