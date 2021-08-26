@@ -31,6 +31,9 @@ import (
 type DispID struct {
 	DisputeID int64 `required:"" help:"the dispute id"`
 }
+type DispIDOptional struct {
+	DisputeID int64 `help:"the dispute id"`
+}
 
 type LookBck struct {
 	LookBack time.Duration `default:"120h" help:"how far to lookback, the default only few days since disputes can be voted only for 2 days."`
@@ -39,7 +42,7 @@ type LookBck struct {
 type NewDisputeCmd struct {
 	GasAccount
 	NoChks
-	RequestID int64 `required:""  help:"the request id to dispute"`
+	DataID    int64 `required:""  help:"the request id to dispute"`
 	Timestamp int64 `required:""  help:"the submitted timestamp to dispute"`
 	Slot      int64 `required:""  help:"the reporter index to dispute"`
 }
@@ -91,12 +94,12 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.BeginDispute(opts, big.NewInt(self.RequestID), big.NewInt(self.Timestamp), big.NewInt(self.Slot))
+	tx, err := contract.BeginDispute(opts, big.NewInt(self.DataID), big.NewInt(self.Timestamp), big.NewInt(self.Slot))
 	if err != nil {
 		return errors.Wrap(err, "send dispute txn")
 	}
 	level.Info(logger).Log("msg", "dispute started",
-		"dataID", self.RequestID,
+		"dataID", self.DataID,
 		"ts", self.Timestamp,
 		"slot", self.Slot,
 		"tx", tx.Hash())
@@ -155,7 +158,8 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 type TallyCmd struct {
 	Gas
-	DispID
+	DispIDOptional
+	All bool
 }
 
 func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
@@ -164,13 +168,23 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		return err
 	}
 
-	dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
-	if err != nil {
-		return errors.Wrap(err, "getting dispute details")
-	}
+	var disputes []*contracts.DisputeLog
 
-	if dispute.Executed {
-		return errors.New("dispute already executed")
+	if self.All {
+		disputes, err = contracts.GetDisputeLogs(ctx, client, contract, 300*time.Hour)
+		if err != nil {
+			return errors.Wrap(err, "get dispute logs")
+		}
+
+	} else {
+		if self.DisputeID == 0 {
+			return errors.New("dispute ID is empty")
+		}
+		dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
+		if err != nil {
+			return errors.Wrap(err, "get dispute info")
+		}
+		disputes = append(disputes, dispute)
 	}
 
 	accounts, err := ethereumT.GetAccounts(logger)
@@ -178,17 +192,24 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		return err
 	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.TallyGasUsage)
-	if err != nil {
-		return errors.Wrapf(err, "prepare ethereum transaction")
-	}
+	for _, dispute := range disputes {
+		if dispute.Executed {
+			level.Info(logger).Log("msg", "dipsute already executed", "id", dispute.ID)
+			continue
+		}
 
-	tx, err := contract.TallyVotes(opts, big.NewInt(self.DisputeID))
-	if err != nil {
-		return errors.Wrapf(err, "run tally votes")
-	}
+		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.TallyGasUsage)
+		if err != nil {
+			return errors.Wrapf(err, "prepare ethereum transaction")
+		}
 
-	level.Info(logger).Log("msg", "tally votes submitted", "tx", tx.Hash().Hex())
+		tx, err := contract.TallyVotes(opts, big.NewInt(dispute.ID))
+		if err != nil {
+			return errors.Wrapf(err, "run tally votes")
+		}
+
+		level.Info(logger).Log("msg", "tally votes submitted", "tx", tx.Hash().Hex())
+	}
 	return nil
 }
 
@@ -226,7 +247,8 @@ func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 type UnlockFeeCmd struct {
 	NoChks
 	Gas
-	DispID
+	DispIDOptional
+	All bool
 }
 
 func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
@@ -240,51 +262,73 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		return err
 	}
 
-	if !self.NoChecks {
-		tallyTs, err := contract.GetDisputeUintVars(
-			&bind.CallOpts{Context: ctx},
-			big.NewInt(self.DisputeID),
-			ethereumT.Keccak256([]byte("_TALLY_DATE")),
-		)
+	var disputes []*contracts.DisputeLog
+
+	if self.All {
+		disputes, err = contracts.GetDisputeLogs(ctx, client, contract, 300*time.Hour)
 		if err != nil {
-			return errors.Wrap(err, "get _TALLY_DATE")
+			return errors.Wrap(err, "get dispute logs")
 		}
 
-		if tallyTs.Int64() == 0 {
-			return errors.Errorf("dispute not executed yet")
+	} else {
+		if self.DisputeID == 0 {
+			return errors.New("dispute ID is empty")
 		}
-
-		timePassed := time.Since(time.Unix(tallyTs.Int64(), 0))
-
-		if timePassed < 24*time.Hour {
-			return errors.Errorf("not enough time has passed after tallying - required:24h, current:%v", timePassed)
-		}
-
-		paid, err := contract.GetDisputeUintVars(
-			&bind.CallOpts{Context: ctx},
-			big.NewInt(self.DisputeID),
-			ethereumT.Keccak256([]byte("_PAID")),
-		)
+		dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
 		if err != nil {
-			return errors.Wrap(err, "get _PAID")
+			return errors.Wrap(err, "get dispute info")
+		}
+		disputes = append(disputes, dispute)
+	}
+
+	for _, dispute := range disputes {
+		if !self.NoChecks {
+			tallyTs, err := contract.GetDisputeUintVars(
+				&bind.CallOpts{Context: ctx},
+				big.NewInt(dispute.ID),
+				ethereumT.Keccak256([]byte("_TALLY_DATE")),
+			)
+			if err != nil {
+				return errors.Wrap(err, "get _TALLY_DATE")
+			}
+
+			if tallyTs.Int64() == 0 {
+				return errors.Errorf("dispute not executed yet")
+			}
+
+			timePassed := time.Since(time.Unix(tallyTs.Int64(), 0))
+
+			if timePassed < 24*time.Hour {
+				return errors.Errorf("not enough time has passed after tallying - required:24h, current:%v", timePassed)
+			}
+
+			paid, err := contract.GetDisputeUintVars(
+				&bind.CallOpts{Context: ctx},
+				big.NewInt(dispute.ID),
+				ethereumT.Keccak256([]byte("_PAID")),
+			)
+			if err != nil {
+				return errors.Wrap(err, "get _PAID")
+			}
+
+			if paid.Int64() == 1 {
+				return errors.Errorf("dispute already paid out")
+			}
 		}
 
-		if paid.Int64() == 1 {
-			return errors.Errorf("dispute already paid out")
+		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.UnlockFeeGasUsage)
+		if err != nil {
+			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
+
+		tx, err := contract.UnlockDisputeFee(opts, big.NewInt(dispute.ID))
+		if err != nil {
+			return errors.Wrapf(err, "run unlock fee")
+		}
+
+		level.Info(logger).Log("msg", "unlock fee submitted", "tx", tx.Hash().Hex())
 	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasBaseFee, self.GasTip, contracts.UnlockFeeGasUsage)
-	if err != nil {
-		return errors.Wrapf(err, "prepare ethereum transaction")
-	}
-
-	tx, err := contract.UnlockDisputeFee(opts, big.NewInt(self.DisputeID))
-	if err != nil {
-		return errors.Wrapf(err, "run unlock fee")
-	}
-
-	level.Info(logger).Log("msg", "unlock fee submitted", "tx", tx.Hash().Hex())
 	return nil
 }
 
