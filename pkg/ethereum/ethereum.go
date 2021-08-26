@@ -182,8 +182,8 @@ func (a *Account) GetPrivateKey() *ecdsa.PrivateKey {
 	return a.PrivateKey
 }
 
-func GetAccountByPubAddess(pubAddr string) (*Account, error) {
-	accounts, err := GetAccounts()
+func GetAccountByPubAddess(logger log.Logger, pubAddr string) (*Account, error) {
+	accounts, err := GetAccounts(logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting accounts")
 	}
@@ -198,7 +198,7 @@ func GetAccountByPubAddess(pubAddr string) (*Account, error) {
 
 // GetAccounts returns a slice of Account from private keys in
 // PrivateKeysEnvName environment variable.
-func GetAccounts() ([]*Account, error) {
+func GetAccounts(logger log.Logger) ([]*Account, error) {
 	_privateKeys := os.Getenv(PrivateKeysEnvName)
 	privateKeys := strings.Split(_privateKeys, ",")
 
@@ -218,6 +218,7 @@ func GetAccounts() ([]*Account, error) {
 
 		publicAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 		accounts[i] = &Account{Address: publicAddress, PrivateKey: privateKey}
+		level.Info(logger).Log("msg", "registered account", "addr", publicAddress.Hex())
 	}
 	return accounts, nil
 }

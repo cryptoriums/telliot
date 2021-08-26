@@ -63,7 +63,6 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	if err != nil {
 		return err
 	}
-
 	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.SubmitMiningSolutionGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
@@ -71,6 +70,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 
 	level.Info(logger).Log(
 		"msg", "submitting",
+		"account", account.Address.Hex()[:8],
 		"ids", fmt.Sprintf("%+v", ids),
 		"vals", fmt.Sprintf("%+v", vals),
 	)
@@ -91,13 +91,13 @@ func (self *SubmitCmd) SelectAccount(logger log.Logger) (*ethereum.Account, erro
 	var accounts []*ethereum.Account
 	var err error
 	if self.Account != "" {
-		acc, err := ethereum.GetAccountByPubAddess(self.Account)
+		acc, err := ethereum.GetAccountByPubAddess(logger, self.Account)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting accounts")
 		}
 		accounts = append(accounts, acc)
 	} else {
-		accounts, err = ethereum.GetAccounts()
+		accounts, err = ethereum.GetAccounts(logger)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting accounts")
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -232,19 +233,22 @@ type ITellorTest struct {
 	Address common.Address
 }
 
-func NewITellorTest(ctx context.Context, client *ethclient.Client, netID int64) (*ITellorTest, error) {
-	conractAddr, err := GetTellorAddress(netID)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting contract address")
+func NewITellorTest(ctx context.Context, contractAddr common.Address, client *ethclient.Client, netID int64) (*ITellorTest, error) {
+	var err error
+	if contractAddr == (common.Address{}) {
+		contractAddr, err = GetTellorAddress(netID)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting contract address")
+		}
 	}
 
-	tellorInstance, err := tellor_testing.NewITellor(conractAddr, client)
+	tellorInstance, err := tellor_testing.NewITellor(contractAddr, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating contract interface")
 	}
 
 	return &ITellorTest{
-		Address: conractAddr,
+		Address: contractAddr,
 		ITellor: tellorInstance,
 	}, nil
 }
@@ -395,6 +399,9 @@ func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract ContractCa
 	if err != nil {
 		return nil, errors.Wrap(err, "get dispute details")
 	}
+	if disputer == (common.Address{}) {
+		return nil, errors.Errorf("dispute doesn't exist id:%v", disputeID.Int64())
+	}
 
 	rounds, err := contract.GetDisputeUintVars(
 		&bind.CallOpts{Context: ctx},
@@ -504,8 +511,12 @@ func GetSubmitLogs(
 			submitBlock.Reporters[dataID.Int64()] = reporters
 			submitBlock.Values[dataID.Int64()] = vals
 		}
+		sort.Slice(submitBlock.DataIDs[:], func(i, j int) bool {
+			return submitBlock.DataIDs[i].Int64() < submitBlock.DataIDs[j].Int64()
+		})
 		submitBlocks = append(submitBlocks, submitBlock)
 	}
+
 	return submitBlocks, err
 }
 
@@ -542,4 +553,24 @@ func Slot(caller ContractCaller) (*big.Int, error) {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
 	}
 	return slot, nil
+}
+
+func ReporterStatusName(statusID int64) string {
+	// From https://github.com/tellor-io/tellor3/blob/7c2f38a0e3f96631fb0f96e0d0a9f73e7b355766/contracts/TellorStorage.sol#L41
+	switch statusID {
+	case 0:
+		return "Not staked"
+	case 1:
+		return "Staked"
+	case 2:
+		return "LockedForWithdraw"
+	case 3:
+		return "OnDispute"
+	case 4:
+		return "ReadyForUnlocking"
+	case 5:
+		return "Unlocked"
+	default:
+		return "Unknown"
+	}
 }

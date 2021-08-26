@@ -184,7 +184,7 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	if err != nil {
 		return err
 	}
-	accounts, err := ethereum.GetAccounts()
+	accounts, err := ethereum.GetAccounts(logger)
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")
 	}
@@ -198,11 +198,18 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		if err != nil {
 			return errors.Wrapf(err, "getting trb balance")
 		}
+
+		status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		if err != nil {
+			return errors.Wrapf(err, "getting stake balance")
+		}
 		level.Info(logger).Log("msg", "account",
 			"index", i,
 			"address", account.Address.Hex(),
 			"trb", math.BigIntToFloatDiv(trbBalance, params.Ether),
 			"eth", math.BigIntToFloatDiv(ethBalance, params.Ether),
+			"stakeStatus", contracts.ReporterStatusName(status.Int64()),
+			"stakedSince", time.Since(time.Unix(startTime.Int64(), 0)),
 		)
 	}
 

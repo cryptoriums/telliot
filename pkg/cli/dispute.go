@@ -26,7 +26,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/storage"
-	"github.com/prometheus/prometheus/tsdb"
 )
 
 type DispID struct {
@@ -64,7 +63,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("timestamp can't be in the future")
 	}
 
-	account, err := ethereumT.GetAccountByPubAddess(self.Account)
+	account, err := ethereumT.GetAccountByPubAddess(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -117,7 +116,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return err
 	}
 
-	account, err := ethereumT.GetAccountByPubAddess(self.Account)
+	account, err := ethereumT.GetAccountByPubAddess(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -174,7 +173,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		return errors.New("dispute already executed")
 	}
 
-	accounts, err := ethereumT.GetAccounts()
+	accounts, err := ethereumT.GetAccounts(logger)
 	if err != nil {
 		return err
 	}
@@ -236,7 +235,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		return err
 	}
 
-	accounts, err := ethereumT.GetAccounts()
+	accounts, err := ethereumT.GetAccounts(logger)
 	if err != nil {
 		return err
 	}
@@ -308,11 +307,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			return errors.Wrap(err, "opening remote tsdb DB")
 		}
 	} else {
-		tsdbOptions := tsdb.DefaultOptions()
-		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
-		if err != nil {
-			return errors.Wrap(err, "opening tsdb DB")
-		}
+		level.Warn(logger).Log("msg", "no remote DB set so will not suggest values")
 	}
 
 	aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, querable)
@@ -355,9 +350,12 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Fprintln(w, "TxHash: \t", log.TxHash.Hex(), "\t")
 		w.Flush()
 
-		suggested, err := psr.GetValue(log.DataID, log.DataTime)
-		if err != nil {
-			level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
+		var suggested float64
+		if cfg.Db.RemoteHost != "" {
+			suggested, err = psr.GetValue(log.DataID, log.DataTime)
+			if err != nil {
+				level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
+			}
 		}
 
 		_submits, err := contract.GetSubmissionsByTimestamp(
@@ -371,13 +369,13 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 
 		for i, submit := range _submits {
-			var disputed bool
+			var disputed string
 			if i == int(log.DisputedSlot) {
-				disputed = true
+				disputed = "disputed"
 			}
 
 			//lint:ignore faillint looks cleaner with print instead of logs
-			fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, disputed:%v \n",
+			fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, %v \n",
 				float64(submit.Int64())/psrTellor.DefaultGranularity,
 				suggested/psrTellor.DefaultGranularity,
 				i,

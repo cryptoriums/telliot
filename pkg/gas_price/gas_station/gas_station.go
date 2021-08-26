@@ -38,6 +38,10 @@ func New(ctx context.Context, logger log.Logger, client *ethclient.Client, netID
 
 }
 
+func (self *GasStation) Name() string {
+	return ComponentName
+}
+
 // Query implements the gas query interface.
 // For now gas station doesn't have 1559 api so just returning the client suggested values.
 func (self *GasStation) Query(ctx context.Context, confidence int) (baseFeeGwei, tipFeeGwei float64, err error) {

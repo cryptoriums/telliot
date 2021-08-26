@@ -168,14 +168,14 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 				default:
 				}
 
-				statusID, err := self.minerStatus()
+				statusID, _, err := self.contract.GetStakerInfo(&bind.CallOpts{Context: newChallengeReplace}, self.account.Address)
 				if err != nil {
 					level.Info(self.logger).Log("msg", "getting reporter status", "err", err)
 					<-ticker.C
 					continue
 				}
-				if statusID != 1 {
-					level.Info(self.logger).Log("msg", "reporter is not in a status that can submit", "status", reporterStatusName(statusID))
+				if statusID.Int64() != 1 {
+					level.Info(self.logger).Log("msg", "reporter is not in a status that can submit", "status", contracts.ReporterStatusName(statusID.Int64()))
 					<-ticker.C
 					continue
 				}
@@ -230,33 +230,4 @@ func (self *Submitter) addRrequestVals(requestIDs [5]*big.Int) ([5]*big.Int, err
 		currentValues[i] = big.NewInt(int64(val))
 	}
 	return currentValues, nil
-}
-
-func (self *Submitter) minerStatus() (int64, error) {
-	// Check if the staked account is in dispute before sending a transaction.
-	statusID, _, err := self.contract.GetStakerInfo(&bind.CallOpts{}, self.account.Address)
-	if err != nil {
-		return 0, errors.Wrapf(err, "getting staker info from contract addr:%v", self.account.Address)
-	}
-	return statusID.Int64(), nil
-}
-
-func reporterStatusName(statusID int64) string {
-	// From https://github.com/tellor-io/tellor3/blob/7c2f38a0e3f96631fb0f96e0d0a9f73e7b355766/contracts/TellorStorage.sol#L41
-	switch statusID {
-	case 0:
-		return "Not staked"
-	case 1:
-		return "Staked"
-	case 2:
-		return "LockedForWithdraw"
-	case 3:
-		return "OnDispute"
-	case 4:
-		return "ReadyForUnlocking"
-	case 5:
-		return "Unlocked"
-	default:
-		return "Unknown"
-	}
 }

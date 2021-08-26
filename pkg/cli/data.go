@@ -40,8 +40,9 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	for _, submit := range submits {
 		for i, id := range submit.DataIDs {
 			if i == 0 {
-				fmt.Fprintf(w, "ts: %v\t0\t1\tmedian:2\t3\t4\t \n",
+				fmt.Fprintf(w, "ts: %v mins: %v\t0\t1\tmedian:2\t3\t4\t \n",
 					submit.Timestamp,
+					int(time.Since(time.Unix(submit.Timestamp.Int64(), 0)).Minutes()),
 				)
 			}
 			fmt.Fprintf(w, "%v:%v id:%v\t",

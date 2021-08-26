@@ -66,7 +66,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 			math.BigIntToFloatDiv(amount, params.Ether))
 	}
 
-	acc, err := ethereum.GetAccountByPubAddess(self.From)
+	acc, err := ethereum.GetAccountByPubAddess(logger, self.From)
 	if err != nil {
 		return errors.Wrap(err, "getting auth account")
 	}
@@ -116,7 +116,7 @@ func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		)
 	}
 
-	acc, err := ethereum.GetAccountByPubAddess(self.From)
+	acc, err := ethereum.GetAccountByPubAddess(logger, self.From)
 	if err != nil {
 		return errors.Wrap(err, "getting auth account")
 	}

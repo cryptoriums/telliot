@@ -30,7 +30,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(self.Account)
+	account, err := ethereum.GetAccountByPubAddess(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	}
 
 	if status.Uint64() != 0 && status.Uint64() != 2 {
-		printStakeStatus(logger, status, startTime)
+		PrintReporterStatus(logger, status, startTime)
 		return nil
 	}
 
@@ -90,7 +90,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(self.Account)
+	account, err := ethereum.GetAccountByPubAddess(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	}
 	if status.Uint64() != 2 {
 		level.Info(logger).Log("msg", "can't withdraw")
-		printStakeStatus(logger, status, startTime)
+		PrintReporterStatus(logger, status, startTime)
 		return nil
 	}
 
@@ -129,7 +129,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(self.Account)
+	account, err := ethereum.GetAccountByPubAddess(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return errors.Wrap(err, "get stake status")
 	}
 	if status.Uint64() != 1 {
-		printStakeStatus(logger, status, startTime)
+		PrintReporterStatus(logger, status, startTime)
 		return nil
 	}
 
@@ -175,19 +175,18 @@ func (self *StatusCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		return errors.Wrap(err, "get stake status")
 	}
 
-	printStakeStatus(logger, status, startTime)
+	PrintReporterStatus(logger, status, startTime)
 	return nil
 }
 
-func printStakeStatus(logger log.Logger, bigStatus *big.Int, started *big.Int) {
-	// 0-not Staked, 1=Staked, 2=LockedForWithdraw 3= OnDispute
-	status := bigStatus.Uint64()
+func PrintReporterStatus(logger log.Logger, statusID *big.Int, started *big.Int) {
+
+	level.Info(logger).Log("msg", "reporter status", "name", contracts.ReporterStatusName(statusID.Int64()))
+
 	stakeTime := time.Unix(started.Int64(), 0)
-	switch status {
-	case 0:
-		level.Info(logger).Log("msg", "not currently staked")
+	switch status := statusID.Int64(); status {
 	case 1:
-		level.Info(logger).Log("msg", "staked in good standing since", "UTC", stakeTime.UTC())
+		level.Info(logger).Log("msg", "staked since", "UTC", stakeTime.UTC())
 	case 2:
 		startedRound := started.Int64()
 		startedRound = ((startedRound + 86399) / 86400) * 86400
@@ -199,7 +198,5 @@ func printStakeStatus(logger log.Logger, bigStatus *big.Int, started *big.Int) {
 		} else {
 			level.Info(logger).Log("msg", "stake will be eligible to withdraw in", "delta", -delta)
 		}
-	case 3:
-		level.Info(logger).Log("msg", "stake is currently under dispute")
 	}
 }

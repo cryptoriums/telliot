@@ -37,7 +37,7 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		return err
 	}
 
-	accounts, err := ethereum.GetAccounts()
+	accounts, err := ethereum.GetAccounts(logger)
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")
 	}
