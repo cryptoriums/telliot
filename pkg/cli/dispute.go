@@ -382,9 +382,8 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 				disputed,
 			)
 		}
-
+		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Printf("\n\n")
-
 	}
 
 	return nil
