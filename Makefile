@@ -49,7 +49,7 @@ deps: ## Ensures fresh go.mod and go.sum.
 
 .PHONY: generate
 generate: ## Generate all dynamic files.
-generate: generate-bindings generate-config-docs generate-helm-docs
+generate: generate-bindings generate-config-docs
 
 .PHONY: generate-check
 generate-check: ## Check that all generated files are up to date. Mainly used in the CI.
@@ -83,10 +83,6 @@ build:
 	@[ "${GIT_TAG}" ] || ( echo ">> GIT_TAG is not set"; exit 1 )
 	@[ "${GIT_HASH}" ] || ( echo ">> GIT_HASH is not set"; exit 1 )
 	go build -ldflags "-X main.GitTag=$(GIT_TAG) -X main.GitHash=$(GIT_HASH) -s -w" ./cmd/telliot
-
-.PHONY: generate-helm-docs
-generate-helm-docs: $(HELM_DOCS)
-	@$(HELM_DOCS) --chart-search-root configs/helm
 
 .PHONY: generate-config-docs
 generate-config-docs: ## Auto generating the cli, config, and env.example documents using a golang script.

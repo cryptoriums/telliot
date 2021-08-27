@@ -219,10 +219,10 @@ func (self *TrackerEvents) cancelPending(hash string) {
 
 	if cncl, ok := self.reorgWaitPending[hash]; ok {
 		cncl()
+		delete(self.reorgWaitPending, hash)
 	} else {
 		level.Error(self.logger).Log("msg", "cancelation attempt for non existing TX", "hash", hash)
 	}
-	delete(self.reorgWaitPending, hash)
 }
 
 type NoopSubs struct{}
