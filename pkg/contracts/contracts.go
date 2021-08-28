@@ -31,7 +31,7 @@ import (
 const (
 	TellorAddress        = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
 	TellorAddressRinkeby = TellorAddress
-	TellorAddressGoerli  = "0xf6c0da9600526C4D8411Ce5BD18059F1088a9580"
+	TellorAddressGoerli  = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
 	TellorAddressHardhat = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
 	WithdrawStakeGasUsage          = 50_000
