@@ -139,7 +139,7 @@ func ValidateHex(account string) error {
 }
 
 type ContractFlag struct {
-	Contract string `optional:"" help:"provide valid hex address"`
+	Contract string `optional:"" help:"hex address of the contract to interract with"`
 }
 
 type ProxyFlag struct {

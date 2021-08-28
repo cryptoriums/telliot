@@ -56,6 +56,7 @@ var DefaultConfig = Config{
 		ListenPort: 9090,
 	},
 	Db: db.Config{
+		RemotePort:    9090,
 		Path:          "db",
 		RemoteTimeout: format.Duration{Duration: 5 * time.Second},
 	},
