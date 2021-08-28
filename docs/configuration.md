@@ -129,7 +129,7 @@ Flags:
       --contract=STRING    provide valid hex address
 
 Commands:
-  dispute new --request-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
+  dispute new --data-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
     start a new dispute
 
   dispute vote --dispute-id=INT-64 --support <account>
@@ -138,13 +138,13 @@ Commands:
   dispute list
     list open disputes
 
-  dispute tally --dispute-id=INT-64
+  dispute tally
     tally votes for a dispute ID, need to run unlock fee after that
 
   dispute tally-list
     list tally for disputes
 
-  dispute unlock-fee --dispute-id=INT-64
+  dispute unlock-fee
     after tallying the votes this command transfers the fee to the reporter or
     reported based on the voting
 
@@ -171,7 +171,7 @@ Flags:
 * `dispute new`
 
 ```
-Usage: telliot dispute new --request-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
+Usage: telliot dispute new --data-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
 
 start a new dispute
 
@@ -188,7 +188,7 @@ Flags:
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
                                  running against a test contract
-      --request-id=INT-64        the request id to dispute
+      --data-id=INT-64           the request id to dispute
       --timestamp=INT-64         the submitted timestamp to dispute
       --slot=INT-64              the reporter index to dispute
 
@@ -197,7 +197,7 @@ Flags:
 * `dispute tally`
 
 ```
-Usage: telliot dispute tally --dispute-id=INT-64
+Usage: telliot dispute tally
 
 tally votes for a dispute ID, need to run unlock fee after that
 
@@ -209,6 +209,7 @@ Flags:
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
       --dispute-id=INT-64        the dispute id
+      --all
 
 ```
 
@@ -232,7 +233,7 @@ Flags:
 * `dispute unlock-fee`
 
 ```
-Usage: telliot dispute unlock-fee --dispute-id=INT-64
+Usage: telliot dispute unlock-fee
 
 after tallying the votes this command transfers the fee to the reporter or
 reported based on the voting
@@ -248,6 +249,7 @@ Flags:
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
       --dispute-id=INT-64        the dispute id
+      --all
 
 ```
 
