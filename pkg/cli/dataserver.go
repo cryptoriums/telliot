@@ -41,7 +41,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		if err := os.MkdirAll(cfg.Db.Path, 0777); err != nil {
 			return errors.Wrap(err, "creating tsdb DB folder")
 		}
-		tsDB, err := tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
+		tsDB, err := tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions, tsdb.NewDBStats())
 		if err != nil {
 			return errors.Wrap(err, "creating tsdb DB")
 		}

@@ -22,14 +22,14 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.11.0
-	github.com/prometheus/common v0.29.0
-	github.com/prometheus/prometheus v1.8.2-0.20210520210015-1838068db5df
+	github.com/prometheus/common v0.30.0
+	github.com/prometheus/prometheus v1.8.2-0.20210827090821-16b8911b1ade
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/tyler-smith/go-bip39 v1.0.2 // indirect
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/goleak v1.1.10
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
-	golang.org/x/tools v0.1.1-0.20210317201901-4599a76b0b9a
+	golang.org/x/tools v0.1.5
 )
