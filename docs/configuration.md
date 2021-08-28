@@ -24,7 +24,7 @@ Show accounts
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -41,7 +41,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -63,7 +63,7 @@ Arguments:
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -77,7 +77,7 @@ Retrieve data from the contract
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
       --from=UINT-64       the unix timestamp to use as a starting point for the
                            data retrieval
@@ -95,7 +95,7 @@ launch only a dataserver instance
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -112,7 +112,7 @@ Arguments:
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -126,7 +126,7 @@ Perform commands related to disputes
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 Commands:
   dispute new --data-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
@@ -160,7 +160,7 @@ list open disputes
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
       --show-closed        also show executed disputes
       --look-back=120h     how far to lookback, the default only few days since
@@ -181,7 +181,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -204,7 +204,7 @@ tally votes for a dispute ID, need to run unlock fee after that
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -223,7 +223,7 @@ list tally for disputes
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
       --look-back=120h     how far to lookback, the default only few days since
                            disputes can be voted only for 2 days.
@@ -241,7 +241,7 @@ reported based on the voting
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
@@ -266,7 +266,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -292,7 +292,7 @@ Arguments:
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -306,7 +306,7 @@ Subscribe to watch logs from the network.
 Flags:
   -h, --help                  Show context-sensitive help.
       --config=STRING         path to config file
-      --contract=STRING       provide valid hex address
+      --contract=STRING       hex address of the contract to interract with
 
       --look-back=DURATION    how far to look for the initiali qyery
       --event-name=STRING     the name of the log to watch
@@ -325,7 +325,7 @@ Submit data to the oracle contracts
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -339,7 +339,7 @@ Perform one of the stake operations
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 Commands:
   stake deposit <account>
@@ -369,7 +369,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -390,7 +390,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -410,7 +410,7 @@ Arguments:
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -427,7 +427,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -447,7 +447,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -468,7 +468,7 @@ Arguments:
 Flags:
   -h, --help                     Show context-sensitive help.
       --config=STRING            path to config file
-      --contract=STRING          provide valid hex address
+      --contract=STRING          hex address of the contract to interract with
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
@@ -487,7 +487,7 @@ Show the CLI version information
 Flags:
   -h, --help               Show context-sensitive help.
       --config=STRING      path to config file
-      --contract=STRING    provide valid hex address
+      --contract=STRING    hex address of the contract to interract with
 
 ```
 
@@ -510,7 +510,7 @@ Flags:
 		"LogLevel": "Required:false, Default:",
 		"Path": "Required:false, Default:db",
 		"RemoteHost": "Required:false, Default:",
-		"RemotePort": "Required:false, Default:0",
+		"RemotePort": "Required:false, Default:9090",
 		"RemoteTimeout": {
 			"Duration": "Required:false, Default:5s"
 		}
@@ -566,7 +566,7 @@ Here are the config defaults in json format:
 		"LogLevel": "",
 		"Path": "db",
 		"RemoteHost": "",
-		"RemotePort": 0,
+		"RemotePort": 9090,
 		"RemoteTimeout": "5s"
 	},
 	"Mining": {
