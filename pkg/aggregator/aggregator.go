@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/go-kit/kit/log"
@@ -51,16 +52,7 @@ func New(
 		return nil, errors.Wrap(err, "apply filter logger")
 	}
 
-	opts := promql.EngineOpts{
-		Logger:               logger,
-		Reg:                  nil,
-		MaxSamples:           30000,
-		Timeout:              10 * time.Second,
-		LookbackDelta:        5 * time.Minute,
-		EnableAtModifier:     true,
-		EnableNegativeOffset: true,
-	}
-	engine := promql.NewEngine(opts)
+	engine := promql.NewEngine(db.NewPromqlEngineOpts(logger))
 
 	return &Aggregator{
 		logger:       log.With(logger, "component", ComponentName),

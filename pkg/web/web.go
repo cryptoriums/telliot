@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strings"
-	"time"
 
+	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/web/api"
@@ -52,15 +52,7 @@ func New(ctx context.Context, logger log.Logger, tsDB storage.SampleAndChunkQuer
 
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
-	opts := promql.EngineOpts{
-		Logger:               logger,
-		Reg:                  nil,
-		MaxSamples:           100000,
-		Timeout:              10 * time.Second,
-		EnableAtModifier:     true,
-		EnableNegativeOffset: true,
-	}
-	engine := promql.NewEngine(opts)
+	engine := promql.NewEngine(db.NewPromqlEngineOpts(logger))
 
 	api := api.New(logger, ctx, engine, tsDB)
 	api.Register(router.WithPrefix("/api/v1"))

@@ -11,14 +11,18 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/format"
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	promConfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/timestamp"
+	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
 	"github.com/prometheus/prometheus/tsdb"
+	"go.uber.org/atomic"
 )
 
 const ComponentName = "db"
@@ -80,4 +84,37 @@ func Add(ctx context.Context, tsdb *tsdb.DB, lbls labels.Labels, value float64) 
 		return errors.Wrapf(err, "append values to the DB ts:%v val:%v", ts, float64(value))
 	}
 	return nil
+}
+
+func NewPromqlEngineOpts(logger log.Logger) promql.EngineOpts {
+
+	noStepSubqueryInterval := &safePromQLNoStepSubqueryInterval{}
+	noStepSubqueryInterval.Set(config.DefaultGlobalConfig.EvaluationInterval)
+
+	return promql.EngineOpts{
+		Logger:                   logger,
+		Reg:                      nil,
+		MaxSamples:               30000,
+		Timeout:                  10 * time.Second,
+		LookbackDelta:            5 * time.Minute,
+		EnableAtModifier:         true,
+		EnableNegativeOffset:     true,
+		NoStepSubqueryIntervalFn: noStepSubqueryInterval.Get,
+	}
+}
+
+type safePromQLNoStepSubqueryInterval struct {
+	value atomic.Int64
+}
+
+func durationToInt64Millis(d time.Duration) int64 {
+	return int64(d / time.Millisecond)
+}
+
+func (i *safePromQLNoStepSubqueryInterval) Set(ev model.Duration) {
+	i.value.Store(durationToInt64Millis(time.Duration(ev)))
+}
+
+func (i *safePromQLNoStepSubqueryInterval) Get(int64) int64 {
+	return i.value.Load()
 }
