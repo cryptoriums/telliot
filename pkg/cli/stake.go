@@ -21,7 +21,7 @@ import (
 
 type DepositCmd struct {
 	GasAccount
-	ProxyFlag
+	NoChks
 }
 
 func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
@@ -37,34 +37,36 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 
 	addrToCheck := account.Address
 	// When using proxy contract need to get its status.
-	if self.Proxy != "" {
-		addrToCheck = common.HexToAddress(self.Proxy)
+	if cli.Contract != "" {
+		addrToCheck = common.HexToAddress(cli.Contract)
 	}
 
-	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
-	if err != nil {
-		return errors.Wrap(err, "get TRB balance")
-	}
+	if !self.NoChecks {
+		balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
+		if err != nil {
+			return errors.Wrap(err, "get TRB balance")
+		}
 
-	status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
-	if err != nil {
-		return errors.Wrap(err, "get stake status")
-	}
+		status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
+		if err != nil {
+			return errors.Wrap(err, "get stake status")
+		}
 
-	if status.Uint64() != 0 && status.Uint64() != 2 {
-		PrintReporterStatus(logger, status, startTime)
-		return nil
-	}
+		if status.Uint64() != 0 && status.Uint64() != 2 {
+			PrintReporterStatus(logger, status, startTime)
+			return nil
+		}
 
-	stakeAmt, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
-	if err != nil {
-		return errors.Wrap(err, "fetching stake amount")
-	}
+		stakeAmt, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
+		if err != nil {
+			return errors.Wrap(err, "fetching stake amount")
+		}
 
-	if balance.Cmp(stakeAmt) < 0 {
-		return errors.Errorf("insufficient reporting stake TRB balance actual: %v, required:%v",
-			math.BigIntToFloatDiv(balance, params.Ether),
-			math.BigIntToFloatDiv(stakeAmt, params.Ether))
+		if balance.Cmp(stakeAmt) < 0 {
+			return errors.Errorf("insufficient reporting stake TRB balance actual: %v, required:%v",
+				math.BigIntToFloatDiv(balance, params.Ether),
+				math.BigIntToFloatDiv(stakeAmt, params.Ether))
+		}
 	}
 
 	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.DepositStakeGasUsage)
@@ -181,7 +183,7 @@ func (self *StatusCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 
 func PrintReporterStatus(logger log.Logger, statusID *big.Int, started *big.Int) {
 
-	level.Info(logger).Log("msg", "reporter status", "name", contracts.ReporterStatusName(statusID.Int64()))
+	level.Info(logger).Log("msg", "reporter status", "status", contracts.ReporterStatusName(statusID.Int64()))
 
 	stakeTime := time.Unix(started.Int64(), 0)
 	switch status := statusID.Int64(); status {

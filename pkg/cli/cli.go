@@ -142,10 +142,6 @@ type ContractFlag struct {
 	Contract string `optional:"" help:"hex address of the contract to interract with"`
 }
 
-type ProxyFlag struct {
-	Proxy string `optional:"" help:"when the reporter uses a proxy contract"`
-}
-
 func (self *ContractFlag) Validate() error {
 	if self.Contract == "" {
 		return nil
