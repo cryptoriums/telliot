@@ -1,0 +1,32 @@
+{
+    "AMPL/USD/VWAP": {
+        "interval": "11m",
+        "endpoints": [
+            {
+                "Type": "bravenewcoin",
+                "URL": "https://example.com?rapidapi-key=$RAPID_KEY", // Use env variables from the .env file.
+                "Value": "$.content[0][vwap]" // Use json path of jq to specify how to grab the value.
+            },
+            {
+                "URL": "https://example.com?access_token=$ANYBLOCK_KEY&start=$EOD&end=$NOW", // Can use dinamic build in variable when the API requires timestamps.
+                "Value": "$.overallVWAP"
+            }
+        ]
+    },
+    "ETH/USD": {
+        "interval": "2m", // Can have custom intervals for Pairs that don't need an update often of the api has rate limiting.
+        "endpoints": [
+            {
+                "URL": "https://example.com",
+                "Value": "$[\"matic-network\"][\"usd\"]", // When the json path is a map need to quote and escape the quotes.
+                "Time": "$.time" // When the api returns time use it to check that it doesn't return too old value.
+            },
+            {
+                "URL": "https://example.com",
+                "Value": "$.tellor.usd",
+                "Time": "$.tellor.last_updated_at",
+                "TimeFormat": "2006-01-02T15:04:05.999999999" // For apis that don't return time in a second timestamp can specify the time format in date iso format.
+            }
+        ]
+    }
+}
