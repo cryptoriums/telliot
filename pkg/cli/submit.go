@@ -120,7 +120,7 @@ func GetValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
 		//lint:ignore faillint for prompts can't use logs.
 		fmt.Println("Enter values in the format (1.123456)")
 		for {
-			_val, err := prompt.Prompt("Data ID:"+dataID.String()+" Val:", false)
+			_val, err := prompt.Prompt(dataID.String()+":"+DataIdFullName(dataID.Int64())+" Val:", false)
 			if err != nil {
 				//lint:ignore faillint for prompts can't use logs.
 				fmt.Println(err)
@@ -154,7 +154,7 @@ func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, c
 		)
 	} else {
 		tsdbOptions := tsdb.DefaultOptions()
-		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions)
+		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions, tsdb.NewDBStats())
 		if err != nil {
 			return vals, nil, nil, errors.Wrap(err, "coudn't open local DB")
 		}
@@ -198,7 +198,7 @@ func FinalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int)
 
 	var dataIDstr, dataValstr string
 	for i, id := range dataIDs {
-		dataIDstr += id.String() + "\t"
+		dataIDstr += id.String() + ":" + DataIdFullName(id.Int64()) + "\t"
 		dataValstr += fmt.Sprintf("%g", float64(vals[i].Int64())/float64(psrTellor.DefaultGranularity)) + "\t"
 	}
 
@@ -220,4 +220,8 @@ func FinalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int)
 		return FinalPrompt(logger, skipConfirm, dataIDs, vals)
 	}
 	return false
+}
+
+func DataIdFullName(id int64) string {
+	return psrTellor.Psrs[id].Pair + "(" + psrTellor.Psrs[id].Aggr + ")"
 }
