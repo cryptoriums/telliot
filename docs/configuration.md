@@ -373,7 +373,9 @@ Flags:
 
       --gas-base-fee=FLOAT-64    gas base fee to use when running the command
       --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --proxy=STRING             when the reporter uses a proxy contract
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
 
 ```
 
