@@ -180,7 +180,7 @@ func (self *Aggregator) TimeWeightedAvg(
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg_over_time(
-			`+index.MetricSubmitValue+`{symbol="`+symbol+`"}
+			`+index.MetricIndexValue+`{symbol="`+symbol+`"}
 		[`+lookBack.String()+`])`,
 		start,
 	)
@@ -203,7 +203,7 @@ func (self *Aggregator) TimeWeightedAvg(
 		self.tsDB,
 		`avg(
 			count_over_time(
-				`+index.MetricSubmitValue+`{ symbol="`+symbol+`" }
+				`+index.MetricIndexValue+`{ symbol="`+symbol+`" }
 			[`+lookBack.String()+`:`+resolution.String()+`])
 			/
 			(`+strconv.Itoa(int(lookBack.Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
@@ -259,14 +259,14 @@ func (self *Aggregator) VolumWeightedAvg(
 		`avg(
 			sum_over_time(
 				(
-					sum_over_time( `+index.MetricSubmitValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`]
+					sum_over_time( `+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`]
 					) * on(domain)
-					avg_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`"}[`+aggrWindow.String()+`])
+					avg_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`"}[`+aggrWindow.String()+`])
 				)
 			[`+timeWindow+`:`+aggrWindow.String()+`])
 			/ on(domain)
 			sum_over_time(
-					sum_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`])
+					sum_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`])
 			[`+timeWindow+`:`+aggrWindow.String()+`])
 		)`,
 		end,
@@ -293,7 +293,7 @@ func (self *Aggregator) VolumWeightedAvg(
 	query, err = self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg(
-			count_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`"}[`+timeWindow+`])
+			count_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`"}[`+timeWindow+`])
 			/
 			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
 		)`,
@@ -317,7 +317,7 @@ func (self *Aggregator) VolumWeightedAvg(
 	query, err = self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg(
-			count_over_time(`+index.MetricSubmitValue+`{symbol="`+symbol+`_VOLUME"}[`+timeWindow+`])
+			count_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+timeWindow+`])
 			/
 			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
 		)`,
@@ -404,7 +404,7 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg(
-			count_over_time(`+index.MetricSubmitValue+`{ symbol="`+symbol+`" }[`+lookBack.String()+`] )
+			count_over_time(`+index.MetricIndexValue+`{ symbol="`+symbol+`" }[`+lookBack.String()+`] )
 			/
 			(`+strconv.Itoa(int(lookBack.Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
 		)`,
@@ -429,7 +429,7 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 func (self *Aggregator) valsAt(symbol string, at time.Time, lookBack time.Duration) (promql.Vector, error) {
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`last_over_time( `+index.MetricSubmitValue+`{symbol="`+symbol+`"} [`+lookBack.String()+`])`,
+		`last_over_time( `+index.MetricIndexValue+`{symbol="`+symbol+`"} [`+lookBack.String()+`])`,
 		at,
 	)
 	if err != nil {

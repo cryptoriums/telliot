@@ -35,9 +35,9 @@ import (
 const (
 	ComponentName = "trackerIndex"
 
-	MetricSubmitValue = ComponentName + "_value"
-	MetricInterval    = ComponentName + "_interval"
-	MetricRecCount    = ComponentName + "_requests_total"
+	MetricIndexValue = ComponentName + "_value"
+	MetricInterval   = ComponentName + "_interval"
+	MetricRecCount   = ComponentName + "_requests_total"
 
 	paramNameValue = "value"
 	paramNameTs    = "timestamp"
@@ -337,7 +337,7 @@ func (self *TrackerIndex) recordValue(symbol string, dataSource DataSource) erro
 	}
 
 	lbls := labels.Labels{
-		labels.Label{Name: "__name__", Value: MetricSubmitValue},
+		labels.Label{Name: "__name__", Value: MetricIndexValue},
 		labels.Label{Name: "source", Value: dataSource.Source()},
 		labels.Label{Name: "domain", Value: source.Host},
 		labels.Label{Name: "symbol", Value: symbol},
