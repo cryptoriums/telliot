@@ -32,6 +32,7 @@ const (
 	TellorAddress        = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
 	TellorAddressRinkeby = TellorAddress
 	TellorAddressGoerli  = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
+	// TellorAddressGoerli  = "0x97224A64B5241D65dCe68cc551925cC151168849" // Proxy contract.
 	TellorAddressHardhat = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
 	WithdrawStakeGasUsage          = 50_000
