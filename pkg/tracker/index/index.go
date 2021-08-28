@@ -317,7 +317,10 @@ func (self *TrackerIndex) recordValue(symbol string, dataSource DataSource) erro
 		return errors.Wrap(err, "parsing url from data source")
 	}
 
-	value, timestamp, err := dataSource.Get(self.ctx)
+	ctx, cncl := context.WithTimeout(self.ctx, 20*time.Second)
+	defer cncl()
+
+	value, timestamp, err := dataSource.Get(ctx)
 	if err != nil {
 		return errors.Wrap(err, "getting values from data source")
 	}
