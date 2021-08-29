@@ -143,7 +143,6 @@ lint: go-lint shell-lint
 # to debug big allocations during linting.
 .PHONY: go-lint
 go-lint: check-git deps $(GOLANGCI_LINT) $(FAILLINT) $(MISSPELL)
-	$(call require_clean_work_tree,'detected not clean master before running lint, previous job changed something?')
 	@echo ">> verifying modules being imported"
 	@$(FAILLINT) -paths "errors=github.com/pkg/errors" ./...
 	@$(FAILLINT) -paths "fmt.{Print,Printf,Println,Sprint}" -ignore-tests ./...
@@ -153,7 +152,7 @@ go-lint: check-git deps $(GOLANGCI_LINT) $(FAILLINT) $(MISSPELL)
 	@find . -type f | grep -v pkg/contracts/tellor | grep -v tmp | grep -v go.sum | grep -vE '\./\..*' | xargs $(MISSPELL) -error
 	@echo ">> ensuring Copyright headers"
 	@go run ./scripts/copyright
-	$(call require_clean_work_tree,'detected files without copyright, run make lint and commit changes')
+	$(call require_clean_work_tree,'detected file changes, run make lint and commit changes')
 
 .PHONY:shell-lint
 shell-lint: $(SHELLCHECK)

@@ -2,5 +2,6 @@
     "DB": {
         "RemoteHost": "localhost",
         "RemotePort": 9090
-    }
+    },
+    "envFile": "configs/.env"
 }
