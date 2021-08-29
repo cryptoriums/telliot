@@ -63,7 +63,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	if err != nil {
 		return err
 	}
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasBaseFee, self.GasTip, contracts.SubmitMiningSolutionGasUsage)
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.SubmitMiningSolutionGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}

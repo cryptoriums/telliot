@@ -14,7 +14,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/gas_estimator"
 	"github.com/cryptoriums/telliot/pkg/gas_price"
 	"github.com/cryptoriums/telliot/pkg/logging"
-	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -154,16 +153,14 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 			gasTipGwei = maxGasTipGwei
 		}
 
-		// Tip + BaseFee and also adding 25% to the base fee to accommodate for any network load surged.
-		// When there is a surge the base fee increases 12.5% on every next block.
-		gasFeeCap := math.FloatToBigIntMul(gasBaseFeeGwei+(gasBaseFeeGwei*0.50)+gasTipGwei, params.GWei)
-
 		opts.GasLimit = uint64(gasEstimate + 300_000)
 		opts.Context = ctx
 		opts.Nonce = big.NewInt(int64(nonce))
 		opts.Value = big.NewInt(0)
-		opts.GasTipCap = big.NewInt(0).Mul(big.NewInt(int64(gasTipGwei)), big.NewInt(int64(params.GWei)))
-		opts.GasFeeCap = gasFeeCap
+
+		maxGasFeeGwei := gasBaseFeeGwei + gasTipGwei
+		opts.GasFeeCap = big.NewInt(0).Mul(big.NewInt(int64(maxGasFeeGwei)), big.NewInt(int64(params.GWei)))
+		opts.GasTipCap = opts.GasFeeCap // Willing to give it all as a tip.
 
 		tx, err := self.contract.SubmitMiningSolution(opts, solution, ids, vals)
 		if err != nil {
