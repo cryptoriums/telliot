@@ -66,7 +66,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("timestamp can't be in the future")
 	}
 
-	account, err := ethereumT.GetAccountByPubAddess(logger, self.Account)
+	account, err := ethereumT.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return err
 	}
 
-	account, err := ethereumT.GetAccountByPubAddess(logger, self.Account)
+	account, err := ethereumT.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}

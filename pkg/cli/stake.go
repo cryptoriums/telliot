@@ -30,7 +30,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(logger, self.Account)
+	account, err := ethereum.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(logger, self.Account)
+	account, err := ethereum.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddess(logger, self.Account)
+	account, err := ethereum.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}

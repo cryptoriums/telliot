@@ -182,7 +182,7 @@ func (a *Account) GetPrivateKey() *ecdsa.PrivateKey {
 	return a.PrivateKey
 }
 
-func GetAccountByPubAddess(logger log.Logger, pubAddr string) (*Account, error) {
+func GetAccountByPubAddress(logger log.Logger, pubAddr string) (*Account, error) {
 	accounts, err := GetAccounts(logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting accounts")
