@@ -11,6 +11,7 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts/balancer"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor"
+	"github.com/cryptoriums/telliot/pkg/contracts/tellor_proxy"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor_testing"
 	"github.com/cryptoriums/telliot/pkg/contracts/uniswap"
 	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
@@ -30,11 +31,11 @@ import (
 )
 
 const (
-	TellorAddress        = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	TellorAddressRinkeby = TellorAddress
-	TellorAddressGoerli  = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
-	// TellorAddressGoerli  = "0x97224A64B5241D65dCe68cc551925cC151168849" // Proxy contract.
-	TellorAddressHardhat = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
+	TellorAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
+	TellorAddressRinkeby     = TellorAddress
+	TellorAddressGoerli      = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
+	TellorAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
+	TellorAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
 	WithdrawStakeGasUsage          = 50_000
 	RequestStakingWithdrawGasUsage = 100_000
@@ -252,6 +253,28 @@ func NewITellorTest(ctx context.Context, contractAddr common.Address, client *et
 	return &ITellorTest{
 		Address: contractAddr,
 		ITellor: tellorInstance,
+	}, nil
+}
+
+type ITellorProxy struct {
+	*tellor_proxy.Reporter
+	Address common.Address
+}
+
+func NewITellorProxy(ctx context.Context, contractAddr common.Address, client *ethclient.Client, netID int64) (*ITellorProxy, error) {
+	var err error
+	if contractAddr == (common.Address{}) {
+		contractAddr = common.HexToAddress(TellorAddressGoerliProxy)
+	}
+
+	tellorInstance, err := tellor_proxy.NewReporter(contractAddr, client)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating contract interface")
+	}
+
+	return &ITellorProxy{
+		Address:  contractAddr,
+		Reporter: tellorInstance,
 	}, nil
 }
 

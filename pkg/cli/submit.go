@@ -22,6 +22,8 @@ import (
 	"github.com/cryptoriums/telliot/pkg/prompt"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -32,7 +34,8 @@ import (
 type SubmitCmd struct {
 	Gas
 	AccountArgOptional
-	SkipConfirm bool `help:"submit without confirming, useful for testing"`
+	CustomSubmit bool
+	SkipConfirm  bool `help:"submit without confirming, useful for testing"`
 }
 
 func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
@@ -75,9 +78,21 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		"vals", fmt.Sprintf("%+v", vals),
 	)
 
-	tx, err := contract.SubmitMiningSolution(opts, "xxx", ids, vals)
-	if err != nil {
-		return errors.Wrap(err, "creting TX")
+	var tx *types.Transaction
+	if cli.Contract != "" && self.CustomSubmit {
+		contractP, err := contracts.NewITellorProxy(ctx, common.HexToAddress(cli.Contract), client, contract.NetID())
+		if err != nil {
+			return err
+		}
+		tx, err = contractP.SubmitMiningSolution0(opts, "xxx", ids, vals, big.NewInt(0))
+		if err != nil {
+			return errors.Wrap(err, "creting TX")
+		}
+	} else {
+		tx, err = contract.SubmitMiningSolution(opts, "xxx", ids, vals)
+		if err != nil {
+			return errors.Wrap(err, "creting TX")
+		}
 	}
 	level.Info(logger).Log(
 		"msg", "complete",
@@ -91,7 +106,7 @@ func (self *SubmitCmd) SelectAccount(logger log.Logger) (*ethereum.Account, erro
 	var accounts []*ethereum.Account
 	var err error
 	if self.Account != "" {
-		acc, err := ethereum.GetAccountByPubAddess(logger, self.Account)
+		acc, err := ethereum.GetAccountByPubAddress(logger, self.Account)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting accounts")
 		}

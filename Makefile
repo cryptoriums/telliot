@@ -61,6 +61,8 @@ generate-bindings: $(CONTRAGET)
 generate-bindings: generate-bindings-tellor
 	@sleep 6
 	@$(CONTRAGET) --addr=0x34319564f00C924dA8fB52fD8bA6edBfd1FfEdA8 --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_testing --pkg-aliases="Transfer=Transferred"
+	@sleep 6
+	@$(CONTRAGET) --addr=0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_proxy --pkg-aliases="Transfer=Transferred"
 # @sleep 6
 # @$(CONTRAGET) --addr=0x9C84391B443ea3a48788079a5f98e2EaD55c9309 --download-dst=tmp --pkg-dst=pkg/contracts --name=balancer
 # @sleep 6
