@@ -26,9 +26,8 @@ import (
 const ComponentName = "transactorTellor"
 
 type Config struct {
-	LogLevel        string
-	GasMaxTipGwei   uint   `help:"Hard limit of the gas tip in Gwei."`
-	ProfitThreshold uint64 `help:"Minimum percent of profit when submitting a solution. For example if the tx cost is 0.01 ETH and current reward is 0.02 ETH a ProfitThreshold of 200% or more will wait until the reward is increased or the gas cost is lowered a ProfitThreshold of 199% or less will submit."`
+	LogLevel      string
+	GasMaxTipGwei uint `help:"Hard limit of the gas tip in Gwei."`
 }
 
 // Tellor implements the Transactor interface.
@@ -39,7 +38,6 @@ type Tellor struct {
 	gasPriceQuerier gas_price.GasPriceQuerier
 	client          *ethclient.Client
 	account         *ethereum.Account
-	rewardQ         contracts.RewardQuerier
 	gasEstimator    gas_estimator.GasEstimator
 }
 
@@ -49,7 +47,6 @@ func New(
 	gasPriceQuerier gas_price.GasPriceQuerier,
 	client *ethclient.Client,
 	account *ethereum.Account,
-	rewardQ contracts.RewardQuerier,
 	contract contracts.ContractCaller,
 ) (*Tellor, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
@@ -63,7 +60,6 @@ func New(
 		gasPriceQuerier: gasPriceQuerier,
 		client:          client,
 		account:         account,
-		rewardQ:         rewardQ,
 		gasEstimator:    gas_estimator.NewDefault(),
 		contract:        contract,
 	}, nil
@@ -78,38 +74,6 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 	gasEstimate, err := self.gasEstimator.EstimateGas(ctx, self.account, slot.Uint64())
 	if err != nil {
 		level.Error(self.logger).Log("msg", "getting gas estimate", "err", err)
-	}
-
-	if self.cfg.ProfitThreshold > 0 && self.rewardQ != nil { // Profit check is enabled.
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		gasBaseFeeGwei, gasTipGwei, err := self.gasPriceQuerier.Query(ctx, 80)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting gas price from guerier")
-		}
-
-		txCostGwei := (gasBaseFeeGwei + gasTipGwei) * float64(gasEstimate)
-
-		for {
-			select {
-			case <-ctx.Done():
-				return nil, errors.New("pending submit canceled")
-			default:
-			}
-			profitPercent, err := self.rewardQ.Query(ctx, txCostGwei)
-			if err != nil {
-				level.Info(self.logger).Log("msg", "submit solution profit check", "err", err)
-				<-ticker.C
-				continue
-			}
-			if profitPercent < int64(self.cfg.ProfitThreshold) {
-				level.Info(self.logger).Log("msg", "profit lower then the profit threshold", "profit", profitPercent, "threshold", self.cfg.ProfitThreshold)
-				<-ticker.C
-				continue
-			}
-			break
-		}
 	}
 
 	// Use the pending nonce in case there is a stuck transaction so that it resubmits the same TX with higher gas price.

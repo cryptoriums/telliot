@@ -150,7 +150,6 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 					gasPriceQuerier,
 					client,
 					account,
-					nil,
 					contract,
 				)
 				if err != nil {
