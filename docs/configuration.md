@@ -39,12 +39,12 @@ Arguments:
   <amount>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
       --from=STRING
       --to=STRING
 
@@ -179,18 +179,18 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --no-checks                whether to run some additional checks like
-                                 balance, did vote etc. Useful to disable when
-                                 running against a test contract
-      --data-id=INT-64           the request id to dispute
-      --timestamp=INT-64         the submitted timestamp to dispute
-      --slot=INT-64              the reporter index to dispute
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --no-checks               whether to run some additional checks like
+                                balance, did vote etc. Useful to disable when
+                                running against a test contract
+      --data-id=INT-64          the request id to dispute
+      --timestamp=INT-64        the submitted timestamp to dispute
+      --slot=INT-64             the reporter index to dispute
 
 ```
 
@@ -202,13 +202,13 @@ Usage: telliot dispute tally
 tally votes for a dispute ID, need to run unlock fee after that
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --dispute-id=INT-64        the dispute id
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --dispute-id=INT-64       the dispute id
       --all
 
 ```
@@ -239,16 +239,16 @@ after tallying the votes this command transfers the fee to the reporter or
 reported based on the voting
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --no-checks                whether to run some additional checks like
-                                 balance, did vote etc. Useful to disable when
-                                 running against a test contract
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --dispute-id=INT-64        the dispute id
+      --no-checks               whether to run some additional checks like
+                                balance, did vote etc. Useful to disable when
+                                running against a test contract
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --dispute-id=INT-64       the dispute id
       --all
 
 ```
@@ -264,17 +264,17 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --dispute-id=INT-64        the dispute id
-      --no-checks                whether to run some additional checks like
-                                 balance, did vote etc. Useful to disable when
-                                 running against a test contract
-      --support                  true or false
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --dispute-id=INT-64       the dispute id
+      --no-checks               whether to run some additional checks like
+                                balance, did vote etc. Useful to disable when
+                                running against a test contract
+      --support                 true or false
 
 ```
 
@@ -367,15 +367,15 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --no-checks                whether to run some additional checks like
-                                 balance, did vote etc. Useful to disable when
-                                 running against a test contract
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --no-checks               whether to run some additional checks like
+                                balance, did vote etc. Useful to disable when
+                                running against a test contract
 
 ```
 
@@ -390,12 +390,12 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
 
 ```
 
@@ -427,12 +427,12 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
 
 ```
 
@@ -447,13 +447,14 @@ Arguments:
   [<account>]
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
-      --skip-confirm             submit without confirming, useful for testing
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --custom-submit
+      --skip-confirm            submit without confirming, useful for testing
 
 ```
 
@@ -468,12 +469,12 @@ Arguments:
   <amount>
 
 Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --contract=STRING          hex address of the contract to interract with
+  -h, --help                    Show context-sensitive help.
+      --config=STRING           path to config file
+      --contract=STRING         hex address of the contract to interract with
 
-      --gas-base-fee=FLOAT-64    gas base fee to use when running the command
-      --gas-tip=FLOAT-64         gas tip fee to use when running the command
+      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
+      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
       --from=STRING
       --to=STRING
 
@@ -543,8 +544,7 @@ Flags:
 	},
 	"TransactorTellor": {
 		"GasMaxTipGwei": "Required:false, Default:10, Description:Hard limit of the gas tip in Gwei.",
-		"LogLevel": "Required:false, Default:",
-		"ProfitThreshold": "Required:false, Default:0, Description:Minimum percent of profit when submitting a solution. For example if the tx cost is 0.01 ETH and current reward is 0.02 ETH a ProfitThreshold of 200% or more will wait until the reward is increased or the gas cost is lowered a ProfitThreshold of 199% or less will submit."
+		"LogLevel": "Required:false, Default:"
 	},
 	"Web": {
 		"ListenHost": "Required:false, Default:",
@@ -593,8 +593,7 @@ Here are the config defaults in json format:
 	},
 	"TransactorTellor": {
 		"GasMaxTipGwei": 10,
-		"LogLevel": "",
-		"ProfitThreshold": 0
+		"LogLevel": ""
 	},
 	"Web": {
 		"ListenHost": "",
