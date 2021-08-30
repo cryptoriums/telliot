@@ -32,7 +32,7 @@ type Config struct {
 
 // Tellor implements the Transactor interface.
 type Tellor struct {
-	contract        contracts.ContractCaller
+	contract        contracts.TellorCaller
 	cfg             Config
 	logger          log.Logger
 	gasPriceQuerier gas_price.GasPriceQuerier
@@ -47,7 +47,7 @@ func New(
 	gasPriceQuerier gas_price.GasPriceQuerier,
 	client *ethclient.Client,
 	account *ethereum.Account,
-	contract contracts.ContractCaller,
+	contract contracts.TellorCaller,
 ) (*Tellor, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {

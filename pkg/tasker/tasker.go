@@ -39,7 +39,7 @@ type Tasker struct {
 	logger        log.Logger
 	cfg           Config
 	accounts      []*ethereum.Account
-	contract      contracts.ContractCaller
+	contract      contracts.TellorCaller
 	client        *ethclient.Client
 	workSinks     map[string]chan *mining.Work
 	eventsTracker *events.TrackerEvents
@@ -51,7 +51,7 @@ func New(
 	logger log.Logger,
 	cfg Config,
 	client *ethclient.Client,
-	contract contracts.ContractCaller,
+	contract contracts.TellorCaller,
 	accounts []*ethereum.Account,
 ) (*Tasker, map[string]chan *mining.Work, error) {
 	workSinks := make(map[string]chan *mining.Work)

@@ -91,7 +91,7 @@ func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	return nil
 }
 
-func (self *eventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Log) error {
+func (self *eventsCmd) unpack(contract contracts.TellorCaller, logRaw types.Log) error {
 	switch eventName := self.EventName; eventName {
 	case contracts.EventNameNewSubmit:
 		log := &contracts.TellorNonceSubmitted{}

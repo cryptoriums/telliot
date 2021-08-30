@@ -75,10 +75,10 @@ type MiningGroup struct {
 	Backends         []*Backend
 	LastPrinted      time.Time
 	logger           log.Logger
-	contractInstance contracts.ContractCaller
+	contractInstance contracts.TellorCaller
 }
 
-func NewMiningGroup(logger log.Logger, ctx context.Context, cfg Config, hashers []Hasher, contractInstance contracts.ContractCaller) (*MiningGroup, error) {
+func NewMiningGroup(logger log.Logger, ctx context.Context, cfg Config, hashers []Hasher, contractInstance contracts.TellorCaller) (*MiningGroup, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")

@@ -28,7 +28,7 @@ type SolutionSink interface {
 
 const NumProcessors = 1
 
-func SetupMiningGroup(logger log.Logger, ctx context.Context, cfg Config, contractInstance contracts.ContractCaller) (*MiningGroup, error) {
+func SetupMiningGroup(logger log.Logger, ctx context.Context, cfg Config, contractInstance contracts.TellorCaller) (*MiningGroup, error) {
 	var hashers []Hasher
 	level.Info(logger).Log("msg", "starting CPU mining", "threads", NumProcessors)
 	for i := 0; i < NumProcessors; i++ {
@@ -55,7 +55,7 @@ type MiningMgr struct {
 	group            *MiningGroup
 	taskerCh         chan *Work
 	submitterCh      chan *Result
-	contractInstance contracts.ContractCaller
+	contractInstance contracts.TellorCaller
 	toMineInput      chan *Work
 	solutionOutput   chan *Result
 }
@@ -65,7 +65,7 @@ func NewManager(
 	ctx context.Context,
 	logger log.Logger,
 	cfg Config,
-	contractInstance contracts.ContractCaller,
+	contractInstance contracts.TellorCaller,
 	taskerCh chan *Work,
 	submitterCh chan *Result,
 	client *ethclient.Client,

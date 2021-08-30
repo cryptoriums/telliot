@@ -48,7 +48,7 @@ type Submitter struct {
 	cfg      Config
 	account  *ethereum.Account
 	client   *ethclient.Client
-	contract contracts.ContractCaller
+	contract contracts.TellorCaller
 	resultCh chan *mining.Result
 
 	transactor Transactor
@@ -60,7 +60,7 @@ func New(
 	logger log.Logger,
 	cfg Config,
 	client *ethclient.Client,
-	contract contracts.ContractCaller,
+	contract contracts.TellorCaller,
 	account *ethereum.Account,
 	transactor Transactor,
 	psr *psr.Psr,

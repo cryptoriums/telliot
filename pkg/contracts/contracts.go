@@ -46,6 +46,7 @@ const (
 	BeginDisputeGasUsage           = 700_000
 	SubmitMiningSolutionGasUsage   = 3_000_000
 
+	MethodNameSubmit    = "submitMiningSolution"
 	EventNameNewTask    = "NewChallenge"
 	EventNameNewSubmit  = "NonceSubmitted"
 	EventNameTally      = "DisputeVoteTallied"
@@ -60,7 +61,7 @@ const (
 	DefaultDisputeUnlockWindow = 24 * time.Hour     // 1 day to wait after a dispute before can get the dispute fee.
 )
 
-type ContractCaller interface {
+type TellorCaller interface {
 	GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error)
 	SubmitMiningSolution(opts *bind.TransactOpts, _nonce string, _requestId [5]*big.Int, _value [5]*big.Int) (*types.Transaction, error)
 	GetStakerInfo(opts *bind.CallOpts, _staker common.Address) (*big.Int, *big.Int, error)
@@ -336,7 +337,7 @@ type DisputeLog struct {
 func GetDisputeLogs(
 	ctx context.Context,
 	client *ethclient.Client,
-	contract ContractCaller,
+	contract TellorCaller,
 	lookBackDuration time.Duration,
 ) ([]*DisputeLog, error) {
 	header, err := client.HeaderByNumber(ctx, nil)
@@ -381,7 +382,7 @@ func GetDisputeLogs(
 func GetTallyLogs(
 	ctx context.Context,
 	client *ethclient.Client,
-	contract ContractCaller,
+	contract TellorCaller,
 	lookBackDuration time.Duration,
 ) ([]*TellorDisputeVoteTallied, error) {
 
@@ -419,7 +420,7 @@ func GetTallyLogs(
 	return unpackedLogs, err
 }
 
-func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract ContractCaller) (*DisputeLog, error) {
+func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract TellorCaller) (*DisputeLog, error) {
 	_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, disputeID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get dispute details")
@@ -478,7 +479,7 @@ func NewSubmitBlock() SubmitBlock {
 func GetSubmitLogs(
 	ctx context.Context,
 	client *ethclient.Client,
-	contract ContractCaller,
+	contract TellorCaller,
 	from int64,
 	lookBackDuration time.Duration,
 ) ([]SubmitBlock, error) {
@@ -545,7 +546,7 @@ func GetSubmitLogs(
 	return submitBlocks, err
 }
 
-func LastSubmit(contract ContractCaller, reporter common.Address) (time.Duration, *time.Time, error) {
+func LastSubmit(contract TellorCaller, reporter common.Address) (time.Duration, *time.Time, error) {
 	address := "000000000000000000000000" + reporter.Hex()[2:]
 	decoded, err := hex.DecodeString(address)
 	if err != nil {
@@ -572,7 +573,7 @@ func LastSubmit(contract ContractCaller, reporter common.Address) (time.Duration
 	return sinceLastSubmit, &tm, nil
 }
 
-func Slot(caller ContractCaller) (*big.Int, error) {
+func Slot(caller TellorCaller) (*big.Int, error) {
 	slot, err := caller.GetUintVar(nil, ethereumT.Keccak256([]byte("_SLOT_PROGRESS")))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
