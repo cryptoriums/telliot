@@ -3,6 +3,7 @@ package contracts
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
@@ -13,7 +14,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor_testing"
 	"github.com/cryptoriums/telliot/pkg/contracts/uniswap"
 	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/math"
+	mathT "github.com/cryptoriums/telliot/pkg/math"
 	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -421,17 +422,17 @@ func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract ContractCa
 		ID:           disputeID.Int64(),
 		DataID:       disputeVars[0].Int64(),
 		DataTime:     time.Unix(disputeVars[1].Int64(), 0),
-		DataVal:      math.BigIntToFloatDiv(disputeVars[2], psr.DefaultGranularity),
+		DataVal:      mathT.BigIntToFloatDiv(disputeVars[2], psr.DefaultGranularity),
 		Executed:     executed,
 		Passed:       passed,
 		Disputer:     disputer,
 		Disputed:     disputed,
 		DisputedSlot: disputeVars[6].Uint64(),
-		Tally:        math.BigIntToFloatDiv(tally, params.Ether),
+		Tally:        mathT.BigIntToFloatDiv(tally, params.Ether),
 		Votes:        disputeVars[4].Uint64(),
 		Created:      created,
 		Ends:         votingEnds,
-		Fee:          math.BigIntToFloatDiv(disputeVars[8], params.Ether),
+		Fee:          mathT.BigIntToFloatDiv(disputeVars[8], params.Ether),
 	}, nil
 }
 
@@ -538,14 +539,14 @@ func LastSubmit(contract ContractCaller, reporter common.Address) (time.Duration
 	}
 
 	lastInt := last.Int64()
-	var lastSubmit time.Duration
+	sinceLastSubmit := time.Duration(math.MaxInt64)
 	var tm time.Time
 	if lastInt > 0 {
 		tm = time.Unix(lastInt, 0)
-		lastSubmit = time.Since(tm)
+		sinceLastSubmit = time.Since(tm)
 	}
 
-	return lastSubmit, &tm, nil
+	return sinceLastSubmit, &tm, nil
 }
 
 func Slot(caller ContractCaller) (*big.Int, error) {
