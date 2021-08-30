@@ -81,8 +81,8 @@ var DefaultConfig = Config{
 	EnvFile: "configs/.env",
 }
 
-func LoadConfig(logger log.Logger, path string) (*Config, error) {
-	cfg, err := Parse(logger, string(path))
+func LoadConfig(logger log.Logger, path string, strictParsing bool) (*Config, error) {
+	cfg, err := Parse(logger, string(path), strictParsing)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating config")
 	}
@@ -94,11 +94,11 @@ func LoadConfig(logger log.Logger, path string) (*Config, error) {
 	return cfg, nil
 }
 
-func Parse(logger log.Logger, path string) (*Config, error) {
+func Parse(logger log.Logger, path string, strictParsing bool) (*Config, error) {
 
 	cfg := &Config{}
 
-	cfgI, err := DeеpCopy(logger, path, cfg, DefaultConfig)
+	cfgI, err := DeеpCopy(logger, path, cfg, DefaultConfig, strictParsing)
 	if err != nil {
 		return nil, errors.Wrap(err, "making a config deep copy")
 	}
@@ -153,7 +153,7 @@ func LoadEnvFile(logger log.Logger, path string) error {
 	return nil
 }
 
-func DeеpCopy(logger log.Logger, path string, cfg, cfgDefault interface{}) (interface{}, error) {
+func DeеpCopy(logger log.Logger, path string, cfg, cfgDefault interface{}, strictParsing bool) (interface{}, error) {
 	var file *os.File
 	var fileLoaded bool
 	var err error
@@ -190,7 +190,9 @@ func DeеpCopy(logger log.Logger, path string, cfg, cfgDefault interface{}) (int
 	//  When a config file is loaded also overwrite the defaults with the values from the config file.
 	if fileLoaded {
 		dec := json.NewDecoder(file)
-		dec.DisallowUnknownFields()
+		if strictParsing {
+			dec.DisallowUnknownFields()
+		}
 		for {
 			// Override defaults with the custom configs.
 			if err := dec.Decode(cfg); err == io.EOF {

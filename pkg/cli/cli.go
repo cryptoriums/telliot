@@ -60,6 +60,7 @@ var CLIDefault = CLI{
 
 type CLI struct {
 	Cfg
+	ConfigStrictParsing bool `help:"whether to return an error when the config contains unknown fields"`
 	ContractFlag
 
 	Dataserver DataserverCmd `cmd:"" help:"launch only a dataserver instance"`
@@ -253,7 +254,7 @@ func ConfigClientContract(
 	contractAddr string,
 	params contracts.Params,
 ) (*config.Config, *ethclient.Client, contracts.ContractCaller, error) {
-	cfg, err := config.LoadConfig(logger, configPath)
+	cfg, err := config.LoadConfig(logger, configPath, true)
 	if err != nil {
 		return nil, nil, nil, err
 	}

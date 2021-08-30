@@ -23,7 +23,7 @@ type DataserverCmd struct {
 }
 
 func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, err := config.LoadConfig(logger, cli.Config)
+	cfg, err := config.LoadConfig(logger, cli.Config, true)
 	if err != nil {
 		return err
 	}
