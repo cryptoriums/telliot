@@ -155,15 +155,11 @@ func (self *ContractFlag) Validate() error {
 
 type Gas struct {
 	GasMaxFee float64 `optional:"" help:"gas max fee to use when running the command"`
-	GasMaxTip float64 `optional:"" help:"gas max tip fee to use when running the command"`
 }
 
 func (self *Gas) Validate() error {
 	if self.GasMaxFee > 300 {
 		return errors.Errorf("gase base fee too high:%v", self.GasMaxFee)
-	}
-	if self.GasMaxTip > 300 {
-		return errors.Errorf("gase tip too high:%v", self.GasMaxTip)
 	}
 	return nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -57,7 +58,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		vals = GetValuesFromInput(logger, resp.RequestIds)
 	}
 
-	shouldContinue := FinalPrompt(logger, self.SkipConfirm, resp.RequestIds, vals)
+	shouldContinue := FinalPrompt(ctx, logger, contract, self.SkipConfirm, self.GasMaxFee, resp.RequestIds, vals)
 	if !shouldContinue {
 		return errors.New("canceled")
 	}
@@ -66,7 +67,22 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	if err != nil {
 		return err
 	}
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.SubmitMiningSolutionGasUsage)
+
+	return self.Submit(cli, ctx, logger, account, client, contract, ids, vals)
+}
+
+func (self *SubmitCmd) Submit(
+	cli *CLI,
+	ctx context.Context,
+	logger log.Logger,
+	account *ethereum.Account,
+	client *ethclient.Client,
+	contract contracts.TellorCaller,
+	ids [5]*big.Int,
+	vals [5]*big.Int,
+) error {
+
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.SubmitMiningSolutionGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -98,7 +114,6 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		"msg", "complete",
 		"tx", tx.Hash(),
 	)
-
 	return nil
 }
 
@@ -205,7 +220,22 @@ func requestVals(logger log.Logger, psr *psrTellor.Psr, dataIDs [5]*big.Int) ([5
 	return vals, nil
 }
 
-func FinalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int) bool {
+func FinalPrompt(
+	ctx context.Context,
+	logger log.Logger,
+	contract contracts.TellorCaller,
+	skipConfirm bool,
+	gasMaxFee float64,
+	dataIDs,
+	vals [5]*big.Int,
+) bool {
+
+	slot, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereum.Keccak256([]byte("_SLOT_PROGRESS")))
+	if err != nil {
+		level.Error(logger).Log("msg", "getting current slot", "err", err)
+	}
+	//lint:ignore faillint for prompts can't use logs.
+	fmt.Printf("Current SLOT:%v GasMaxFee:%v \n", slot.String(), gasMaxFee)
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
 
@@ -232,7 +262,7 @@ func FinalPrompt(logger log.Logger, skipConfirm bool, dataIDs, vals [5]*big.Int)
 	promptResp, err = prompt.Prompt("Press Y if you want to enter values manually?:", false)
 	if err == nil && strings.ToLower(promptResp) == "y" {
 		vals = GetValuesFromInput(logger, dataIDs)
-		return FinalPrompt(logger, skipConfirm, dataIDs, vals)
+		return FinalPrompt(ctx, logger, contract, skipConfirm, gasMaxFee, dataIDs, vals)
 	}
 	return false
 }
