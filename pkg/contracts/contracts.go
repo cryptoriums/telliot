@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math"
 	"math/big"
@@ -22,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
@@ -579,6 +581,43 @@ func Slot(caller TellorCaller) (*big.Int, error) {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
 	}
 	return slot, nil
+}
+
+func CreateTellorTx(
+	ctx context.Context,
+	prvKey *ecdsa.PrivateKey,
+	to common.Address,
+	client *ethclient.Client,
+	netID int64,
+	gasLimit uint64,
+	gasMaxFee float64,
+	methodName string,
+	args []interface{},
+) (*types.Transaction, string, error) {
+	nonce, err := client.PendingNonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey))
+	if err != nil {
+		return nil, "", errors.Wrap(err, "getting pending nonce")
+	}
+
+	abiP, err := abi.JSON(strings.NewReader(tellor.TellorABI))
+	if err != nil {
+		return nil, "", errors.Wrap(err, "read contract ABI")
+	}
+
+	data, err := abiP.Pack(methodName, args...)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "packing ABI")
+	}
+
+	return ethereumT.NewSignedTX(
+		to,
+		data,
+		nonce,
+		prvKey,
+		netID,
+		gasLimit,
+		gasMaxFee,
+	)
 }
 
 func ReporterStatusName(statusID int64) string {
