@@ -48,7 +48,7 @@ type NewDisputeCmd struct {
 }
 
 func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.BeginDisputeGasUsage)
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.BeginDisputeGasUsage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -114,7 +114,7 @@ type VoteCmd struct {
 }
 
 func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.VoteGasUSage)
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -163,7 +163,7 @@ type TallyCmd struct {
 }
 
 func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasMaxFee, self.GasMaxTip, contracts.TallyGasUsage)
+		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasMaxFee, contracts.TallyGasUsage)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -218,7 +218,7 @@ type TallyListCmd struct {
 }
 
 func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ type UnlockFeeCmd struct {
 }
 
 func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			}
 		}
 
-		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasMaxFee, self.GasMaxTip, contracts.UnlockFeeGasUsage)
+		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasMaxFee, contracts.UnlockFeeGasUsage)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -338,7 +338,7 @@ type ListCmd struct {
 }
 
 func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}

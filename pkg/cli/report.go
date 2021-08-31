@@ -32,7 +32,7 @@ type ReportCmd struct {
 }
 
 func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, true, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}

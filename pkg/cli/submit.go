@@ -39,7 +39,7 @@ type SubmitCmd struct {
 }
 
 func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}

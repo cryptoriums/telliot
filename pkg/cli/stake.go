@@ -25,7 +25,7 @@ type DepositCmd struct {
 }
 
 func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		}
 	}
 
-	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.DepositStakeGasUsage)
+	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.DepositStakeGasUsage)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -87,7 +87,7 @@ type WithdrawCmd struct {
 }
 
 func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return nil
 	}
 
-	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.WithdrawStakeGasUsage)
+	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.WithdrawStakeGasUsage)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -126,7 +126,7 @@ type RequestCmd struct {
 }
 
 func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return nil
 	}
 
-	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, self.GasMaxTip, contracts.RequestStakingWithdrawGasUsage)
+	opts, err := ethereum.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.RequestStakingWithdrawGasUsage)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -165,7 +165,7 @@ type StatusCmd struct {
 }
 
 func (self *StatusCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, _, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, _, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}

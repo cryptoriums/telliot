@@ -177,7 +177,7 @@ type AccountsCmd struct {
 }
 
 func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.Contract, contracts.DefaultParams)
+	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -251,10 +251,11 @@ func ConfigClientContract(
 	ctx context.Context,
 	logger log.Logger,
 	configPath string,
+	configStrictParsing bool,
 	contractAddr string,
 	params contracts.Params,
 ) (*config.Config, *ethclient.Client, contracts.TellorCaller, error) {
-	cfg, err := config.LoadConfig(logger, configPath, true)
+	cfg, err := config.LoadConfig(logger, configPath, configStrictParsing)
 	if err != nil {
 		return nil, nil, nil, err
 	}
