@@ -91,13 +91,13 @@ func PrepareEthTransaction(
 	ctx context.Context,
 	client *ethclient.Client,
 	account *Account,
-	gasMaxFeeGwei float64,
+	gasMaxFee float64,
 	gasLimit uint64,
 ) (*bind.TransactOpts, error) {
 
-	var gasMaxFee *big.Int
-	if gasMaxFeeGwei > 0 {
-		gasMaxFee = big.NewInt(int64(gasMaxFeeGwei) * params.GWei)
+	var gasMaxFeeWei *big.Int
+	if gasMaxFee > 0 {
+		gasMaxFeeWei = big.NewInt(int64(gasMaxFee) * params.GWei)
 	}
 
 	nonce, err := client.PendingNonceAt(ctx, account.GetAddress())
@@ -105,7 +105,7 @@ func PrepareEthTransaction(
 		return nil, errors.Wrap(err, "getting pending nonce")
 	}
 
-	if gasMaxFee == nil {
+	if gasMaxFeeWei == nil {
 		gasMaxTip, err := client.SuggestGasTipCap(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting suggested gas tip")
@@ -119,7 +119,7 @@ func PrepareEthTransaction(
 		// so 25% will allow including the TX in the next 2 blocks if the network load surges.
 		safeMargin := big.NewInt(0).Div(header.BaseFee, big.NewInt(4))
 		baseFee := big.NewInt(0).Add(header.BaseFee, safeMargin)
-		gasMaxFee = big.NewInt(0).Add(baseFee, gasMaxTip)
+		gasMaxFeeWei = big.NewInt(0).Add(baseFee, gasMaxTip)
 	}
 
 	ethBalance, err := client.BalanceAt(ctx, account.GetAddress(), nil)
@@ -128,7 +128,7 @@ func PrepareEthTransaction(
 	}
 
 	cost := new(big.Int)
-	cost.Mul(gasMaxFee, big.NewInt(int64(gasLimit)))
+	cost.Mul(gasMaxFeeWei, big.NewInt(int64(gasLimit)))
 	if ethBalance.Cmp(cost) < 0 {
 		return nil, errors.Errorf("insufficient ethereum to send a transaction: %v < %v", ethBalance, cost)
 	}
@@ -146,8 +146,8 @@ func PrepareEthTransaction(
 	opts.Value = big.NewInt(0)
 
 	opts.GasLimit = gasLimit
-	opts.GasTipCap = gasMaxFee
-	opts.GasFeeCap = gasMaxFee
+	opts.GasTipCap = gasMaxFeeWei
+	opts.GasFeeCap = gasMaxFeeWei
 	opts.Context = ctx
 	return opts, nil
 }
@@ -250,10 +250,10 @@ func NewSignedTX(
 	prvKey *ecdsa.PrivateKey,
 	netID int64,
 	gasLimit uint64,
-	gasMaxFeeGwei float64,
+	gasMaxFee float64,
 ) (*types.Transaction, string, error) {
 
-	if gasMaxFeeGwei == 0 {
+	if gasMaxFee == 0 {
 		return nil, "", errors.New("for EIP1559 TXs the gasMaxFee should not be zero")
 	}
 
@@ -262,8 +262,8 @@ func NewSignedTX(
 	tx, err := types.SignNewTx(prvKey, signer, &types.DynamicFeeTx{
 		ChainID:   big.NewInt(netID),
 		Nonce:     nonce,
-		GasFeeCap: mathT.FloatToBigIntMul(gasMaxFeeGwei, params.GWei),
-		GasTipCap: mathT.FloatToBigIntMul(gasMaxFeeGwei, params.GWei),
+		GasFeeCap: mathT.FloatToBigIntMul(gasMaxFee, params.GWei),
+		GasTipCap: mathT.FloatToBigIntMul(gasMaxFee, params.GWei),
 		Gas:       gasLimit,
 		To:        &to,
 		Data:      data,

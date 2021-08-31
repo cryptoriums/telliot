@@ -39,18 +39,19 @@ const (
 	TellorAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	TellorAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
-	WithdrawStakeGasUsage          = 50_000
-	RequestStakingWithdrawGasUsage = 100_000
-	TallyGasUsage                  = 150_000
-	DepositStakeGasUsage           = 160_000
-	UnlockFeeGasUsage              = 300_000
+	WithdrawStakeGasLimit          = 50_000
+	RequestStakingWithdrawGasLimit = 100_000
+	TallyGasLimit                  = 150_000
+	DepositStakeGasLimit           = 160_000
+	UnlockFeeGasLimit              = 300_000
 	VoteGasUSage                   = 200_000
-	BeginDisputeGasUsage           = 700_000
-	SubmitMiningSolutionGasUsage   = 3_000_000
+	BeginDisputeGasLimit           = 700_000
+	SubmitMiningSolutionGasLimit   = 3_000_000
 
 	MethodNameSubmit    = "submitMiningSolution"
 	EventNameNewTask    = "NewChallenge"
 	EventNameNewSubmit  = "NonceSubmitted"
+	EventNameNewValue   = "NewValue"
 	EventNameTally      = "DisputeVoteTallied"
 	EventNameNewDispute = "NewDispute"
 	// When creating the bindings the Transfer event is aliased as Trasnfered

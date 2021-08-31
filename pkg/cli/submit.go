@@ -82,7 +82,7 @@ func (self *SubmitCmd) Submit(
 	vals [5]*big.Int,
 ) error {
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.SubmitMiningSolutionGasUsage)
+	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.SubmitMiningSolutionGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -235,7 +235,7 @@ func FinalPrompt(
 		level.Error(logger).Log("msg", "getting current slot", "err", err)
 	}
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Printf("Current SLOT:%v GasMaxFee:%v \n", slot.String(), gasMaxFee)
+	fmt.Printf("Current Slot:%v GasMaxFee:%v \n", slot.String(), gasMaxFee)
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
 
