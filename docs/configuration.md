@@ -22,9 +22,11 @@ Usage: telliot accounts
 Show accounts
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -39,12 +41,13 @@ Arguments:
   <amount>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
       --from=STRING
       --to=STRING
 
@@ -61,9 +64,11 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -75,13 +80,15 @@ Usage: telliot data
 Retrieve data from the contract
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --from=UINT-64       the unix timestamp to use as a starting point for the
-                           data retrieval
-      --look-back=2h       how far to lookback
+      --from=UINT-64             the unix timestamp to use as a starting point
+                                 for the data retrieval
+      --look-back=2h             how far to lookback
 
 ```
 
@@ -93,9 +100,11 @@ Usage: telliot dataserver
 launch only a dataserver instance
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -110,9 +119,11 @@ Arguments:
   <file>    the file to encrypt
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -124,9 +135,11 @@ Usage: telliot dispute <command>
 Perform commands related to disputes
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 Commands:
   dispute new --data-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
@@ -158,13 +171,15 @@ Usage: telliot dispute list
 list open disputes
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --show-closed        also show executed disputes
-      --look-back=120h     how far to lookback, the default only few days since
-                           disputes can be voted only for 2 days.
+      --show-closed              also show executed disputes
+      --look-back=120h           how far to lookback, the default only few days
+                                 since disputes can be voted only for 2 days.
 
 ```
 
@@ -179,18 +194,19 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
-      --no-checks               whether to run some additional checks like
-                                balance, did vote etc. Useful to disable when
-                                running against a test contract
-      --data-id=INT-64          the request id to dispute
-      --timestamp=INT-64        the submitted timestamp to dispute
-      --slot=INT-64             the reporter index to dispute
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
+      --data-id=INT-64           the request id to dispute
+      --timestamp=INT-64         the submitted timestamp to dispute
+      --slot=INT-64              the reporter index to dispute
 
 ```
 
@@ -202,13 +218,14 @@ Usage: telliot dispute tally
 tally votes for a dispute ID, need to run unlock fee after that
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
-      --dispute-id=INT-64       the dispute id
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --dispute-id=INT-64        the dispute id
       --all
 
 ```
@@ -221,12 +238,14 @@ Usage: telliot dispute tally-list
 list tally for disputes
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --look-back=120h     how far to lookback, the default only few days since
-                           disputes can be voted only for 2 days.
+      --look-back=120h           how far to lookback, the default only few days
+                                 since disputes can be voted only for 2 days.
 
 ```
 
@@ -239,16 +258,17 @@ after tallying the votes this command transfers the fee to the reporter or
 reported based on the voting
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --no-checks               whether to run some additional checks like
-                                balance, did vote etc. Useful to disable when
-                                running against a test contract
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
-      --dispute-id=INT-64       the dispute id
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --dispute-id=INT-64        the dispute id
       --all
 
 ```
@@ -264,17 +284,18 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
-      --dispute-id=INT-64       the dispute id
-      --no-checks               whether to run some additional checks like
-                                balance, did vote etc. Useful to disable when
-                                running against a test contract
-      --support                 true or false
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --dispute-id=INT-64        the dispute id
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
+      --support                  true or false
 
 ```
 
@@ -290,9 +311,11 @@ Arguments:
   <file>    the file to encrypt
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -304,14 +327,16 @@ Usage: telliot events --event-name=STRING
 Subscribe to watch logs from the network.
 
 Flags:
-  -h, --help                  Show context-sensitive help.
-      --config=STRING         path to config file
-      --contract=STRING       hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --look-back=DURATION    how far to look for the initiali qyery
-      --event-name=STRING     the name of the log to watch
-      --reorg-wait=3s         how long to wait for removed logs from reorg
-                              events
+      --look-back=DURATION       how far to look for the initiali qyery
+      --event-name=STRING        the name of the log to watch
+      --reorg-wait=3s            how long to wait for removed logs from reorg
+                                 events
 
 ```
 
@@ -323,9 +348,11 @@ Usage: telliot report
 Submit data to the oracle contracts
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -337,9 +364,11 @@ Usage: telliot stake <command>
 Perform one of the stake operations
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 Commands:
   stake deposit <account>
@@ -367,15 +396,16 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
-      --no-checks               whether to run some additional checks like
-                                balance, did vote etc. Useful to disable when
-                                running against a test contract
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
 
 ```
 
@@ -390,12 +420,13 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
 
 ```
 
@@ -410,9 +441,11 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -427,12 +460,13 @@ Arguments:
   <account>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
 
 ```
 
@@ -447,14 +481,15 @@ Arguments:
   [<account>]
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
       --custom-submit
-      --skip-confirm            submit without confirming, useful for testing
+      --skip-confirm             submit without confirming, useful for testing
 
 ```
 
@@ -469,12 +504,13 @@ Arguments:
   <amount>
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --config=STRING           path to config file
-      --contract=STRING         hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64    gas max fee to use when running the command
-      --gas-max-tip=FLOAT-64    gas max tip fee to use when running the command
+      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
       --from=STRING
       --to=STRING
 
@@ -488,9 +524,11 @@ Usage: telliot version
 Show the CLI version information
 
 Flags:
-  -h, --help               Show context-sensitive help.
-      --config=STRING      path to config file
-      --contract=STRING    hex address of the contract to interract with
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
 
 ```
 
