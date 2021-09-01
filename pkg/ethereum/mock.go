@@ -423,7 +423,7 @@ package ethereum
 // 	return c.nonce, nil
 // }
 
-// func (c *mockClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+// func (c *mockClient) Query(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
 // 	return 0, nil
 // }
 

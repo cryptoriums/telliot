@@ -242,7 +242,7 @@ func FinalPrompt(
 		level.Error(logger).Log("msg", "getting current slot", "err", err)
 	}
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Printf("Current Slot:%v GasMaxFee:%v \n", slot.String(), gasMaxFee)
+	fmt.Printf(">>>>>>>> Current Slot:%v GasMaxFee:%v \n", slot.String(), gasMaxFee)
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
 
