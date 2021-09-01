@@ -49,10 +49,14 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	if err != nil {
 		return errors.Wrap(err, "get current DATA ids")
 	}
-	ids := resp.RequestIds
-	var vals [5]*big.Int
 
-	vals, _, _, err = self.GetValuesFromDB(ctx, logger, cfg, ids)
+	_, aggr, err := self.CreateAggr(ctx, logger, cfg)
+	if err != nil {
+		return errors.Wrap(err, "couldn't get create an aggregator")
+	}
+
+	ids := resp.RequestIds
+	vals, err := self.GetValuesFromDB(ctx, logger, cfg, aggr, ids)
 	if err != nil {
 		level.Error(logger).Log("msg", "couldn't get values from the DB so will proceed with manual submit", "err", err)
 		vals = GetValuesFromInput(logger, resp.RequestIds)
@@ -169,14 +173,22 @@ func GetValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
 	return vals
 }
 
-func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, cfg *config.Config, dataIDs [5]*big.Int) ([5]*big.Int, storage.SampleAndChunkQueryable, *aggregator.Aggregator, error) {
-	var vals [5]*big.Int
+func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, cfg *config.Config, aggregator *aggregator.Aggregator, dataIDs [5]*big.Int) ([5]*big.Int, error) {
+	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
+	vals, err := requestVals(logger, psr, dataIDs)
+	if err != nil {
+		return vals, errors.Wrap(err, "getting variable values")
+	}
+	return vals, nil
+}
+
+func (self *SubmitCmd) CreateAggr(ctx context.Context, logger log.Logger, cfg *config.Config) (storage.SampleAndChunkQueryable, *aggregator.Aggregator, error) {
 	var querable storage.SampleAndChunkQueryable
 	var err error
 	if cfg.Db.RemoteHost != "" {
 		querable, err = db.NewRemoteDB(cfg.Db)
 		if err != nil {
-			return vals, nil, nil, errors.Wrap(err, "coudn't open remote DB")
+			return nil, nil, errors.Wrap(err, "coudn't open remote DB")
 		}
 		level.Info(logger).Log("msg", "connected to remote DB",
 			"host", cfg.Db.RemoteHost,
@@ -186,21 +198,16 @@ func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, c
 		tsdbOptions := tsdb.DefaultOptions()
 		querable, err = tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions, tsdb.NewDBStats())
 		if err != nil {
-			return vals, nil, nil, errors.Wrap(err, "coudn't open local DB")
+			return nil, nil, errors.Wrap(err, "coudn't open local DB")
 		}
 	}
 	aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, querable)
 	if err != nil {
-		return vals, nil, nil, errors.Wrap(err, "couldn't create aggregator")
+		return nil, nil, errors.Wrap(err, "couldn't create aggregator")
 
 	}
 
-	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
-	vals, err = requestVals(logger, psr, dataIDs)
-	if err != nil {
-		return vals, nil, nil, errors.Wrap(err, "getting variable values")
-	}
-	return vals, querable, aggregator, nil
+	return querable, aggregator, nil
 }
 
 func requestVals(logger log.Logger, psr *psrTellor.Psr, dataIDs [5]*big.Int) ([5]*big.Int, error) {
