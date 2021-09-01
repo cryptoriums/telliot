@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-type GasEstimator interface {
-	EstimateGas(ctx context.Context, account *ethereum.Account, slot uint64) (uint64, error)
+type GasUsageQuerier interface {
+	Query(ctx context.Context, account *ethereum.Account, slot uint64) (uint64, error)
 }
 
 // Default returns hard coded gas usage for all slots.
@@ -25,7 +25,7 @@ func NewDefault() *Default {
 	return &Default{}
 }
 
-func (self *Default) EstimateGas(ctx context.Context, _ *ethereum.Account, slot uint64) (uint64, error) {
+func (self *Default) Query(ctx context.Context, _ *ethereum.Account, slot uint64) (uint64, error) {
 	switch slot {
 	case 0:
 		fallthrough

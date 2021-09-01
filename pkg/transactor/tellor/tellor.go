@@ -38,7 +38,7 @@ type Tellor struct {
 	gasPriceQuerier gas_price.GasPriceQuerier
 	client          *ethclient.Client
 	account         *ethereum.Account
-	gasEstimator    gas_estimator.GasEstimator
+	gasUsageQuerier gas_estimator.GasUsageQuerier
 }
 
 func New(
@@ -60,7 +60,7 @@ func New(
 		gasPriceQuerier: gasPriceQuerier,
 		client:          client,
 		account:         account,
-		gasEstimator:    gas_estimator.NewDefault(),
+		gasUsageQuerier: gas_estimator.NewDefault(),
 		contract:        contract,
 	}, nil
 }
@@ -71,7 +71,7 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 		level.Error(self.logger).Log("msg", "getting slot number", "err", err)
 	}
 
-	gasEstimate, err := self.gasEstimator.EstimateGas(ctx, self.account, slot.Uint64())
+	gasEstimate, err := self.gasUsageQuerier.Query(ctx, self.account, slot.Uint64())
 	if err != nil {
 		level.Error(self.logger).Log("msg", "getting gas estimate", "err", err)
 	}
