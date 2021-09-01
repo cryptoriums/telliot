@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	ComponentName = "trackerLogs"
+	ComponentName = "trackerEvent"
 	defaultDelay  = 10 * time.Second
 )
 

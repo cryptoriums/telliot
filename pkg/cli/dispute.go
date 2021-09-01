@@ -293,13 +293,15 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			}
 
 			if tallyTs.Int64() == 0 {
-				return errors.Errorf("dispute not executed yet")
+				level.Info(logger).Log("msg", "dispute not executed yet", "id", dispute.ID)
+				continue
 			}
 
 			timePassed := time.Since(time.Unix(tallyTs.Int64(), 0))
 
 			if timePassed < 24*time.Hour {
-				return errors.Errorf("not enough time has passed after tallying - required:24h, current:%v", timePassed)
+				level.Info(logger).Log("msg", "not enough time has passed after tallying", "id", dispute.ID, "required", "24h", "current", timePassed)
+				continue
 			}
 
 			paid, err := contract.GetDisputeUintVars(
@@ -312,7 +314,8 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			}
 
 			if paid.Int64() == 1 {
-				return errors.Errorf("dispute already paid out")
+				level.Info(logger).Log("msg", "dispute already paid out", "id", dispute.ID)
+				continue
 			}
 		}
 
