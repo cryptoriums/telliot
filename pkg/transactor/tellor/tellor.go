@@ -11,8 +11,8 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	"github.com/cryptoriums/telliot/pkg/gas_estimator"
 	"github.com/cryptoriums/telliot/pkg/gas_price"
+	"github.com/cryptoriums/telliot/pkg/gas_usage"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -38,7 +38,7 @@ type Tellor struct {
 	gasPriceQuerier gas_price.GasPriceQuerier
 	client          *ethclient.Client
 	account         *ethereum.Account
-	gasUsageQuerier gas_estimator.GasUsageQuerier
+	gasUsageQuerier gas_usage.GasUsageQuerier
 }
 
 func New(
@@ -60,7 +60,7 @@ func New(
 		gasPriceQuerier: gasPriceQuerier,
 		client:          client,
 		account:         account,
-		gasUsageQuerier: gas_estimator.NewDefault(),
+		gasUsageQuerier: gas_usage.NewDefault(),
 		contract:        contract,
 	}, nil
 }

@@ -104,12 +104,12 @@ func (self *SubmitCmd) Submit(
 		if err != nil {
 			return err
 		}
-		tx, err = contractP.SubmitMiningSolution0(opts, "xxx", ids, vals, big.NewInt(0))
+		tx, err = contractP.SubmitMiningSolution0(opts, "krasi!", ids, vals, big.NewInt(0))
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}
 	} else {
-		tx, err = contract.SubmitMiningSolution(opts, "xxx", ids, vals)
+		tx, err = contract.SubmitMiningSolution(opts, "krasi!", ids, vals)
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}

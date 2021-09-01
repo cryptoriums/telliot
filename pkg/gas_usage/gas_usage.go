@@ -1,7 +1,7 @@
 // Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
-package gas_estimator
+package gas_usage
 
 import (
 	"context"
