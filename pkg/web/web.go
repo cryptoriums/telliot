@@ -9,11 +9,14 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strings"
+	"time"
 
+	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/web/api"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -40,7 +43,13 @@ type Web struct {
 	srv    *http.Server
 }
 
-func New(ctx context.Context, logger log.Logger, tsDB storage.SampleAndChunkQueryable, cfg Config) (*Web, error) {
+func New(
+	ctx context.Context,
+	logger log.Logger,
+	handlers map[string]http.HandlerFunc,
+	tsDB storage.SampleAndChunkQueryable,
+	cfg Config,
+) (*Web, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")
@@ -49,6 +58,10 @@ func New(ctx context.Context, logger log.Logger, tsDB storage.SampleAndChunkQuer
 
 	router.Get("/debug/*subpath", serveDebug)
 	router.Post("/debug/*subpath", serveDebug)
+
+	for url, handler := range handlers {
+		router.Get(url, handler)
+	}
 
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
@@ -76,6 +89,32 @@ func New(ctx context.Context, logger log.Logger, tsDB storage.SampleAndChunkQuer
 		srv:    srv,
 	}, nil
 
+}
+
+func Data(
+	ctx context.Context,
+	logger log.Logger,
+	client *ethclient.Client,
+	contract contracts.TellorCaller,
+) http.HandlerFunc {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cncl := context.WithTimeout(ctx, time.Minute)
+		defer cncl()
+		resp, err := contracts.GetSubmitLogs(
+			ctx,
+			client,
+			contract,
+			0,
+			3*time.Hour,
+		)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(resp[0].Timestamp.Bytes())
+	})
 }
 
 func (self *Web) Start() error {

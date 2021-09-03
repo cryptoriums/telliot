@@ -22,7 +22,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/logging"
-	"github.com/cryptoriums/telliot/pkg/web"
+	"github.com/cryptoriums/telliot/pkg/web/helpers"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/itchyny/gojq"
@@ -148,7 +148,7 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 			}
 
 			// Fail early when the url has env that is not set.
-			url := web.ExpandTimeVars(endpoint.URL)
+			url := helpers.ExpandTimeVars(endpoint.URL)
 			os.Expand(url, func(key string) string {
 				if os.Getenv(key) == "" {
 					err = errors.Errorf("missing required env variable in index url:%v", key)
@@ -406,7 +406,7 @@ type URLEnvExpander struct {
 
 func (self *URLEnvExpander) UrlExpanded() (string, error) {
 	var err error
-	url := web.ExpandTimeVars(self.url)
+	url := helpers.ExpandTimeVars(self.url)
 	url = os.Expand(url, func(key string) string {
 		if os.Getenv(key) == "" {
 			err = errors.Errorf("missing required env variable in index url:%v", key)
@@ -433,7 +433,7 @@ func (self *JSONapiVolume) Get(ctx context.Context) (float64, float64, error) {
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "getting api url")
 	}
-	vals, err := web.Get(ctx, url, nil)
+	vals, err := helpers.Get(ctx, url, nil)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "fetching data from API url:%v", url)
 	}
@@ -503,7 +503,7 @@ func (self *Bravenewcoin) get(ctx context.Context, withRefresh, withRetry bool) 
 		return 0, 0, errors.Wrap(err, "getting api url")
 	}
 
-	result, err := web.Get(ctx, urlExpanded, headers)
+	result, err := helpers.Get(ctx, urlExpanded, headers)
 	if err != nil {
 		if withRetry {
 			return self.get(ctx, true, false)
@@ -600,7 +600,7 @@ func (self *JSONapi) Get(ctx context.Context) (float64, float64, error) {
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "getting api url")
 	}
-	result, err := web.Get(ctx, url, nil)
+	result, err := helpers.Get(ctx, url, nil)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "fetching data from API url:%v", url)
 	}

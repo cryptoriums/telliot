@@ -1,7 +1,7 @@
 // Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
-package web
+package helpers
 
 import (
 	"context"

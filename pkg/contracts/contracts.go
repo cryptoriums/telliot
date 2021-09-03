@@ -311,8 +311,8 @@ func NewITellorFilterer(addr common.Address, client *ethclient.Client) (*ITellor
 		TellorFilterer:    ft,
 		ExtensionFilterer: fe,
 	}, nil
-
 }
+
 func GetTellorAddress(netID int64) (common.Address, error) {
 	switch netID {
 	case 1:

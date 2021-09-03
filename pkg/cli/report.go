@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"net/http"
 	"syscall"
 	"time"
 
@@ -78,7 +79,9 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 
 		// Web/Api server.
 		{
-			srv, err := web.New(ctx, logger, tsDB, cfg.Web)
+			handlers := make(map[string]http.HandlerFunc)
+			handlers["/data"] = web.Data(ctx, logger, client, contract)
+			srv, err := web.New(ctx, logger, handlers, tsDB, cfg.Web)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+web.ComponentName)
 			}

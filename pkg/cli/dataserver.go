@@ -68,7 +68,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 
 		// Web/Api server.
 		{
-			srv, err := web.New(ctx, logger, tsDB, cfg.Web)
+			srv, err := web.New(ctx, logger, nil, tsDB, cfg.Web)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+web.ComponentName)
 			}
