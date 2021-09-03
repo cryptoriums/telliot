@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
+	"github.com/cryptoriums/telliot/pkg/prompt"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -86,6 +88,23 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			return errors.Errorf("insufficient balance TRB actual: %v, TRB required:%v)",
 				math.BigIntToFloatDiv(balance, params.Ether),
 				math.BigIntToFloatDiv(disputeCost, params.Ether))
+		}
+
+		reporters, err := contract.GetMinersByRequestIdAndTimestamp(&bind.CallOpts{Context: ctx}, big.NewInt(self.DataID), big.NewInt(self.Timestamp))
+		if err != nil {
+			return errors.Wrap(err, "getting submit block reporters")
+		}
+
+		status, _, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, reporters[self.Slot])
+		if err != nil {
+			return errors.Wrap(err, "getting reporter status")
+		}
+		level.Info(logger).Log("msg", "disputed reporter status", "status", contracts.ReporterStatusName(status.Int64()))
+		if status.Int64() != 1 {
+			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue dispute its status:", false)
+			if err == nil && strings.ToLower(promptResp) != "y" {
+				return errors.New("canceled")
+			}
 		}
 	}
 
