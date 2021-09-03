@@ -48,7 +48,9 @@ const (
 	BeginDisputeGasLimit           = 700_000
 	SubmitMiningSolutionGasLimit   = 3_000_000
 
-	MethodNameSubmit    = "submitMiningSolution"
+	MethodNameSubmit     = "submitMiningSolution"
+	MethodNameNewDispute = "beginDispute"
+
 	EventNameNewTask    = "NewChallenge"
 	EventNameNewSubmit  = "NonceSubmitted"
 	EventNameNewValue   = "NewValue"
@@ -77,6 +79,7 @@ type TellorCaller interface {
 	Addr() common.Address
 	NetID() int64
 	Abi() abi.ABI
+	AbiRaw() string
 	BalanceOf(opts *bind.CallOpts, _user common.Address) (*big.Int, error)
 	GetAllDisputeVars(opts *bind.CallOpts, _disputeId *big.Int) ([32]byte, bool, bool, bool, common.Address, common.Address, common.Address, [9]*big.Int, *big.Int, error)
 	GetDisputeUintVars(opts *bind.CallOpts, _disputeId *big.Int, _data [32]byte) (*big.Int, error)
@@ -138,6 +141,7 @@ var (
 type ITellor struct {
 	boundContract *bind.BoundContract
 	abi           abi.ABI
+	abiRaw        string
 	netID         int64
 	params        Params
 	*tellor.ITellor
@@ -154,6 +158,10 @@ func (self *ITellor) Addr() common.Address {
 
 func (self *ITellor) Abi() abi.ABI {
 	return self.abi
+}
+
+func (self *ITellor) AbiRaw() string {
+	return self.abiRaw
 }
 
 func (self *ITellor) DisputeVotingWindow() time.Duration {
@@ -227,6 +235,7 @@ func newITellorWithAddr(
 
 	return &ITellor{
 		abi:           abi,
+		abiRaw:        tellor.ITellorABI,
 		netID:         netID,
 		address:       contractAddr,
 		boundContract: boundContract,

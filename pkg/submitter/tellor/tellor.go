@@ -205,7 +205,6 @@ func (self *Submitter) Submit(newChallengeReplace context.Context, result *minin
 					"gasPrice", tx.GasPrice(),
 					"gasLimit", tx.Gas(),
 				)
-
 				return
 			}
 		}
