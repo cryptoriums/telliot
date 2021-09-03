@@ -125,10 +125,10 @@ func (self *TrackerEvents) Start() error {
 	}
 
 	// Initial subscription.
-	src, sub := self.waitSubscribe()
+	src, subs := self.waitSubscribe()
 	defer func() {
-		if sub != nil {
-			sub.Unsubscribe()
+		if subs != nil {
+			subs.Unsubscribe()
 		}
 	}()
 
@@ -136,22 +136,22 @@ func (self *TrackerEvents) Start() error {
 		select {
 		case <-self.ctx.Done():
 			return nil
-		case log := <-src:
-			if log.Removed {
-				self.cancelPending(hashFromLog(log))
+		case event := <-src:
+			if event.Removed {
+				self.cancelPending(hashFromLog(event))
 				continue
 			}
 			ctx, cncl := context.WithCancel(self.ctx)
-			self.addPending(hashFromLog(log), cncl)
-			go func(log types.Log, ctxReorg context.Context) {
+			self.addPending(hashFromLog(event), cncl)
+			go func(ctxReorg context.Context, event types.Log) {
 				waitReorg := time.NewTicker(self.reorgWaitPeriod)
 				defer waitReorg.Stop()
 
 				select {
 				case <-waitReorg.C:
-					self.cancelPending(hashFromLog(log))
+					self.cancelPending(hashFromLog(event))
 					select {
-					case self.dstChan <- log:
+					case self.dstChan <- event:
 						return
 					case <-self.ctx.Done():
 						return
@@ -160,10 +160,10 @@ func (self *TrackerEvents) Start() error {
 					return
 				}
 
-			}(log, ctx)
-		case err := <-sub.Err():
+			}(ctx, event)
+		case err := <-subs.Err():
 			level.Error(self.logger).Log("msg", "subscription failed will try to resubscribe", "err", err)
-			src, sub = self.waitSubscribe()
+			src, subs = self.waitSubscribe()
 
 		}
 	}
@@ -188,7 +188,7 @@ MainLoop:
 		opts := &bind.WatchOpts{
 			Context: self.ctx,
 		}
-		src, sub, err := self.contract.WatchLogs(opts, self.eventName)
+		src, subs, err := self.contract.WatchLogs(opts, self.eventName)
 		if err != nil {
 			level.Error(self.logger).Log("msg", "subscription to events failed", "err", err)
 			select {
@@ -199,7 +199,7 @@ MainLoop:
 			}
 		}
 		level.Info(self.logger).Log("msg", "subscription created", "eventName", self.eventName)
-		return src, sub
+		return src, subs
 	}
 }
 
