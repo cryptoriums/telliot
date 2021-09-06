@@ -45,9 +45,14 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 					int(time.Since(time.Unix(submit.Timestamp.Int64(), 0)).Minutes()),
 				)
 			}
-			fmt.Fprintf(w, "%v:%v id:%v\t",
+			inactive := ""
+			if tellor.IsInactive(id.Int64()) {
+				inactive = "(in)"
+			}
+			fmt.Fprintf(w, "%v:%v \t %vid:%v\t",
 				tellor.Psrs[id.Int64()].Pair,
 				tellor.Psrs[id.Int64()].Aggr,
+				inactive,
 				id.Int64(),
 			)
 			for i, val := range submit.Values[id.Int64()] {
