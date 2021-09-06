@@ -122,7 +122,7 @@ func TestFloatToBigIntMul(t *testing.T) {
 
 	for i, tc := range cases {
 		act := FloatToBigIntMul(tc.input, tc.multiplier)
-		exp, ok := big.NewInt(0).SetString(fmt.Sprintf("%g", tc.expected), 10)
+		exp, ok := big.NewInt(0).SetString(fmt.Sprintf("%.0f", tc.expected), 10)
 		testutil.Assert(t, ok, "failed to convert string to big int")
 
 		testutil.Equals(t, exp, act, "Case:"+strconv.Itoa(i))
@@ -160,7 +160,7 @@ func TestBigIntToFloat(t *testing.T) {
 	}
 
 	for i, tc := range cases {
-		input, ok := big.NewInt(0).SetString(fmt.Sprintf("%g", tc.input), 10)
+		input, ok := big.NewInt(0).SetString(fmt.Sprintf("%.0f", tc.input), 10)
 		testutil.Assert(t, ok, "failed to convert string to big int")
 
 		act := BigIntToFloatDiv(input, tc.devider)
