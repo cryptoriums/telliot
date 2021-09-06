@@ -108,7 +108,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.BeginDisputeGasLimit)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.NewDisputeGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -162,7 +162,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	}
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.VoteGasUSage)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -217,7 +217,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasMaxFee, contracts.TallyGasLimit)
+		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasMaxFee, contracts.TallyGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -338,7 +338,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			}
 		}
 
-		opts, err := ethereumT.PrepareEthTransaction(ctx, client, accounts[0], self.GasMaxFee, contracts.UnlockFeeGasLimit)
+		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasMaxFee, contracts.UnlockFeeGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}

@@ -45,7 +45,7 @@ const (
 	DepositStakeGasLimit           = 160_000
 	UnlockFeeGasLimit              = 300_000
 	VoteGasUSage                   = 200_000
-	BeginDisputeGasLimit           = 700_000
+	NewDisputeGasLimit             = 700_000
 	SubmitMiningSolutionGasLimit   = 3_000_000
 
 	MethodNameSubmit     = "submitMiningSolution"

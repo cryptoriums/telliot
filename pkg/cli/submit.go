@@ -86,7 +86,7 @@ func (self *SubmitCmd) Submit(
 	vals [5]*big.Int,
 ) error {
 
-	opts, err := ethereumT.PrepareEthTransaction(ctx, client, account, self.GasMaxFee, contracts.SubmitMiningSolutionGasLimit)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.SubmitMiningSolutionGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}

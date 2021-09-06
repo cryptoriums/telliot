@@ -194,7 +194,7 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 
 		status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
-			return errors.Wrapf(err, "getting stake balance")
+			return errors.Wrapf(err, "getting stake status")
 		}
 		level.Info(logger).Log("msg", "account",
 			"index", i,

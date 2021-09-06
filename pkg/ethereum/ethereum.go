@@ -87,7 +87,7 @@ func DecodeHex(s string) []byte {
 	return b
 }
 
-func PrepareEthTransaction(
+func PrepareTx(
 	ctx context.Context,
 	client *ethclient.Client,
 	account *Account,
