@@ -278,3 +278,14 @@ func NewSignedTX(
 
 	return tx, hexutil.Encode(dataM), nil
 }
+
+func GetEtherscanURL(netID int64) string {
+	var prefix string
+	switch netID {
+	case 4:
+		prefix = "rinkeby."
+	case 5:
+		prefix = "goerli."
+	}
+	return "https://" + prefix + "etherscan.io/"
+}
