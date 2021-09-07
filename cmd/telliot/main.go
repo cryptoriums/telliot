@@ -34,7 +34,7 @@ func main() {
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Printf(cli.VersionMessage, GitTag, GitHash)
 
-		newRelease, err := github.CheckNewVersion("cryptoriums", GitTag)
+		newRelease, err := github.CheckNewVersion("cryptoriums", "telliot", GitTag)
 		if err != nil {
 			level.Error(l).Log("msg", "checking for new release", "err", err)
 		}

@@ -13,14 +13,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CheckNewVersion(repo string, current string) (string, error) {
+func CheckNewVersion(owner, repo string, current string) (string, error) {
 	if current == "" { // Can be empty when using `go run`.
 		return "", nil
 	}
 	ctx, cncl := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cncl()
 	client := github.NewClient(nil)
-	release, resp, err := client.Repositories.GetLatestRelease(ctx, repo, "telliot")
+	release, resp, err := client.Repositories.GetLatestRelease(ctx, owner, repo)
 	if err != nil {
 		return "", errors.Wrap(err, "checking for a new release")
 	}
