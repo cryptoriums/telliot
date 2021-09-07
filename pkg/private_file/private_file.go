@@ -125,8 +125,9 @@ func DecryptWithWebPassword(ctx context.Context, logger log.Logger, input []byte
 			if err != nil {
 				postResult = "Decrypt error try again:" + err.Error()
 			} else {
-				postResult = `File unlocked!`
+				fmt.Fprintf(w, `File unlocked!`)
 				fileBytes <- [][]byte{output}
+				return
 			}
 		}
 		fmt.Fprintf(w, `

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -126,10 +125,9 @@ func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
 	}
 
 	if !util.IsText(env) {
-		//lint:ignore faillint for prompts can't use logs.
-		fmt.Println("Env file is encrypted:", cfg.EnvFile)
+		level.Info(logger).Log("msg", "nv file is encrypted", "path", cfg.EnvFile)
 		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
-			level.Info(logger).Log("msg", "running inside k8s so will wait for web password input")
+			level.Info(logger).Log("msg", "running inside k8s so will wait for web password decrypt input")
 			env = private_file.DecryptWithWebPassword(ctx, logger, env, cfg.Web.ListenHost, cfg.Web.ListenPort)
 		} else {
 			env = private_file.DecryptWithPasswordLoop(env)
