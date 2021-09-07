@@ -380,6 +380,8 @@ func createDispute(
 		if err != nil {
 			return nil, errors.New("incorrect password")
 		}
+	} else {
+		return nil, errors.New("file is not encrypted - dispute creation is forbidden via the web with unencrypted env file")
 	}
 
 	r.PostForm.Get("submitPass")
