@@ -214,7 +214,7 @@ func ConfigClientContract(
 	contractAddr string,
 	params contracts.Params,
 ) (*config.Config, *ethclient.Client, contracts.TellorCaller, error) {
-	cfg, err := config.LoadConfig(logger, configPath, configStrictParsing)
+	cfg, err := config.LoadConfig(ctx, logger, configPath, configStrictParsing)
 	if err != nil {
 		return nil, nil, nil, err
 	}

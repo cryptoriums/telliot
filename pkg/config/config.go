@@ -5,6 +5,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -81,13 +82,13 @@ var DefaultConfig = Config{
 	EnvFile: "configs/.env",
 }
 
-func LoadConfig(logger log.Logger, path string, strictParsing bool) (*Config, error) {
+func LoadConfig(ctx context.Context, logger log.Logger, path string, strictParsing bool) (*Config, error) {
 	cfg, err := Parse(logger, string(path), strictParsing)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating config")
 	}
 
-	err = LoadEnvFile(logger, cfg.EnvFile)
+	err = LoadEnvFile(ctx, logger, cfg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "loading the enf file:%v", cfg.EnvFile)
 	}
@@ -107,33 +108,38 @@ func Parse(logger log.Logger, path string, strictParsing bool) (*Config, error) 
 	return cfg, err
 }
 
-func LoadEnvFile(logger log.Logger, path string) error {
-	_env, err := os.Open(path)
+func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
+	_env, err := os.Open(cfg.EnvFile)
 	if err != nil {
 		// When running inside k8s the .env file is converted into secrets
 		// so the .env file in this case doesn't exist.
 		if os.IsNotExist(err) {
-			level.Warn(logger).Log("msg", ".env file doesn't exist so using the existing env variables", "path", path)
+			level.Warn(logger).Log("msg", ".env file doesn't exist so using the existing env variables", "path", cfg.EnvFile)
 			return nil
 		}
-		return errors.Wrapf(err, "opening the env file:%v", path)
+		return errors.Wrapf(err, "opening the env file:%v", cfg.EnvFile)
 	}
 
 	env, err := ioutil.ReadAll(_env)
 	if err != nil {
-		return errors.Wrapf(err, "reading the env file:%v", path)
+		return errors.Wrapf(err, "reading the env file:%v", cfg.EnvFile)
 	}
 
 	if !util.IsText(env) {
 		//lint:ignore faillint for prompts can't use logs.
-		fmt.Println("Env file is encrypted:", path)
-		env = private_file.DecryptWithPasswordLoop(env)
+		fmt.Println("Env file is encrypted:", cfg.EnvFile)
+		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+			level.Info(logger).Log("msg", "running inside k8s so will wait for web password input")
+			env = private_file.DecryptWithWebPassword(ctx, logger, env, cfg.Web.ListenHost, cfg.Web.ListenPort)
+		} else {
+			env = private_file.DecryptWithPasswordLoop(env)
+		}
 	}
 
 	rr := bytes.NewReader(env)
 	envMap, err := godotenv.Parse(rr)
 	if err != nil {
-		return errors.Wrapf(err, "parsing the env file:%v", path)
+		return errors.Wrapf(err, "parsing the env file:%v", cfg.EnvFile)
 	}
 
 	// Copied from the godotenv source code.
