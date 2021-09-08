@@ -106,12 +106,7 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 			return nil, errors.Errorf("insufficient funds to send transaction: %v gwei < %v gwei", balanceGwei, txCostGwei)
 		}
 
-		netID, err := self.client.NetworkID(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting network ID")
-		}
-
-		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, netID)
+		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, big.NewInt(self.client.NetworkID()))
 		if err != nil {
 			return nil, errors.Wrap(err, "creating transactor")
 		}

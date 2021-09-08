@@ -181,13 +181,8 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 						return nil, errors.Wrap(err, "creating ethereum client")
 					}
 
-					netID, err := client.NetworkID(ctx)
-					if err != nil {
-						return nil, errors.Wrap(err, "get nerwork ID")
-					}
-
 					// Validate and pick an ethereum address for current network id.
-					address, err := ethereum.GetAddressForNetwork(endpoint.URL, netID.Int64())
+					address, err := ethereum.GetAddressForNetwork(endpoint.URL, client.NetworkID())
 					if err != nil {
 						return nil, errors.Wrap(err, "getting address for network id")
 					}

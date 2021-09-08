@@ -31,7 +31,9 @@ type EthClient interface {
 	bind.ContractBackend
 	ethereum.ChainStateReader
 	ethereum.ChainReader
-	NetworkID(ctx context.Context) (*big.Int, error)
+	ethereum.TransactionReader
+	NetworkID() int64
+	BlockNumber(ctx context.Context) (uint64, error)
 }
 
 const (
@@ -141,12 +143,7 @@ func PrepareTx(
 		return nil, errors.Errorf("insufficient ethereum to send a transaction: %v < %v", ethBalance, cost)
 	}
 
-	netID, err := client.NetworkID(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting network id")
-	}
-
-	opts, err := bind.NewKeyedTransactorWithChainID(account.GetPrivateKey(), netID)
+	opts, err := bind.NewKeyedTransactorWithChainID(account.GetPrivateKey(), big.NewInt(client.NetworkID()))
 	if err != nil {
 		return nil, errors.Wrap(err, "creating transactor")
 	}
@@ -241,14 +238,26 @@ func NewClient(ctx context.Context, logger log.Logger) (EthClient, error) {
 		}
 	}
 
-	id, err := client.NetworkID(ctx)
+	netID, err := client.NetworkID(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nerwork ID")
 	}
 
-	level.Info(logger).Log("msg", "created ethereum client", "netID", id.Int64())
+	level.Info(logger).Log("msg", "created ethereum client", "netID", netID.Int64())
 
-	return client, nil
+	return &ClientCachedNetID{
+		Client: client,
+		netID:  netID.Int64(),
+	}, nil
+}
+
+type ClientCachedNetID struct {
+	*ethclient.Client
+	netID int64
+}
+
+func (self *ClientCachedNetID) NetworkID() int64 {
+	return self.netID
 }
 
 func NewSignedTX(

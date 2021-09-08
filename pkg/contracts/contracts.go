@@ -186,11 +186,7 @@ func NewITellor(
 		contractAddr = address
 	} else {
 		var err error
-		netID, err := client.NetworkID(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting network ID")
-		}
-		contractAddr, err = GetTellorAddress(netID.Int64())
+		contractAddr, err = GetTellorAddress(client.NetworkID())
 		if err != nil {
 			return nil, errors.Wrap(err, "getting contract address")
 		}
@@ -246,11 +242,7 @@ type ITellorTest struct {
 func NewITellorTest(ctx context.Context, contractAddr common.Address, client ethereum_t.EthClient) (*ITellorTest, error) {
 	var err error
 	if contractAddr == (common.Address{}) {
-		netID, err := client.NetworkID(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting network ID")
-		}
-		contractAddr, err = GetTellorAddress(netID.Int64())
+		contractAddr, err = GetTellorAddress(client.NetworkID())
 		if err != nil {
 			return nil, errors.Wrap(err, "getting contract address")
 		}
@@ -616,17 +608,12 @@ func CreateTellorTx(
 		return nil, "", errors.Wrap(err, "packing ABI")
 	}
 
-	netID, err := client.NetworkID(ctx)
-	if err != nil {
-		return nil, "", errors.Wrap(err, "getting network ID")
-	}
-
 	return ethereum_t.NewSignedTX(
 		to,
 		data,
 		nonce,
 		prvKey,
-		netID.Int64(),
+		client.NetworkID(),
 		gasLimit,
 		gasMaxFee,
 	)

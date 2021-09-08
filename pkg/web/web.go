@@ -113,7 +113,7 @@ func Data(
 	contract contracts.TellorCaller,
 	envFilePath string,
 ) http.HandlerFunc {
-
+	var err error
 	t := template.New("template").Funcs(template.FuncMap{
 		"timeSince": func(ts int64) int {
 			return int(time.Since(time.Unix(ts, 0)).Minutes())
@@ -139,12 +139,6 @@ func Data(
 		u, _ := url.Parse(r.RequestURI)
 		values := u.Query()
 
-		netID, err := client.NetworkID(ctx)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("getting network ID:%v", err), http.StatusInternalServerError)
-			return
-		}
-
 		postResult := ""
 		if r.Method == "POST" {
 			tx, err := createDispute(ctx, logger, r, client, contract, envFilePath)
@@ -153,7 +147,7 @@ func Data(
 				return
 			}
 
-			postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(netID.Int64()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
+			postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
 		}
 
 		lookBack := time.Hour
@@ -192,7 +186,7 @@ func Data(
 		}
 
 		netWarning := ""
-		if netID.Int64() == 1 {
+		if client.NetworkID() == 1 {
 			netWarning = `<b style="color:red">MAINNET</b>`
 		}
 

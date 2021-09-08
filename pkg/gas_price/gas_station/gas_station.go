@@ -10,7 +10,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 )
 
 const ComponentName = "gasPriceGasStation"
@@ -30,12 +29,8 @@ type GasStationModel struct {
 }
 
 func New(ctx context.Context, logger log.Logger, client ethereum.EthClient) (*GasStation, error) {
-	netID, err := client.NetworkID(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting network ID")
-	}
 	return &GasStation{
-		netID:  netID.Int64(),
+		netID:  client.NetworkID(),
 		ctx:    ctx,
 		client: client,
 		logger: log.With(logger, "component", ComponentName),
