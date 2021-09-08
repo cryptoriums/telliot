@@ -143,7 +143,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return err
 	}
 
-	dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
+	dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), contract)
 	if err != nil {
 		return errors.Wrap(err, "getting dispute details")
 	}
@@ -190,7 +190,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 	var disputes []*contracts.DisputeLog
 
 	if self.All {
-		disputes, err = contracts.GetDisputeLogs(ctx, client, contract, 300*time.Hour)
+		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 300*time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dispute logs")
 		}
@@ -199,7 +199,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		if self.DisputeID == 0 {
 			return errors.New("dispute ID is empty")
 		}
-		dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
+		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), contract)
 		if err != nil {
 			return errors.Wrap(err, "get dispute info")
 		}
@@ -284,7 +284,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	var disputes []*contracts.DisputeLog
 
 	if self.All {
-		disputes, err = contracts.GetDisputeLogs(ctx, client, contract, 300*time.Hour)
+		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 300*time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dispute logs")
 		}
@@ -293,7 +293,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		if self.DisputeID == 0 {
 			return errors.New("dispute ID is empty")
 		}
-		dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), contract)
+		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), contract)
 		if err != nil {
 			return errors.Wrap(err, "get dispute info")
 		}
@@ -383,7 +383,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
 
-	logs, err := contracts.GetDisputeLogs(ctx, client, contract, self.LookBack)
+	logs, err := contracts.GetDisputeLogs(ctx, logger, client, contract, self.LookBack)
 	if err != nil {
 		return errors.Wrap(err, "getting latest disputes")
 	}

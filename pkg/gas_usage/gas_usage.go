@@ -12,6 +12,7 @@ import (
 
 type GasUsageQuerier interface {
 	Query(ctx context.Context, account *ethereum.Account, slot uint64) (uint64, error)
+	Name() string
 }
 
 // Default returns hard coded gas usage for all slots.
@@ -23,6 +24,10 @@ type Default struct {
 
 func NewDefault() *Default {
 	return &Default{}
+}
+
+func (self *Default) Name() string {
+	return "default"
 }
 
 func (self *Default) Query(ctx context.Context, _ *ethereum.Account, slot uint64) (uint64, error) {
