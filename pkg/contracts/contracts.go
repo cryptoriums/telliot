@@ -338,6 +338,7 @@ type DisputeLog struct {
 
 func GetDisputeLogs(
 	ctx context.Context,
+	logger log.Logger,
 	client ethereum_t.EthClient,
 	contract TellorCaller,
 	lookBackDuration time.Duration,
@@ -370,7 +371,7 @@ func GetDisputeLogs(
 			return nil, errors.Wrap(err, "unpack event from logs")
 		}
 
-		logUnpacked, err := GetDisputeInfo(ctx, log.DisputeId, contract)
+		logUnpacked, err := GetDisputeInfo(ctx, logger, log.DisputeId, contract)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting dispute details")
 		}
@@ -422,44 +423,56 @@ func GetTallyLogs(
 	return unpackedLogs, err
 }
 
-func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract TellorCaller) (*DisputeLog, error) {
-	_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, disputeID)
-	if err != nil {
-		return nil, errors.Wrap(err, "get dispute details")
-	}
-	if disputer == (common.Address{}) {
-		return nil, errors.Errorf("dispute doesn't exist id:%v", disputeID.Int64())
-	}
+func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, contract TellorCaller) (*DisputeLog, error) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		ctxRetry, cncl := context.WithTimeout(ctx, 5*time.Second)
+		defer cncl()
+		_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctxRetry}, disputeID)
+		if err != nil {
+			return nil, errors.Wrap(err, "get dispute details")
+		}
+		if disputer == (common.Address{}) {
+			level.Error(logger).Log("msg", "dispute doesn't exist", "id", disputeID)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-ticker.C:
+				continue
+			}
+		}
 
-	rounds, err := contract.GetDisputeUintVars(
-		&bind.CallOpts{Context: ctx},
-		disputeID,
-		ethereum_t.Keccak256([]byte("_DISPUTE_ROUNDS")),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "get dispute rounds")
+		rounds, err := contract.GetDisputeUintVars(
+			&bind.CallOpts{Context: ctx},
+			disputeID,
+			ethereum_t.Keccak256([]byte("_DISPUTE_ROUNDS")),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "get dispute rounds")
+		}
+
+		votingEnds := time.Unix(disputeVars[3].Int64(), 0)
+		votingWindow := contract.DisputeVotingWindow()
+		created := votingEnds.Add(-votingWindow * time.Duration(rounds.Int64()))
+
+		return &DisputeLog{
+			ID:           disputeID.Int64(),
+			DataID:       disputeVars[0].Int64(),
+			DataTime:     time.Unix(disputeVars[1].Int64(), 0),
+			DataVal:      mathT.BigIntToFloatDiv(disputeVars[2], psr.DefaultGranularity),
+			Executed:     executed,
+			Passed:       passed,
+			Disputer:     disputer,
+			Disputed:     disputed,
+			DisputedSlot: disputeVars[6].Uint64(),
+			Tally:        mathT.BigIntToFloatDiv(tally, params.Ether),
+			Votes:        disputeVars[4].Uint64(),
+			Created:      created,
+			Ends:         votingEnds,
+			Fee:          mathT.BigIntToFloatDiv(disputeVars[8], params.Ether),
+		}, nil
 	}
-
-	votingEnds := time.Unix(disputeVars[3].Int64(), 0)
-	votingWindow := contract.DisputeVotingWindow()
-	created := votingEnds.Add(-votingWindow * time.Duration(rounds.Int64()))
-
-	return &DisputeLog{
-		ID:           disputeID.Int64(),
-		DataID:       disputeVars[0].Int64(),
-		DataTime:     time.Unix(disputeVars[1].Int64(), 0),
-		DataVal:      mathT.BigIntToFloatDiv(disputeVars[2], psr.DefaultGranularity),
-		Executed:     executed,
-		Passed:       passed,
-		Disputer:     disputer,
-		Disputed:     disputed,
-		DisputedSlot: disputeVars[6].Uint64(),
-		Tally:        mathT.BigIntToFloatDiv(tally, params.Ether),
-		Votes:        disputeVars[4].Uint64(),
-		Created:      created,
-		Ends:         votingEnds,
-		Fee:          mathT.BigIntToFloatDiv(disputeVars[8], params.Ether),
-	}, nil
 }
 
 type SubmitBlock struct {
