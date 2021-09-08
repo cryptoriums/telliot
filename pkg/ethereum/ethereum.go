@@ -13,7 +13,8 @@ import (
 	"strings"
 	"time"
 
-	mathT "github.com/cryptoriums/telliot/pkg/math"
+	math_t "github.com/cryptoriums/telliot/pkg/math"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,6 +26,13 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 )
+
+type EthClient interface {
+	bind.ContractBackend
+	ethereum.ChainStateReader
+	ethereum.ChainReader
+	NetworkID(ctx context.Context) (*big.Int, error)
+}
 
 const (
 	PrivateKeysEnvName = "ETH_PRIVATE_KEYS"
@@ -89,7 +97,7 @@ func DecodeHex(s string) []byte {
 
 func PrepareTx(
 	ctx context.Context,
-	client *ethclient.Client,
+	client EthClient,
 	account *Account,
 	gasMaxFee float64,
 	gasLimit uint64,
@@ -214,33 +222,33 @@ func GetAccounts(logger log.Logger) ([]*Account, error) {
 	return accounts, nil
 }
 
-func NewClient(ctx context.Context, logger log.Logger) (*ethclient.Client, int64, error) {
+func NewClient(ctx context.Context, logger log.Logger) (EthClient, error) {
 	nodeURL := os.Getenv(NodeURLEnvName)
 
 	client, err := ethclient.DialContext(ctx, nodeURL)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "create rpc client instance")
+		return nil, errors.Wrap(err, "create rpc client instance")
 	}
 
 	if !strings.Contains(strings.ToLower(nodeURL), "arbitrum") { // Arbitrum nodes doesn't support sync checking.
 		// Issue #55, halt if client is still syncing with Ethereum network
 		s, err := client.SyncProgress(ctx)
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "determining if Ethereum client is syncing")
+			return nil, errors.Wrap(err, "determining if Ethereum client is syncing")
 		}
 		if s != nil {
-			return nil, 0, errors.New("ethereum node is still syncing with the network")
+			return nil, errors.New("ethereum node is still syncing with the network")
 		}
 	}
 
 	id, err := client.NetworkID(ctx)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "get nerwork ID")
+		return nil, errors.Wrap(err, "get nerwork ID")
 	}
 
 	level.Info(logger).Log("msg", "created ethereum client", "netID", id.Int64())
 
-	return client, id.Int64(), nil
+	return client, nil
 }
 
 func NewSignedTX(
@@ -262,8 +270,8 @@ func NewSignedTX(
 	tx, err := types.SignNewTx(prvKey, signer, &types.DynamicFeeTx{
 		ChainID:   big.NewInt(netID),
 		Nonce:     nonce,
-		GasFeeCap: mathT.FloatToBigIntMul(gasMaxFee, params.GWei),
-		GasTipCap: mathT.FloatToBigIntMul(gasMaxFee, params.GWei),
+		GasFeeCap: math_t.FloatToBigIntMul(gasMaxFee, params.GWei),
+		GasTipCap: math_t.FloatToBigIntMul(gasMaxFee, params.GWei),
 		Gas:       gasLimit,
 		To:        &to,
 		Data:      data,

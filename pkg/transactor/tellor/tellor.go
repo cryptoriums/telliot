@@ -16,7 +16,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -36,7 +35,7 @@ type Tellor struct {
 	cfg             Config
 	logger          log.Logger
 	gasPriceQuerier gas_price.GasPriceQuerier
-	client          *ethclient.Client
+	client          ethereum.EthClient
 	account         *ethereum.Account
 	gasUsageQuerier gas_usage.GasUsageQuerier
 }
@@ -45,7 +44,7 @@ func New(
 	logger log.Logger,
 	cfg Config,
 	gasPriceQuerier gas_price.GasPriceQuerier,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	account *ethereum.Account,
 	contract contracts.TellorCaller,
 ) (*Tellor, error) {
@@ -107,7 +106,12 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 			return nil, errors.Errorf("insufficient funds to send transaction: %v gwei < %v gwei", balanceGwei, txCostGwei)
 		}
 
-		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, big.NewInt(self.contract.NetID()))
+		netID, err := self.client.NetworkID(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting network ID")
+		}
+
+		opts, err := bind.NewKeyedTransactorWithChainID(self.account.PrivateKey, netID)
 		if err != nil {
 			return nil, errors.Wrap(err, "creating transactor")
 		}

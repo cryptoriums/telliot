@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -51,7 +51,7 @@ type MiningMgr struct {
 	ctx              context.Context
 	stop             context.CancelFunc
 	logger           log.Logger
-	ethClient        *ethclient.Client
+	ethClient        ethereum.EthClient
 	group            *MiningGroup
 	taskerCh         chan *Work
 	submitterCh      chan *Result
@@ -68,7 +68,7 @@ func NewManager(
 	contractInstance contracts.TellorCaller,
 	taskerCh chan *Work,
 	submitterCh chan *Result,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 ) (*MiningMgr, error) {
 
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)

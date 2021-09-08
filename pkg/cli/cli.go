@@ -13,7 +13,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -213,13 +212,13 @@ func ConfigClientContract(
 	configStrictParsing bool,
 	contractAddr string,
 	params contracts.Params,
-) (*config.Config, *ethclient.Client, contracts.TellorCaller, error) {
+) (*config.Config, ethereum.EthClient, contracts.TellorCaller, error) {
 	cfg, err := config.LoadConfig(ctx, logger, configPath, configStrictParsing)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	client, netID, err := ethereum.NewClient(ctx, logger)
+	client, err := ethereum.NewClient(ctx, logger)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "creating ethereum client")
 	}
@@ -228,7 +227,7 @@ func ConfigClientContract(
 		params = contracts.DefaultParams
 	}
 
-	contract, err := contracts.NewITellor(ctx, logger, client, netID, common.HexToAddress(contractAddr), params)
+	contract, err := contracts.NewITellor(ctx, logger, client, common.HexToAddress(contractAddr), params)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create tellor contract instance")
 	}

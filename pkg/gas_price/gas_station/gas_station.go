@@ -6,10 +6,11 @@ package gas_station
 import (
 	"context"
 
+	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/math"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
+	"github.com/pkg/errors"
 )
 
 const ComponentName = "gasPriceGasStation"
@@ -17,7 +18,7 @@ const ComponentName = "gasPriceGasStation"
 type GasStation struct {
 	netID  int64
 	ctx    context.Context
-	client *ethclient.Client
+	client ethereum.EthClient
 	logger log.Logger
 }
 
@@ -28,9 +29,13 @@ type GasStationModel struct {
 	Average float32 `json:"average"`
 }
 
-func New(ctx context.Context, logger log.Logger, client *ethclient.Client, netID int64) (*GasStation, error) {
+func New(ctx context.Context, logger log.Logger, client ethereum.EthClient) (*GasStation, error) {
+	netID, err := client.NetworkID(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting network ID")
+	}
 	return &GasStation{
-		netID:  netID,
+		netID:  netID.Int64(),
 		ctx:    ctx,
 		client: client,
 		logger: log.With(logger, "component", ComponentName),

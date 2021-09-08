@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/cryptoriums/telliot/pkg/ethereum"
 	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -35,7 +35,7 @@ type TrackerHead struct {
 	logger      log.Logger
 	ctx         context.Context
 	stop        context.CancelFunc
-	client      *ethclient.Client
+	client      ethereum.EthClient
 	mtx         sync.Mutex
 	cacheHeadTX gcache.Cache
 	dstChan     chan *types.Block
@@ -47,7 +47,7 @@ type TrackerHead struct {
 func New(
 	ctx context.Context,
 	logger log.Logger,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	reorgWaitPeriod time.Duration,
 ) (*TrackerHead, chan *types.Block, error) {
 	logger, err := logging.ApplyFilter("info", logger)

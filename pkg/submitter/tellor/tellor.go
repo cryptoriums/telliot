@@ -17,7 +17,6 @@ import (
 	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -47,7 +46,7 @@ type Submitter struct {
 	logger   log.Logger
 	cfg      Config
 	account  *ethereum.Account
-	client   *ethclient.Client
+	client   ethereum.EthClient
 	contract contracts.TellorCaller
 	resultCh chan *mining.Result
 
@@ -59,7 +58,7 @@ func New(
 	ctx context.Context,
 	logger log.Logger,
 	cfg Config,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	account *ethereum.Account,
 	transactor Transactor,

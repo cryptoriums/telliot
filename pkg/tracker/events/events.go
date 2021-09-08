@@ -12,14 +12,13 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
-	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -34,7 +33,6 @@ const (
 type Contract interface {
 	Abi() abi.ABI
 	WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error)
-	NetID() int64
 	Addr() common.Address
 }
 
@@ -42,7 +40,7 @@ type TrackerEvents struct {
 	logger      log.Logger
 	ctx         context.Context
 	stop        context.CancelFunc
-	client      *ethclient.Client
+	client      ethereum_t.EthClient
 	mtx         sync.Mutex
 	cacheHeadTX gcache.Cache
 	contract    Contract
@@ -57,7 +55,7 @@ type TrackerEvents struct {
 func New(
 	ctx context.Context,
 	logger log.Logger,
-	client *ethclient.Client,
+	client ethereum_t.EthClient,
 	contract Contract,
 	lookBack time.Duration,
 	eventName string,
@@ -83,7 +81,7 @@ func New(
 		reorgWaitPeriod:  reorgWaitPeriod,
 		reorgWaitPending: make(map[string]context.CancelFunc),
 		// To be on the safe side create the cache 2 times bigger then the expected block count during the reorg wait.
-		cacheHeadTX: gcache.New(int(math.Max(50, 2*ethereumT.BlocksPerSecond*reorgWaitPeriod.Seconds()))).LRU().Build(),
+		cacheHeadTX: gcache.New(int(math.Max(50, 2*ethereum_t.BlocksPerSecond*reorgWaitPeriod.Seconds()))).LRU().Build(),
 	}, dstChan, nil
 }
 func (self *TrackerEvents) Start() error {
@@ -96,7 +94,7 @@ func (self *TrackerEvents) Start() error {
 	if self.lookBack != 0 {
 		ctx, cncl := context.WithTimeout(self.ctx, time.Minute)
 		defer cncl()
-		blockNums := ethereumT.BlocksPerMinute * self.lookBack.Minutes()
+		blockNums := ethereum_t.BlocksPerMinute * self.lookBack.Minutes()
 
 		headerNow, err := self.client.HeaderByNumber(ctx, nil)
 		if err != nil {

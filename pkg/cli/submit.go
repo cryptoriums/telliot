@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -80,7 +79,7 @@ func (self *SubmitCmd) Submit(
 	ctx context.Context,
 	logger log.Logger,
 	account *ethereum.Account,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	ids [5]*big.Int,
 	vals [5]*big.Int,
@@ -100,7 +99,7 @@ func (self *SubmitCmd) Submit(
 
 	var tx *types.Transaction
 	if cli.Contract != "" && self.CustomSubmit {
-		contractP, err := contracts.NewITellorProxy(ctx, common.HexToAddress(cli.Contract), client, contract.NetID())
+		contractP, err := contracts.NewITellorProxy(ctx, common.HexToAddress(cli.Contract), client)
 		if err != nil {
 			return err
 		}

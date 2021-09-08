@@ -15,7 +15,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor_proxy"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor_testing"
 	"github.com/cryptoriums/telliot/pkg/contracts/uniswap"
-	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	mathT "github.com/cryptoriums/telliot/pkg/math"
 	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum"
@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
@@ -77,7 +76,6 @@ type TellorCaller interface {
 		Tip        *big.Int
 	}, error)
 	Addr() common.Address
-	NetID() int64
 	Abi() abi.ABI
 	AbiRaw() string
 	BalanceOf(opts *bind.CallOpts, _user common.Address) (*big.Int, error)
@@ -142,14 +140,9 @@ type ITellor struct {
 	boundContract *bind.BoundContract
 	abi           abi.ABI
 	abiRaw        string
-	netID         int64
 	params        Params
 	*tellor.ITellor
 	address common.Address
-}
-
-func (self *ITellor) NetID() int64 {
-	return self.netID
 }
 
 func (self *ITellor) Addr() common.Address {
@@ -183,8 +176,7 @@ func (self *ITellor) WatchLogs(opts *bind.WatchOpts, name string, query ...[]int
 func NewITellor(
 	ctx context.Context,
 	logger log.Logger,
-	client *ethclient.Client,
-	netID int64,
+	client ethereum_t.EthClient,
 	address common.Address,
 	params Params,
 ) (*ITellor, error) {
@@ -194,13 +186,17 @@ func NewITellor(
 		contractAddr = address
 	} else {
 		var err error
-		contractAddr, err = GetTellorAddress(netID)
+		netID, err := client.NetworkID(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting network ID")
+		}
+		contractAddr, err = GetTellorAddress(netID.Int64())
 		if err != nil {
 			return nil, errors.Wrap(err, "getting contract address")
 		}
 	}
 
-	contract, err := newITellorWithAddr(logger, contractAddr, client, netID, params)
+	contract, err := newITellorWithAddr(logger, contractAddr, client, params)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating contract instance")
 	}
@@ -210,8 +206,7 @@ func NewITellor(
 func newITellorWithAddr(
 	logger log.Logger,
 	contractAddr common.Address,
-	client *ethclient.Client,
-	netID int64,
+	client ethereum_t.EthClient,
 	params Params,
 ) (*ITellor, error) {
 	if params.DisputeVotingWindow == 0 {
@@ -236,7 +231,6 @@ func newITellorWithAddr(
 	return &ITellor{
 		abi:           abi,
 		abiRaw:        tellor.ITellorABI,
-		netID:         netID,
 		address:       contractAddr,
 		boundContract: boundContract,
 		params:        params,
@@ -249,10 +243,14 @@ type ITellorTest struct {
 	Address common.Address
 }
 
-func NewITellorTest(ctx context.Context, contractAddr common.Address, client *ethclient.Client, netID int64) (*ITellorTest, error) {
+func NewITellorTest(ctx context.Context, contractAddr common.Address, client ethereum_t.EthClient) (*ITellorTest, error) {
 	var err error
 	if contractAddr == (common.Address{}) {
-		contractAddr, err = GetTellorAddress(netID)
+		netID, err := client.NetworkID(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting network ID")
+		}
+		contractAddr, err = GetTellorAddress(netID.Int64())
 		if err != nil {
 			return nil, errors.Wrap(err, "getting contract address")
 		}
@@ -274,7 +272,7 @@ type ITellorProxy struct {
 	Address common.Address
 }
 
-func NewITellorProxy(ctx context.Context, contractAddr common.Address, client *ethclient.Client, netID int64) (*ITellorProxy, error) {
+func NewITellorProxy(ctx context.Context, contractAddr common.Address, client ethereum_t.EthClient) (*ITellorProxy, error) {
 	var err error
 	if contractAddr == (common.Address{}) {
 		contractAddr = common.HexToAddress(TellorAddressGoerliProxy)
@@ -296,7 +294,7 @@ type ITellorFilterer struct {
 	*tellor.ExtensionFilterer
 }
 
-func NewITellorFilterer(addr common.Address, client *ethclient.Client) (*ITellorFilterer, error) {
+func NewITellorFilterer(addr common.Address, client ethereum_t.EthClient) (*ITellorFilterer, error) {
 
 	ft, err := tellor.NewTellorFilterer(addr, client)
 	if err != nil {
@@ -348,7 +346,7 @@ type DisputeLog struct {
 
 func GetDisputeLogs(
 	ctx context.Context,
-	client *ethclient.Client,
+	client ethereum_t.EthClient,
 	contract TellorCaller,
 	lookBackDuration time.Duration,
 ) ([]*DisputeLog, error) {
@@ -357,7 +355,7 @@ func GetDisputeLogs(
 		return nil, errors.Wrap(err, "get latest eth block header")
 	}
 
-	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereumT.BlocksPerMinute))
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_t.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
 
 	query := ethereum.FilterQuery{
@@ -393,7 +391,7 @@ func GetDisputeLogs(
 
 func GetTallyLogs(
 	ctx context.Context,
-	client *ethclient.Client,
+	client ethereum_t.EthClient,
 	contract TellorCaller,
 	lookBackDuration time.Duration,
 ) ([]*TellorDisputeVoteTallied, error) {
@@ -403,7 +401,7 @@ func GetTallyLogs(
 		return nil, errors.Wrap(err, "get latest eth block header")
 	}
 
-	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereumT.BlocksPerMinute))
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_t.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
 
 	query := ethereum.FilterQuery{
@@ -444,7 +442,7 @@ func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract TellorCall
 	rounds, err := contract.GetDisputeUintVars(
 		&bind.CallOpts{Context: ctx},
 		disputeID,
-		ethereumT.Keccak256([]byte("_DISPUTE_ROUNDS")),
+		ethereum_t.Keccak256([]byte("_DISPUTE_ROUNDS")),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "get dispute rounds")
@@ -490,7 +488,7 @@ func NewSubmitBlock() SubmitBlock {
 
 func GetSubmitLogs(
 	ctx context.Context,
-	client *ethclient.Client,
+	client ethereum_t.EthClient,
 	contract TellorCaller,
 	from int64,
 	lookBackDuration time.Duration,
@@ -504,12 +502,12 @@ func GetSubmitLogs(
 
 	if from != 0 {
 		// Total block numbers that correspond to this TS calculated from the current time.
-		blockNums := int64(ethereumT.BlocksPerMinute * time.Since(time.Unix(from, 0)).Minutes())
+		blockNums := int64(ethereum_t.BlocksPerMinute * time.Since(time.Unix(from, 0)).Minutes())
 		// Subtract form the current header block number to use as the upper limit.
 		endBlock = endBlock - blockNums
 	}
 
-	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereumT.BlocksPerMinute))
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_t.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(big.NewInt(endBlock), lookBackDelta)
 
 	query := ethereum.FilterQuery{
@@ -564,7 +562,7 @@ func LastSubmit(contract TellorCaller, reporter common.Address) (time.Duration, 
 	if err != nil {
 		return 0, nil, errors.Wrapf(err, "decoding address")
 	}
-	last, err := contract.GetUintVar(nil, ethereumT.Keccak256(decoded))
+	last, err := contract.GetUintVar(nil, ethereum_t.Keccak256(decoded))
 
 	if err != nil {
 		return 0, nil, errors.Wrapf(err, "getting last submit time for:%v", reporter.Hex())
@@ -586,7 +584,7 @@ func LastSubmit(contract TellorCaller, reporter common.Address) (time.Duration, 
 }
 
 func Slot(caller TellorCaller) (*big.Int, error) {
-	slot, err := caller.GetUintVar(nil, ethereumT.Keccak256([]byte("_SLOT_PROGRESS")))
+	slot, err := caller.GetUintVar(nil, ethereum_t.Keccak256([]byte("_SLOT_PROGRESS")))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting _SLOT_PROGRESS")
 	}
@@ -597,8 +595,7 @@ func CreateTellorTx(
 	ctx context.Context,
 	prvKey *ecdsa.PrivateKey,
 	to common.Address,
-	client *ethclient.Client,
-	netID int64,
+	client ethereum_t.EthClient,
 	gasLimit uint64,
 	gasMaxFee float64,
 	methodName string,
@@ -619,12 +616,17 @@ func CreateTellorTx(
 		return nil, "", errors.Wrap(err, "packing ABI")
 	}
 
-	return ethereumT.NewSignedTX(
+	netID, err := client.NetworkID(ctx)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "getting network ID")
+	}
+
+	return ethereum_t.NewSignedTX(
 		to,
 		data,
 		nonce,
 		prvKey,
-		netID,
+		netID.Int64(),
 		gasLimit,
 		gasMaxFee,
 	)

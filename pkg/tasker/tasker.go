@@ -17,7 +17,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/tracker/events"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -40,7 +39,7 @@ type Tasker struct {
 	cfg           Config
 	accounts      []*ethereum.Account
 	contract      contracts.TellorCaller
-	client        *ethclient.Client
+	client        ethereum.EthClient
 	workSinks     map[string]chan *mining.Work
 	eventsTracker *events.TrackerEvents
 	logsOutput    chan types.Log
@@ -50,7 +49,7 @@ func New(
 	ctx context.Context,
 	logger log.Logger,
 	cfg Config,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	accounts []*ethereum.Account,
 ) (*Tasker, map[string]chan *mining.Work, error) {

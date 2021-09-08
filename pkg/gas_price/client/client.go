@@ -6,9 +6,9 @@ package client
 import (
 	"context"
 
+	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/gas_price"
 	"github.com/cryptoriums/telliot/pkg/math"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 )
@@ -16,11 +16,11 @@ import (
 const ComponentName = "gasPriceClient"
 
 type Client struct {
-	client *ethclient.Client
+	client ethereum.EthClient
 	logger log.Logger
 }
 
-func New(ctx context.Context, logger log.Logger, client *ethclient.Client) (gas_price.GasPriceQuerier, error) {
+func New(ctx context.Context, logger log.Logger, client ethereum.EthClient) (gas_price.GasPriceQuerier, error) {
 	return &Client{
 		client: client,
 		logger: log.With(logger, "component", ComponentName),

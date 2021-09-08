@@ -122,7 +122,7 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 			})
 		}
 
-		gasPriceQuerier, err := gas_station.New(ctx, logger, client, contract.NetID())
+		gasPriceQuerier, err := gas_station.New(ctx, logger, client)
 		if err != nil {
 			return errors.Wrap(err, "creating gas price tracker")
 		}

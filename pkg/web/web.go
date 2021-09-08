@@ -29,7 +29,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/web/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -110,7 +109,7 @@ func New(
 func Data(
 	ctx context.Context,
 	logger log.Logger,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	envFilePath string,
 ) http.HandlerFunc {
@@ -140,6 +139,12 @@ func Data(
 		u, _ := url.Parse(r.RequestURI)
 		values := u.Query()
 
+		netID, err := client.NetworkID(ctx)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("getting network ID:%v", err), http.StatusInternalServerError)
+			return
+		}
+
 		postResult := ""
 		if r.Method == "POST" {
 			tx, err := createDispute(ctx, logger, r, client, contract, envFilePath)
@@ -147,10 +152,9 @@ func Data(
 				http.Error(w, fmt.Sprintf("creating a dispute:%v", err), http.StatusInternalServerError)
 				return
 			}
-			postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(contract.NetID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
-		}
 
-		var err error
+			postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(netID.Int64()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
+		}
 
 		lookBack := time.Hour
 		if d, ok := values["look-back"]; ok {
@@ -188,7 +192,7 @@ func Data(
 		}
 
 		netWarning := ""
-		if contract.NetID() == 1 {
+		if netID.Int64() == 1 {
 			netWarning = `<b style="color:red">MAINNET</b>`
 		}
 
@@ -296,7 +300,7 @@ func Data(
 	})
 }
 
-func prepareDisputeForm(ctx context.Context, logger log.Logger, client *ethclient.Client, contract contracts.TellorCaller, values url.Values) (string, error) {
+func prepareDisputeForm(ctx context.Context, logger log.Logger, client ethereum.EthClient, contract contracts.TellorCaller, values url.Values) (string, error) {
 	accOpts := ""
 	accounts, err := ethereum.GetAccounts(logger)
 	if err != nil {
@@ -361,7 +365,7 @@ func createDispute(
 	ctx context.Context,
 	logger log.Logger,
 	r *http.Request,
-	client *ethclient.Client,
+	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	envFilePath string,
 ) (*types.Transaction, error) {
