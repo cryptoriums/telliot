@@ -20,8 +20,11 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 		TLSClientConfig:    &tls.Config{InsecureSkipVerify: true},
 		DisableKeepAlives:  true,
 		DisableCompression: true,
+		MaxIdleConns:       50,
+		IdleConnTimeout:    30 * time.Second,
 	}
 	client := http.Client{Transport: tr}
+	defer client.CloseIdleConnections()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", ExpandTimeVars(url), nil)
 	if err != nil {
