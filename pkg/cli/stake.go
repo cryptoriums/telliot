@@ -69,7 +69,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		}
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.DepositStakeGasLimit)
+	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasPrice, contracts.DepositStakeGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -107,7 +107,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return nil
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.WithdrawStakeGasLimit)
+	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasPrice, contracts.WithdrawStakeGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -145,7 +145,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return nil
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.RequestStakingWithdrawGasLimit)
+	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasPrice, contracts.RequestStakingWithdrawGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}

@@ -61,7 +61,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		vals = GetValuesFromInput(logger, resp.RequestIds)
 	}
 
-	shouldContinue := FinalPrompt(ctx, logger, contract, self.SkipConfirm, self.GasMaxFee, resp.RequestIds, vals)
+	shouldContinue := FinalPrompt(ctx, logger, contract, self.SkipConfirm, self.GasPrice, resp.RequestIds, vals)
 	if !shouldContinue {
 		return errors.New("canceled")
 	}
@@ -85,7 +85,7 @@ func (self *SubmitCmd) Submit(
 	vals [5]*big.Int,
 ) error {
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.SubmitMiningSolutionGasLimit)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.SubmitMiningSolutionGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -241,7 +241,7 @@ func FinalPrompt(
 		level.Error(logger).Log("msg", "getting current slot", "err", err)
 	}
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Printf(">>>>>>>> Current Slot:%v GasMaxFee:%v \n", slot.String(), gasMaxFee)
+	fmt.Printf(">>>>>>>> Current Slot:%v GasPrice:%v \n", slot.String(), gasMaxFee)
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
 

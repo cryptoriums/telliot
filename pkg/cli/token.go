@@ -70,7 +70,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	if err != nil {
 		return errors.Wrap(err, "getting auth account")
 	}
-	opts, err := ethereum.PrepareTx(ctx, client, acc, self.GasMaxFee, 200_000)
+	opts, err := ethereum.PrepareTx(ctx, client, acc, self.GasPrice, 200_000)
 	if err != nil {
 		return errors.Wrap(err, "preparing ethereum transaction")
 	}
@@ -121,7 +121,7 @@ func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return errors.Wrap(err, "getting auth account")
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, acc, self.GasMaxFee, 100_000)
+	opts, err := ethereum.PrepareTx(ctx, client, acc, self.GasPrice, 100_000)
 	if err != nil {
 		return errors.Wrap(err, "preparing ethereum transaction")
 	}

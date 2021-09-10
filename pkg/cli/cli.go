@@ -150,12 +150,12 @@ func (self *ContractFlag) Validate() error {
 }
 
 type Gas struct {
-	GasMaxFee float64 `optional:"" help:"gas max fee to use when running the command"`
+	GasPrice float64 `optional:"" help:"gas max fee to use when running the command"`
 }
 
 func (self *Gas) Validate() error {
-	if self.GasMaxFee > 300 {
-		return errors.Errorf("gase base fee too high:%v", self.GasMaxFee)
+	if self.GasPrice > 300 {
+		return errors.Errorf("gase base fee too high:%v", self.GasPrice)
 	}
 	return nil
 }
@@ -178,7 +178,7 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return errors.Wrap(err, "getting accounts")
 	}
 
-	for i, account := range accounts {
+	for _, account := range accounts {
 		ethBalance, err := client.BalanceAt(ctx, account.Address, nil)
 		if err != nil {
 			return errors.Wrap(err, "get eth balance")
@@ -193,7 +193,6 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 			return errors.Wrapf(err, "getting stake status")
 		}
 		level.Info(logger).Log("msg", "account",
-			"index", i,
 			"address", account.Address.Hex(),
 			"trb", math.BigIntToFloatDiv(trbBalance, params.Ether),
 			"eth", math.BigIntToFloatDiv(ethBalance, params.Ether),

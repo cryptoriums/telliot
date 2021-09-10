@@ -47,7 +47,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --from=STRING
       --to=STRING
 
@@ -200,7 +200,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
                                  running against a test contract
@@ -224,7 +224,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --dispute-id=INT-64        the dispute id
       --all
 
@@ -267,7 +267,7 @@ Flags:
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
                                  running against a test contract
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --dispute-id=INT-64        the dispute id
       --all
 
@@ -290,7 +290,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --dispute-id=INT-64        the dispute id
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
@@ -402,7 +402,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --no-checks                whether to run some additional checks like
                                  balance, did vote etc. Useful to disable when
                                  running against a test contract
@@ -426,7 +426,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
 
 ```
 
@@ -466,7 +466,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
 
 ```
 
@@ -487,7 +487,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --custom-submit
       --skip-confirm             submit without confirming, useful for testing
 
@@ -510,7 +510,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
-      --gas-max-fee=FLOAT-64     gas max fee to use when running the command
+      --gas-price=FLOAT-64       gas max fee to use when running the command
       --from=STRING
       --to=STRING
 

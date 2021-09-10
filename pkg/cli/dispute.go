@@ -108,7 +108,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 	}
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.NewDisputeGasLimit)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.NewDisputeGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -162,7 +162,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	}
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasMaxFee, contracts.VoteGasUSage)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -190,7 +190,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 	var disputes []*contracts.DisputeLog
 
 	if self.All {
-		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 300*time.Hour)
+		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 30*24*time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dispute logs")
 		}
@@ -217,7 +217,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasMaxFee, contracts.TallyGasLimit)
+		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.TallyGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -284,7 +284,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	var disputes []*contracts.DisputeLog
 
 	if self.All {
-		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 300*time.Hour)
+		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 30*24*time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dispute logs")
 		}
@@ -301,6 +301,20 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	}
 
 	for _, dispute := range disputes {
+		paid, err := contract.GetDisputeUintVars(
+			&bind.CallOpts{Context: ctx},
+			big.NewInt(dispute.ID),
+			ethereumT.Keccak256([]byte("_PAID")),
+		)
+		if err != nil {
+			return errors.Wrap(err, "get _PAID")
+		}
+
+		if paid.Int64() == 1 {
+			level.Info(logger).Log("msg", "dispute already paid out", "id", dispute.ID)
+			continue
+		}
+
 		if !self.NoChecks {
 			tallyTs, err := contract.GetDisputeUintVars(
 				&bind.CallOpts{Context: ctx},
@@ -323,22 +337,9 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 				continue
 			}
 
-			paid, err := contract.GetDisputeUintVars(
-				&bind.CallOpts{Context: ctx},
-				big.NewInt(dispute.ID),
-				ethereumT.Keccak256([]byte("_PAID")),
-			)
-			if err != nil {
-				return errors.Wrap(err, "get _PAID")
-			}
-
-			if paid.Int64() == 1 {
-				level.Info(logger).Log("msg", "dispute already paid out", "id", dispute.ID)
-				continue
-			}
 		}
 
-		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasMaxFee, contracts.UnlockFeeGasLimit)
+		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.UnlockFeeGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -348,7 +349,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			return errors.Wrapf(err, "run unlock fee")
 		}
 
-		level.Info(logger).Log("msg", "unlock fee submitted", "tx", tx.Hash().Hex())
+		level.Info(logger).Log("msg", "unlock fee submitted", "id", dispute.ID, "tx", tx.Hash().Hex())
 	}
 
 	return nil

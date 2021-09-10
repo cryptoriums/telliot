@@ -427,9 +427,7 @@ func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
-		ctxRetry, cncl := context.WithTimeout(ctx, 5*time.Second)
-		defer cncl()
-		_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctxRetry}, disputeID)
+		_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, disputeID)
 		if err != nil {
 			return nil, errors.Wrap(err, "get dispute details")
 		}
