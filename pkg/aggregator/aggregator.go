@@ -269,16 +269,13 @@ func (self *Aggregator) VolumWeightedAvg(
 	}
 	defer query.Close()
 
-	// TODO: Add directly in the erros logs when this issues is fixed - https://github.com/prometheus/prometheus/issues/8949
-	qStmt := query.Statement().String()
-
 	_result := query.Exec(self.ctx)
 	if _result.Err != nil {
-		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", qStmt)
+		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", query.Statement())
 	}
 	result := _result.Value.(promql.Vector)
 	if len(result) == 0 {
-		return 0, 0, errors.Errorf("no result for VWAP vals query:%v", qStmt)
+		return 0, 0, errors.Errorf("no result for VWAP vals query:%v", query.Statement())
 	}
 
 	// Confidence level for prices.
@@ -369,13 +366,7 @@ func ConfidenceInDifference(min, max float64) float64 {
 }
 
 // valsAtWithConfidence returns the value from all sources for a given symbol with the confidence level.
-// 100% confidence is when all apis have returned a value within the last tracker interval.
-// For every missing value the calculation subtracts some confidence level.
-// Confidence is calculated actualDataPointCount/maxDataPointCount.
-// maxDataPointCount = timeWindow/trackerCycle
-//
-// Example confidence for 1h.
-// avg(count_over_time(trackerIndex_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/30s)).
+// Confidence drops to 50% when there is only one api source.
 func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]float64, float64, error) {
 	resolution, err := self.resolution(symbol, at)
 	if err != nil {
@@ -395,11 +386,7 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 	// Confidence level.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`avg(
-			count_over_time(`+index.MetricIndexValue+`{ symbol="`+symbol+`" }[`+lookBack.String()+`] )
-			/
-			(`+strconv.Itoa(int(lookBack.Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
-		)`,
+		`sum(count_over_time(`+index.MetricIndexValue+`{ symbol="`+symbol+`" }[`+lookBack.String()+`]))`,
 		at,
 	)
 	if err != nil {
@@ -414,7 +401,12 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 		return nil, 0, errors.Errorf("no vals for confidence at:%v, query:%v", at, query.Statement())
 	}
 
-	return prices, confidence.Value.(promql.Vector)[0].V * 100, nil
+	var confidenceL = float64(50)
+	if confidence.Value.(promql.Vector)[0].V > 1 {
+		confidenceL = 100
+	}
+
+	return prices, confidenceL, nil
 }
 
 // valsAt returns all vals from all indexes at a given time.
