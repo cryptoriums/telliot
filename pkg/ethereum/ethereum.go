@@ -38,7 +38,7 @@ type EthClient interface {
 
 const (
 	PrivateKeysEnvName = "ETH_PRIVATE_KEYS"
-	NodeURLEnvName     = "NODE_URL"
+	NodeURLEnvName     = "NODE_URLS"
 	ComponentName      = "ethereum"
 	BlockTime          = float64(15)
 	BlocksPerSecond    = float64(1 / BlockTime)
@@ -107,7 +107,7 @@ func PrepareTx(
 
 	var gasMaxFeeWei *big.Int
 	if gasMaxFee > 0 {
-		gasMaxFeeWei = big.NewInt(int64(gasMaxFee) * params.GWei)
+		gasMaxFeeWei = math_t.FloatToBigIntMul(gasMaxFee, params.GWei)
 	}
 
 	nonce, err := client.PendingNonceAt(ctx, account.GetAddress())
@@ -221,8 +221,12 @@ func GetAccounts(logger log.Logger) ([]*Account, error) {
 
 func NewClient(ctx context.Context, logger log.Logger) (EthClient, error) {
 	nodeURL := os.Getenv(NodeURLEnvName)
+	nodes := strings.Split(nodeURL, ",")
+	if len(nodes) == 0 {
+		return nil, errors.New("the env file doesn't contain any node urls")
+	}
 
-	client, err := ethclient.DialContext(ctx, nodeURL)
+	client, err := ethclient.DialContext(ctx, nodes[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "create rpc client instance")
 	}
