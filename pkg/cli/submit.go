@@ -240,8 +240,14 @@ func FinalPrompt(
 	if err != nil {
 		level.Error(logger).Log("msg", "getting current slot", "err", err)
 	}
+
+	timeOfLastNewValue, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_TIME_OF_LAST_NEW_VALUE")))
+	if err != nil {
+		level.Error(logger).Log("msg", "getting last submit time", "err", err)
+	}
+
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Printf(">>>>>>>> Current Slot:%v GasPrice:%v \n", slot.String(), gasMaxFee)
+	fmt.Printf(">>>>>>>> Current Slot:%v GasPrice:%v LastSubmit:%v \n", slot.String(), gasMaxFee, time.Since(time.Unix(timeOfLastNewValue.Int64(), 0)))
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
 
