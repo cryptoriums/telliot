@@ -53,12 +53,19 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 }
 
 func ExpandTimeVars(url string) string {
-	nowMillisecons := strconv.Itoa(int(time.Now().Unix() * 1000))
-	url = strings.Replace(url, "$NOW", nowMillisecons, -1)
+	now := time.Now().UTC()
+	year, month, day := now.Date()
+	eod := time.Date(year, month, day, 0, 0, 0, 0, now.Location())
 
-	millsIn1day := 86400000
-	eodMillisecons := strconv.Itoa(int(time.Now().Unix()*1000) - millsIn1day)
-	url = strings.Replace(url, "$EOD", eodMillisecons, -1)
+	secsIn1day := 86400
+	bod := int(eod.Unix()) - secsIn1day
+
+	// Need to be first so that the longer string substitution happens first.
+	url = strings.Replace(url, "$EODm", strconv.Itoa(int(eod.Unix()*1000)), -1)
+	url = strings.Replace(url, "$BODm", strconv.Itoa(bod*1000), -1)
+
+	url = strings.Replace(url, "$EOD", strconv.Itoa(int(eod.Unix())), -1)
+	url = strings.Replace(url, "$BOD", strconv.Itoa(bod), -1)
 
 	return url
 }
