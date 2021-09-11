@@ -110,9 +110,9 @@ func (self *Submitter) Stop() {
 
 func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Context) {
 	var (
-		lastSubmit time.Duration
-		timestamp  *time.Time
-		err        error
+		timeSincelastSubmit time.Duration
+		timeOfLastSubmit    *time.Time
+		err                 error
 	)
 	for {
 		select {
@@ -120,7 +120,7 @@ func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Contex
 			level.Info(self.logger).Log("msg", "canceled pending submit while gettting last submit time")
 		default:
 		}
-		lastSubmit, timestamp, err = contracts.LastSubmit(self.contract, self.account.Address)
+		timeSincelastSubmit, timeOfLastSubmit, err = contracts.LastSubmit(self.contract, self.account.Address)
 		if err != nil {
 			level.Debug(self.logger).Log("msg", "checking last submit time", "err", err)
 			time.Sleep(1 * time.Second)
@@ -128,14 +128,14 @@ func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Contex
 		}
 		break
 	}
-	if lastSubmit < self.cfg.MinSubmitPeriod.Duration {
+	if timeSincelastSubmit < self.cfg.MinSubmitPeriod.Duration {
+		nextSubmit := timeOfLastSubmit.Add(self.cfg.MinSubmitPeriod.Duration)
 		level.Info(self.logger).Log("msg", "min transaction submit threshold hasn't passed",
-			"nextSubmit", time.Duration(self.cfg.MinSubmitPeriod.Nanoseconds())-lastSubmit,
-			"lastSubmit", lastSubmit,
-			"lastSubmitTimestamp", timestamp.Format("2006-01-02 15:04:05.000000"),
+			"nextSubmitTs", nextSubmit.Unix(),
+			"nextSubmit", nextSubmit,
 			"minSubmitPeriod", self.cfg.MinSubmitPeriod,
 		)
-		timeToSubmit, cncl := context.WithDeadline(newChallengeReplace, timestamp.Add(self.cfg.MinSubmitPeriod.Duration))
+		timeToSubmit, cncl := context.WithDeadline(newChallengeReplace, nextSubmit)
 		defer cncl()
 		select {
 		case <-newChallengeReplace.Done():
