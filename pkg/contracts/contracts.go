@@ -50,14 +50,12 @@ const (
 	MethodNameSubmit     = "submitMiningSolution"
 	MethodNameNewDispute = "beginDispute"
 
-	EventNameNewTask    = "NewChallenge"
-	EventNameNewSubmit  = "NonceSubmitted"
-	EventNameNewValue   = "NewValue"
-	EventNameTally      = "DisputeVoteTallied"
-	EventNameNewDispute = "NewDispute"
-	// When creating the bindings the Transfer event is aliased as Trasnfered
-	// because it collides with the same function name.
-	EventNameTransfer        = "Transferred"
+	EventNameNewTask         = "NewChallenge"
+	EventNameNewSubmit       = "NonceSubmitted"
+	EventNameNewValue        = "NewValue"
+	EventNameTally           = "DisputeVoteTallied"
+	EventNameNewDispute      = "NewDispute"
+	EventNameTransfer        = "Transfer"
 	EventNameNewVote         = "Voted"
 	EventNameContractUpgrade = "NewTellorAddress"
 
