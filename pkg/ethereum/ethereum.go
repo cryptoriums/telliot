@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -34,6 +35,7 @@ type EthClient interface {
 	ethereum.TransactionReader
 	NetworkID() int64
 	BlockNumber(ctx context.Context) (uint64, error)
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
 const (
@@ -226,42 +228,58 @@ func NewClient(ctx context.Context, logger log.Logger) (EthClient, error) {
 		return nil, errors.New("the env file doesn't contain any node urls")
 	}
 
-	client, err := ethclient.DialContext(ctx, nodes[0])
+	ethClient, rpcClient, netID, err := NewClients(ctx, logger, nodes[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "create rpc client instance")
+		return nil, err
 	}
+
+	return &ClientCachedNetID{
+		Client:    ethClient,
+		netID:     netID,
+		rpcClient: rpcClient,
+	}, nil
+}
+
+func NewClients(ctx context.Context, logger log.Logger, nodeURL string) (*ethclient.Client, *rpc.Client, int64, error) {
+	rpcClient, err := rpc.DialContext(ctx, nodeURL)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	ethClient := ethclient.NewClient(rpcClient)
 
 	if !strings.Contains(strings.ToLower(nodeURL), "arbitrum") { // Arbitrum nodes doesn't support sync checking.
 		// Issue #55, halt if client is still syncing with Ethereum network
-		s, err := client.SyncProgress(ctx)
+		s, err := ethClient.SyncProgress(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "determining if Ethereum client is syncing")
+			return nil, nil, 0, errors.Wrap(err, "determining if Ethereum client is syncing")
 		}
 		if s != nil {
-			return nil, errors.New("ethereum node is still syncing with the network")
+			return nil, nil, 0, errors.New("ethereum node is still syncing with the network")
 		}
 	}
 
-	netID, err := client.NetworkID(ctx)
+	netID, err := ethClient.NetworkID(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "get nerwork ID")
+		return nil, nil, 0, errors.Wrap(err, "get nerwork ID")
 	}
 
 	level.Info(logger).Log("msg", "created ethereum client", "netID", netID.Int64())
 
-	return &ClientCachedNetID{
-		Client: client,
-		netID:  netID.Int64(),
-	}, nil
+	return ethClient, rpcClient, netID.Int64(), nil
 }
 
 type ClientCachedNetID struct {
 	*ethclient.Client
-	netID int64
+	netID     int64
+	rpcClient *rpc.Client
 }
 
 func (self *ClientCachedNetID) NetworkID() int64 {
 	return self.netID
+}
+
+func (self *ClientCachedNetID) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	return self.rpcClient.CallContext(ctx, result, method, args)
 }
 
 func NewSignedTX(
