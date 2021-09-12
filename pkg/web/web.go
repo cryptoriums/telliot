@@ -247,7 +247,7 @@ func Data(
 			{{range $di,$dv := .DataIDs}}
 				{{ if eq $di 0 }}
 					<tr>
-						<td colspan="100%"><b>Timestamp:{{ $submit.Timestamp.String }} mins:{{  timeSince $submit.Timestamp.Int64 }}</td>
+						<td colspan="100%"><b>Timestamp:{{ $submit.Timestamp.String }} mins:{{  timeSince $submit.Timestamp.Int64 }}</b> Tx:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/{{ $submit.TxHash.Hex }}">{{ $submit.TxHash.Hex }}</a> </td>
 					</tr>
 				{{end}}
 				<tr>

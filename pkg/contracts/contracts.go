@@ -479,6 +479,7 @@ type SubmitBlock struct {
 	FinalValues map[int64]*big.Int
 	Reporters   map[int64][5]common.Address
 	Values      map[int64][5]*big.Int
+	TxHash      common.Hash
 }
 
 func NewSubmitBlock() SubmitBlock {
@@ -549,6 +550,7 @@ func GetSubmitLogs(
 			submitBlock.FinalValues[dataID.Int64()] = eventNewBlock.Value[index]
 			submitBlock.Reporters[dataID.Int64()] = reporters
 			submitBlock.Values[dataID.Int64()] = vals
+			submitBlock.TxHash = eventRaw.TxHash
 		}
 		sort.Slice(submitBlock.DataIDs[:], func(i, j int) bool {
 			return submitBlock.DataIDs[i].Int64() < submitBlock.DataIDs[j].Int64()
