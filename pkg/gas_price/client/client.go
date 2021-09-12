@@ -32,7 +32,7 @@ func (self *Client) Name() string {
 	return ComponentName
 }
 
-func (self *Client) Query(ctx context.Context, confidence int) (baseFeeGwei, tipFeeGwei float64, err error) {
+func (self *Client) Query(ctx context.Context, _ int) (baseFeeGwei, tipFeeGwei float64, err error) {
 	header, err := self.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, 0, err
