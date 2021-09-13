@@ -379,7 +379,12 @@ func createDispute(
 			return nil, errors.New("incorrect password")
 		}
 	} else {
-		return nil, errors.New("file is not encrypted - dispute creation is forbidden via the web with unencrypted env file")
+		switch client.NetworkID() {
+		case 4:
+		case 5:
+		default:
+			return nil, errors.New("file is not encrypted - dispute creation is forbidden via the web with unencrypted env file for the current network")
+		}
 	}
 
 	r.PostForm.Get("submitPass")
