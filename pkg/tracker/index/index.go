@@ -234,7 +234,6 @@ func (self *TrackerIndex) record(delay time.Duration, symbol string, dataSource 
 	}
 	delayTicker.Stop()
 
-	ticker := time.NewTicker(dataSource.Interval())
 	logger := log.With(self.logger, "source", dataSource.Source())
 
 	url, err := url.Parse(dataSource.Source())
@@ -243,7 +242,18 @@ func (self *TrackerIndex) record(delay time.Duration, symbol string, dataSource 
 		return
 	}
 
+	ticker := time.NewTicker(1)
+	defer ticker.Stop()
+	var resetTicker sync.Once
 	for {
+		select {
+		case <-self.ctx.Done():
+			level.Debug(logger).Log("msg", "values record loop exited")
+			return
+		case <-ticker.C:
+			resetTicker.Do(func() { ticker.Reset(dataSource.Interval()) })
+		}
+
 		func() {
 			self.mtx.Lock()
 			defer self.mtx.Unlock()
@@ -286,14 +296,6 @@ func (self *TrackerIndex) record(delay time.Duration, symbol string, dataSource 
 				}
 			}
 		}()
-
-		select {
-		case <-self.ctx.Done():
-			level.Debug(logger).Log("msg", "values record loop exited")
-			return
-		case <-ticker.C:
-			continue
-		}
 	}
 }
 

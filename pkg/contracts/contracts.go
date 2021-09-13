@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts/balancer"
@@ -422,21 +423,23 @@ func GetTallyLogs(
 }
 
 func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, contract TellorCaller) (*DisputeLog, error) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1)
 	defer ticker.Stop()
+	var resetTicker sync.Once
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			resetTicker.Do(func() { ticker.Reset(5 * time.Second) })
+		}
 		_, executed, passed, _, disputed, disputer, _, disputeVars, tally, err := contract.GetAllDisputeVars(&bind.CallOpts{Context: ctx}, disputeID)
 		if err != nil {
 			return nil, errors.Wrap(err, "get dispute details")
 		}
 		if disputer == (common.Address{}) {
 			level.Error(logger).Log("msg", "dispute doesn't exist", "id", disputeID)
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-ticker.C:
-				continue
-			}
+			continue
 		}
 
 		rounds, err := contract.GetDisputeUintVars(

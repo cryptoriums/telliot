@@ -173,14 +173,15 @@ func (self *TrackerEvents) Stop() {
 
 func (self *TrackerEvents) waitSubscribe() (chan types.Log, event.Subscription) {
 
-	ticker := time.NewTicker(defaultDelay)
+	ticker := time.NewTicker(1)
 	defer ticker.Stop()
-MainLoop:
+	var resetTicker sync.Once
 	for {
 		select {
 		case <-self.ctx.Done():
 			return nil, &NoopSubs{} // To avoid panics in the caller.
-		default:
+		case <-ticker.C:
+			resetTicker.Do(func() { ticker.Reset(defaultDelay) })
 		}
 
 		opts := &bind.WatchOpts{
@@ -189,12 +190,7 @@ MainLoop:
 		src, subs, err := self.contract.WatchLogs(opts, self.eventName)
 		if err != nil {
 			level.Error(self.logger).Log("msg", "subscription to events failed", "err", err)
-			select {
-			case <-self.ctx.Done():
-				return nil, &NoopSubs{} // To avoid panics in the caller.
-			case <-ticker.C:
-				continue MainLoop
-			}
+			continue
 		}
 		level.Info(self.logger).Log("msg", "subscription created", "eventName", self.eventName)
 		return src, subs

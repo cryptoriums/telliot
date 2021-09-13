@@ -154,26 +154,23 @@ func (self *TrackerHead) Stop() {
 
 func (self *TrackerHead) waitSubscribe() (chan *types.Header, event.Subscription) {
 
-	ticker := time.NewTicker(defaultDelay)
-	defer ticker.Stop()
 	output := make(chan *types.Header)
-MainLoop:
+
+	ticker := time.NewTicker(1)
+	defer ticker.Stop()
+	var resetTicker sync.Once
 	for {
 		select {
 		case <-self.ctx.Done():
 			return nil, &NoopSubs{} // To avoid panics in the caller.
-		default:
+		case <-ticker.C:
+			resetTicker.Do(func() { ticker.Reset(defaultDelay) })
 		}
 
 		subs, err := self.client.SubscribeNewHead(self.ctx, output)
 		if err != nil {
 			level.Error(self.logger).Log("msg", "subscription to head failed", "err", err)
-			select {
-			case <-self.ctx.Done():
-				return nil, &NoopSubs{} // To avoid panics in the caller.
-			case <-ticker.C:
-				continue MainLoop
-			}
+			continue
 		}
 		level.Info(self.logger).Log("msg", "subscription created", "eventName", "head")
 		return output, subs

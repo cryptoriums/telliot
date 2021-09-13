@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
@@ -82,11 +83,18 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 	}
 
 	delay := 15 * time.Second
-	ticker := time.NewTicker(delay)
+	ticker := time.NewTicker(1)
 	defer ticker.Stop()
+	var resetTicker sync.Once
 
 	var finalError error
 	for i := 0; i <= 5; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			resetTicker.Do(func() { ticker.Reset(delay) })
+		}
 		gasBaseFeeGwei, gasTipGwei, err := self.gasPriceQuerier.Query(ctx, 80)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting gas price from guerier")
@@ -132,16 +140,11 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 				level.Warn(self.logger).Log("msg", "last transaction has been confirmed so will increase the nonce and resend the transaction.")
 
 			} else {
-				finalError = errors.Wrap(err, "contract call")
+				finalError = errors.Wrap(err, "SubmitMiningSolution")
 			}
 
 			level.Info(self.logger).Log("msg", "will retry a send", "retryDelay", delay, "err", err)
-			select {
-			case <-ctx.Done():
-				return nil, errors.New("the submit context was canceled")
-			case <-ticker.C:
-				continue
-			}
+			continue
 		}
 		return tx, nil
 	}
