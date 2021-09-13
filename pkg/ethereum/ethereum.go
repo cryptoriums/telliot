@@ -279,7 +279,7 @@ func (self *ClientCachedNetID) NetworkID() int64 {
 }
 
 func (self *ClientCachedNetID) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return self.rpcClient.CallContext(ctx, result, method, args)
+	return self.rpcClient.CallContext(ctx, result, method, args...)
 }
 
 func NewSignedTX(
