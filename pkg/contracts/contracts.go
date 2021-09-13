@@ -60,8 +60,7 @@ const (
 	EventNameNewVote         = "Voted"
 	EventNameContractUpgrade = "NewTellorAddress"
 
-	DefaultDisputeVotingWindow = 24 * 2 * time.Hour // 2 days to vote for a dispute.
-	DefaultDisputeUnlockWindow = 24 * time.Hour     // 1 day to wait after a dispute before can get the dispute fee.
+	DefaultDisputeUnlockWindow = 24 * time.Hour // 1 day to wait after a dispute before can get the dispute fee.
 )
 
 type TellorCaller interface {
@@ -85,7 +84,6 @@ type TellorCaller interface {
 	DepositStake(opts *bind.TransactOpts) (*types.Transaction, error)
 	UnpackLog(out interface{}, event string, log types.Log) error
 	WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error)
-	DisputeVotingWindow() time.Duration
 	DisputeUnlockWindow() time.Duration
 	GetMinersByRequestIdAndTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]common.Address, error)
 	GetSubmissionsByTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]*big.Int, error)
@@ -107,12 +105,10 @@ type RewardQuerier interface {
 }
 
 var DefaultParams = Params{
-	DisputeVotingWindow: DefaultDisputeVotingWindow,
 	DisputeUnlockWindow: DefaultDisputeUnlockWindow,
 }
 
 type Params struct {
-	DisputeVotingWindow time.Duration
 	DisputeUnlockWindow time.Duration
 }
 
@@ -154,10 +150,6 @@ func (self *ITellor) Abi() abi.ABI {
 
 func (self *ITellor) AbiRaw() string {
 	return self.abiRaw
-}
-
-func (self *ITellor) DisputeVotingWindow() time.Duration {
-	return self.params.DisputeVotingWindow
 }
 
 func (self *ITellor) DisputeUnlockWindow() time.Duration {
@@ -204,9 +196,6 @@ func newITellorWithAddr(
 	client ethereum_t.EthClient,
 	params Params,
 ) (*ITellor, error) {
-	if params.DisputeVotingWindow == 0 {
-		return nil, errors.New("DisputeVotingWindow should not be zero")
-	}
 	if params.DisputeUnlockWindow == 0 {
 		return nil, errors.New("DisputeUnlockWindow should not be zero")
 	}
@@ -329,7 +318,6 @@ type DisputeLog struct {
 	DisputedSlot uint64
 	Tally        float64
 	Votes        uint64
-	Created      time.Time
 	Ends         time.Time
 	Fee          float64
 	TxHash       common.Hash
@@ -442,18 +430,7 @@ func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, 
 			continue
 		}
 
-		rounds, err := contract.GetDisputeUintVars(
-			&bind.CallOpts{Context: ctx},
-			disputeID,
-			ethereum_t.Keccak256([]byte("_DISPUTE_ROUNDS")),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "get dispute rounds")
-		}
-
 		votingEnds := time.Unix(disputeVars[3].Int64(), 0)
-		votingWindow := contract.DisputeVotingWindow()
-		created := votingEnds.Add(-votingWindow * time.Duration(rounds.Int64()))
 
 		return &DisputeLog{
 			ID:           disputeID.Int64(),
@@ -467,7 +444,6 @@ func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, 
 			DisputedSlot: disputeVars[6].Uint64(),
 			Tally:        mathT.BigIntToFloatDiv(tally, params.Ether),
 			Votes:        disputeVars[4].Uint64(),
-			Created:      created,
 			Ends:         votingEnds,
 			Fee:          mathT.BigIntToFloatDiv(disputeVars[8], params.Ether),
 		}, nil

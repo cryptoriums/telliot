@@ -101,7 +101,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 		level.Info(logger).Log("msg", "disputed reporter status", "status", contracts.ReporterStatusName(status.Int64()))
 		if status.Int64() != 1 {
-			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue dispute its status:", false)
+			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue dispite its status:", false)
 			if err == nil && strings.ToLower(promptResp) != "y" {
 				return errors.New("canceled")
 			}
@@ -404,7 +404,6 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
 		fmt.Fprintln(w, "Passed: \t", log.Passed, "\t")
 		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
-		fmt.Fprintln(w, "Created :\t", log.Created.Format(logging.DefaultTimeFormat), "\t")
 		fmt.Fprintln(w, "Ends: \t", -time.Since(log.Ends), "\t")
 		fmt.Fprintln(w, "Tally: \t", log.Tally, "\t")
 		fmt.Fprintln(w, "Votes: \t", log.Votes, "\t")
