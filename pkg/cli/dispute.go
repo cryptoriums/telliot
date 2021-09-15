@@ -16,12 +16,12 @@ import (
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
-	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/prompt"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
-	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
+	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/kit/log"
@@ -68,7 +68,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("timestamp can't be in the future")
 	}
 
-	account, err := ethereumT.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			return errors.Wrap(err, "fetch balance")
 		}
 
-		disputeCost, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereumT.Keccak256([]byte("_DISPUTE_FEE")))
+		disputeCost, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256([]byte("_DISPUTE_FEE")))
 		if err != nil {
 			return errors.Wrap(err, "get dispute cost")
 		}
@@ -108,7 +108,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 	}
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.NewDisputeGasLimit)
+	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.NewDisputeGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -138,7 +138,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return err
 	}
 
-	account, err := ethereumT.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	}
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
+	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -206,7 +206,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		disputes = append(disputes, dispute)
 	}
 
-	accounts, err := ethereumT.GetAccounts(logger)
+	accounts, err := ethereum_t.GetAccounts(logger)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.TallyGasLimit)
+		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.TallyGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -276,7 +276,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		return err
 	}
 
-	accounts, err := ethereumT.GetAccounts(logger)
+	accounts, err := ethereum_t.GetAccounts(logger)
 	if err != nil {
 		return err
 	}
@@ -304,7 +304,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		paid, err := contract.GetDisputeUintVars(
 			&bind.CallOpts{Context: ctx},
 			big.NewInt(dispute.ID),
-			ethereumT.Keccak256([]byte("_PAID")),
+			ethereum_t.Keccak256([]byte("_PAID")),
 		)
 		if err != nil {
 			return errors.Wrap(err, "get _PAID")
@@ -319,7 +319,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			tallyTs, err := contract.GetDisputeUintVars(
 				&bind.CallOpts{Context: ctx},
 				big.NewInt(dispute.ID),
-				ethereumT.Keccak256([]byte("_TALLY_DATE")),
+				ethereum_t.Keccak256([]byte("_TALLY_DATE")),
 			)
 			if err != nil {
 				return errors.Wrap(err, "get _TALLY_DATE")
@@ -339,7 +339,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 
 		}
 
-		opts, err := ethereumT.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.UnlockFeeGasLimit)
+		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.UnlockFeeGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -382,7 +382,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return errors.Wrap(err, "creating aggregator")
 	}
 
-	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
+	psr := psr_tellor.New(logger, cfg.PsrTellor, aggregator)
 
 	logs, err := contracts.GetDisputeLogs(ctx, logger, client, contract, self.LookBack)
 	if err != nil {
@@ -442,8 +442,8 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 			//lint:ignore faillint looks cleaner with print instead of logs
 			fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, %v \n",
-				float64(submit.Int64())/psrTellor.DefaultGranularity,
-				suggested/psrTellor.DefaultGranularity,
+				float64(submit.Int64())/psr_tellor.DefaultGranularity,
+				suggested/psr_tellor.DefaultGranularity,
 				i,
 				disputed,
 			)

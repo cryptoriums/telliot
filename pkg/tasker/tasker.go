@@ -75,7 +75,7 @@ func New(
 		contract,
 		0,
 		contracts.EventNameNewTask,
-		5*time.Second,
+		time.Minute,
 	)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "creating logs tracker")

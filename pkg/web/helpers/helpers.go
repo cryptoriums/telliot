@@ -6,7 +6,6 @@ package helpers
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -65,11 +64,9 @@ func ExpandTimeVars(url string) string {
 	bod := eod.Unix() - secsIn1day
 
 	if lastEOD != eod.Unix() {
-		fmt.Println("eod.Unix()", eod.Unix())
 		lastEOD = eod.Unix()
 	}
 	if lastBOD != bod {
-		fmt.Println("bod.Unix()", bod)
 		lastBOD = bod
 	}
 
