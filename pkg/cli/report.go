@@ -80,7 +80,7 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		// Web/Api server.
 		{
 			handlers := make(map[string]http.HandlerFunc)
-			handlers["/"] = web.Data(ctx, logger, client, contract, cfg.EnvFile)
+			handlers["/"] = web.Data(ctx, logger, "<h2>Reporter</h2>", client, contract, cfg.EnvFile)
 			srv, err := web.New(ctx, logger, handlers, tsDB, cfg.Web)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+web.ComponentName)

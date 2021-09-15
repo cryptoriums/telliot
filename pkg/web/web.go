@@ -109,6 +109,7 @@ func New(
 func Data(
 	ctx context.Context,
 	logger log.Logger,
+	header string,
 	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	envFilePath string,
@@ -232,6 +233,7 @@ func Data(
 			</style>
 		</head>
 		<body>
+		` + header + `
 		` + netWarning + `
 		` + postResult + `
 		` + postForm + `
