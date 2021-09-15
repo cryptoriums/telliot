@@ -578,14 +578,24 @@ func CreateTellorTx(
 	prvKey *ecdsa.PrivateKey,
 	to common.Address,
 	client ethereum_t.EthClient,
+	overwritePending bool,
 	gasLimit uint64,
 	gasMaxFee float64,
 	methodName string,
 	args []interface{},
 ) (*types.Transaction, string, error) {
-	nonce, err := client.PendingNonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey))
-	if err != nil {
-		return nil, "", errors.Wrap(err, "getting pending nonce")
+	var nonce uint64
+	var err error
+	if overwritePending {
+		nonce, err = client.NonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey), nil)
+		if err != nil {
+			return nil, "", errors.Wrap(err, "getting pending nonce")
+		}
+	} else {
+		nonce, err = client.PendingNonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey))
+		if err != nil {
+			return nil, "", errors.Wrap(err, "getting pending nonce")
+		}
 	}
 
 	abiP, err := abi.JSON(strings.NewReader(tellor.TellorABI))
