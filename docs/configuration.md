@@ -567,7 +567,7 @@ Flags:
 		"Enabled": "Required:false, Default:true",
 		"LogLevel": "Required:false, Default:",
 		"MinSubmitPeriod": {
-			"Duration": "Required:false, Default:15m1s"
+			"Duration": "Required:false, Default:15m30s"
 		}
 	},
 	"Tasker": {
@@ -619,7 +619,7 @@ Here are the config defaults in json format:
 	"SubmitterTellor": {
 		"Enabled": true,
 		"LogLevel": "",
-		"MinSubmitPeriod": "15m1s"
+		"MinSubmitPeriod": "15m30s"
 	},
 	"Tasker": {
 		"LogLevel": ""
