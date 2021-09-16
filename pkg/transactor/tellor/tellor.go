@@ -28,6 +28,7 @@ const ComponentName = "transactorTellor"
 type Config struct {
 	LogLevel      string
 	GasMaxTipGwei uint `help:"Hard limit of the gas tip in Gwei."`
+	Transact      bool
 }
 
 // Tellor implements the Transactor interface.

@@ -96,7 +96,7 @@ func EncryptFile(inFile string, outFile string, passphrase string) error {
 	return nil
 }
 
-func DecryptWithWebPassword(ctx context.Context, logger log.Logger, input []byte, host string, port uint) []byte {
+func DecryptWithWebPassword(ctx context.Context, logger log.Logger, header string, input []byte, host string, port uint) []byte {
 	fileBytes := make(chan [][]byte)
 	srv := &http.Server{Addr: host + ":" + strconv.Itoa(int(port))}
 	defer func() {
@@ -147,6 +147,7 @@ func DecryptWithWebPassword(ctx context.Context, logger log.Logger, input []byte
 			</style>
 		</head>
 		<body>
+		`+header+`
 		`+postResult+`
 		<form id="data" method="post">
 			<label for="decryptPass">Decrypt pass:</label><input type="password" name="decryptPass" id="decryptPass"/>

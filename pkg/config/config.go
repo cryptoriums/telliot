@@ -62,6 +62,7 @@ var DefaultConfig = Config{
 	},
 	TransactorTellor: transactorTellor.Config{
 		GasMaxTipGwei: 10,
+		Transact:      true,
 	},
 	SubmitterTellor: tellor.Config{
 		Enabled: true,
@@ -125,10 +126,15 @@ func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
 	}
 
 	if !util.IsText(env) {
+		transacting := `<span style="color:grey">disabled</span>`
+		if cfg.TransactorTellor.Transact {
+			transacting = `<span style="color:red">enabled</span>`
+		}
+
 		level.Info(logger).Log("msg", "env file is encrypted", "path", cfg.EnvFile)
 		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 			level.Info(logger).Log("msg", "running inside k8s so will wait for web password decrypt input")
-			env = private_file.DecryptWithWebPassword(ctx, logger, env, cfg.Web.ListenHost, cfg.Web.ListenPort)
+			env = private_file.DecryptWithWebPassword(ctx, logger, "<h2>Transacting is:"+transacting+"</h2>", env, cfg.Web.ListenHost, cfg.Web.ListenPort)
 		} else {
 			env = private_file.DecryptWithPasswordLoop(env)
 		}
