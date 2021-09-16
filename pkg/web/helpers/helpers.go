@@ -52,27 +52,21 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 	return data, nil
 }
 
-var lastEOD int64
-var lastBOD int64
+var (
+	now = time.Now // Set as a var to allowe overriging in the tests.
+)
 
 func ExpandTimeVars(url string) string {
-	now := time.Now().UTC()
-	year, month, day := now.Date()
-	eod := time.Date(year, month, day, 0, 0, 0, 0, now.Location())
+	year, month, day := now().Date()
+	eod := time.Date(year, month, day, 0, 0, 0, 0, now().Location())
 
-	secsIn1day := int64(86400)
-	bod := eod.Unix() - secsIn1day
+	secsInAday := int64(86400)
 
-	if lastEOD != eod.Unix() {
-		lastEOD = eod.Unix()
-	}
-	if lastBOD != bod {
-		lastBOD = bod
-	}
+	bod := eod.Unix() - secsInAday
 
 	// Need to be first so that the longer string substitution happens first.
-	url = strings.Replace(url, "$EODm", strconv.Itoa(int(eod.Unix()*1000)), -1)
-	url = strings.Replace(url, "$BODm", strconv.Itoa(int(bod*1000)), -1)
+	url = strings.Replace(url, "$EODM", strconv.Itoa(int(eod.Unix()*1000)), -1)
+	url = strings.Replace(url, "$BODM", strconv.Itoa(int(bod*1000)), -1)
 
 	url = strings.Replace(url, "$EOD", strconv.Itoa(int(eod.Unix())), -1)
 	url = strings.Replace(url, "$BOD", strconv.Itoa(int(bod)), -1)
