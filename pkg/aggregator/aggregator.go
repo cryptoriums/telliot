@@ -171,9 +171,11 @@ func (self *Aggregator) TimeWeightedAvg(
 	// Avg value over the look back period.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`avg_over_time(
-			`+index.MetricIndexValue+`{symbol="`+symbol+`"}
-		[`+lookBack.String()+`])`,
+		`avg(
+			avg_over_time(
+				`+index.MetricIndexValue+`{symbol="`+symbol+`"}
+			[`+lookBack.String()+`:])
+		)`,
 		start,
 	)
 	if err != nil {
