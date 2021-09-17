@@ -119,6 +119,9 @@ func Data(
 		"timeSince": func(ts int64) int {
 			return int(time.Since(time.Unix(ts, 0)).Minutes())
 		},
+		"tsToTime": func(ts int64) string {
+			return time.Unix(ts, 0).UTC().Format("15:04")
+		},
 		"psrDetails": func(id *big.Int) string {
 			return strings.Replace(tellor.Psrs[id.Int64()].Pair+"_"+tellor.Psrs[id.Int64()].Aggr, " ", "_", -1)
 		},
@@ -249,7 +252,7 @@ func Data(
 			{{range $di,$dv := .DataIDs}}
 				{{ if eq $di 0 }}
 					<tr>
-						<td colspan="100%"><b>Timestamp:{{ $submit.Timestamp.String }} mins:{{  timeSince $submit.Timestamp.Int64 }}</b> Tx:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/{{ $submit.TxHash.Hex }}">{{ $submit.TxHash.Hex }}</a> </td>
+						<td colspan="100%"><b>Mins:{{  timeSince $submit.Timestamp.Int64 }} Time:{{ tsToTime $submit.Timestamp.Int64 }} Timestamp:{{ $submit.Timestamp.String}}</b> Tx:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/{{ $submit.TxHash.Hex }}">{{ $submit.TxHash.Hex }}</a> </td>
 					</tr>
 				{{end}}
 				<tr>
