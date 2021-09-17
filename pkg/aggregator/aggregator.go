@@ -171,26 +171,23 @@ func (self *Aggregator) TimeWeightedAvg(
 	// Avg value over the look back period.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`avg(
-			avg_over_time(
+		`avg_over_time(
 				`+index.MetricIndexValue+`{symbol="`+symbol+`"}
-			[`+lookBack.String()+`:])
-		)`,
+		[`+lookBack.String()+`:])
+		`,
 		start,
 	)
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
-	_result := query.Exec(self.ctx)
-	if _result.Err != nil {
-		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", query.Statement())
+	vals := query.Exec(self.ctx)
+	if vals.Err != nil {
+		return 0, 0, errors.Wrapf(vals.Err, "evaluating query:%v", query.Statement())
 	}
-	if len(_result.Value.(promql.Vector)) == 0 {
+	if len(vals.Value.(promql.Vector)) == 0 {
 		return 0, 0, errors.Errorf("no result for TWAP vals query:%v", query.Statement())
 	}
-
-	result := _result.Value.(promql.Vector)[0].V
 
 	// Confidence level.
 	query, err = self.promqlEngine.NewInstantQuery(
@@ -209,16 +206,26 @@ func (self *Aggregator) TimeWeightedAvg(
 		return 0, 0, errors.Wrap(err, "creating query")
 	}
 	defer query.Close()
-	confidence := query.Exec(self.ctx)
-	if confidence.Err != nil {
-		return 0, 0, errors.Wrapf(confidence.Err, "evaluating query:%v", query.Statement())
+	_confidence := query.Exec(self.ctx)
+	if _confidence.Err != nil {
+		return 0, 0, errors.Wrapf(_confidence.Err, "evaluating query:%v", query.Statement())
 	}
-
-	if len(confidence.Value.(promql.Vector)) == 0 {
+	if len(_confidence.Value.(promql.Vector)) == 0 {
 		return 0, 0, errors.Errorf("no result for TWAP confidence query:%v", query.Statement())
 	}
+	confidence := _confidence.Value.(promql.Vector)[0].V * 100
 
-	return result, confidence.Value.(promql.Vector)[0].V * 100, err
+	var prices []float64
+	for _, price := range vals.Value.(promql.Vector) {
+		prices = append(prices, price.V)
+	}
+
+	price, confidenceM := self.mean(prices)
+	if confidenceM < confidence {
+		confidence = confidenceM
+	}
+
+	return price, confidence, err
 }
 
 // VolumWeightedAvg returns price and confidence level for a given symbol.
@@ -234,108 +241,109 @@ func (self *Aggregator) TimeWeightedAvg(
 //
 // vals are calculated using the official VWAP formula from
 // https://tradingtuitions.com/vwap-trading-strategy-excel-sheet/
-func (self *Aggregator) VolumWeightedAvg(
-	symbol string,
-	start time.Time,
-	end time.Time,
-	aggrWindow time.Duration,
-) (float64, float64, error) {
-	_timeWindow := end.Sub(start).Round(time.Minute).Seconds()
-	timeWindow := strconv.Itoa(int(_timeWindow)) + "s"
+// UNUSED - Need to add logic to to compare the VWAP results from all APIS and reduce the confidence if the difference is too much like in the other aggregators.
+//func (self *Aggregator) VolumWeightedAvg(
+// 	symbol string,
+// 	start time.Time,
+// 	end time.Time,
+// 	aggrWindow time.Duration,
+// ) (float64, float64, error) {
+// 	_timeWindow := end.Sub(start).Round(time.Minute).Seconds()
+// 	timeWindow := strconv.Itoa(int(_timeWindow)) + "s"
 
-	resolution, err := self.resolution(symbol, end)
-	if err != nil {
-		return 0, 0, err
-	}
+// 	resolution, err := self.resolution(symbol, end)
+// 	if err != nil {
+// 		return 0, 0, err
+// 	}
 
-	query, err := self.promqlEngine.NewInstantQuery(
-		self.tsDB,
-		`avg(
-			sum_over_time(
-				(
-					sum_over_time( `+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`]
-					) * on(domain)
-					avg_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`"}[`+aggrWindow.String()+`])
-				)
-			[`+timeWindow+`:`+aggrWindow.String()+`])
-			/ on(domain)
-			sum_over_time(
-					sum_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`])
-			[`+timeWindow+`:`+aggrWindow.String()+`])
-		)`,
-		end,
-	)
+// 	query, err := self.promqlEngine.NewInstantQuery(
+// 		self.tsDB,
+// 		`avg(
+// 			sum_over_time(
+// 				(
+// 					sum_over_time( `+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`]
+// 					) * on(domain)
+// 					avg_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`"}[`+aggrWindow.String()+`])
+// 				)
+// 			[`+timeWindow+`:`+aggrWindow.String()+`])
+// 			/ on(domain)
+// 			sum_over_time(
+// 					sum_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+aggrWindow.String()+`])
+// 			[`+timeWindow+`:`+aggrWindow.String()+`])
+// 		)`,
+// 		end,
+// 	)
 
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "creating query")
-	}
-	defer query.Close()
+// 	if err != nil {
+// 		return 0, 0, errors.Wrap(err, "creating query")
+// 	}
+// 	defer query.Close()
 
-	_result := query.Exec(self.ctx)
-	if _result.Err != nil {
-		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", query.Statement())
-	}
-	result := _result.Value.(promql.Vector)
-	if len(result) == 0 {
-		return 0, 0, errors.Errorf("no result for VWAP vals query:%v", query.Statement())
-	}
+// 	_result := query.Exec(self.ctx)
+// 	if _result.Err != nil {
+// 		return 0, 0, errors.Wrapf(_result.Err, "evaluating query:%v", query.Statement())
+// 	}
+// 	result := _result.Value.(promql.Vector)
+// 	if len(result) == 0 {
+// 		return 0, 0, errors.Errorf("no result for VWAP vals query:%v", query.Statement())
+// 	}
 
-	// Confidence level for prices.
-	query, err = self.promqlEngine.NewInstantQuery(
-		self.tsDB,
-		`avg(
-			count_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`"}[`+timeWindow+`])
-			/
-			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
-		)`,
-		end,
-	)
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "creating query")
-	}
-	defer query.Close()
+// 	// Confidence level for prices.
+// 	query, err = self.promqlEngine.NewInstantQuery(
+// 		self.tsDB,
+// 		`avg(
+// 			count_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`"}[`+timeWindow+`])
+// 			/
+// 			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
+// 		)`,
+// 		end,
+// 	)
+// 	if err != nil {
+// 		return 0, 0, errors.Wrap(err, "creating query")
+// 	}
+// 	defer query.Close()
 
-	confidenceP := query.Exec(self.ctx)
-	if confidenceP.Err != nil {
-		return 0, 0, errors.Wrapf(confidenceP.Err, "evaluating query:%v", query.Statement())
-	}
+// 	confidenceP := query.Exec(self.ctx)
+// 	if confidenceP.Err != nil {
+// 		return 0, 0, errors.Wrapf(confidenceP.Err, "evaluating query:%v", query.Statement())
+// 	}
 
-	// Confidence level for volumes.
-	resolution, err = self.resolution(symbol+"/VOLUME", end)
-	if err != nil {
-		return 0, 0, err
-	}
-	query, err = self.promqlEngine.NewInstantQuery(
-		self.tsDB,
-		`avg(
-			count_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+timeWindow+`])
-			/
-			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
-		)`,
-		end,
-	)
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "creating query")
-	}
-	defer query.Close()
-	confidenceV := query.Exec(self.ctx)
-	if confidenceV.Err != nil {
-		return 0, 0, errors.Wrapf(confidenceV.Err, "evaluating query:%v", query.Statement())
-	}
+// 	// Confidence level for volumes.
+// 	resolution, err = self.resolution(symbol+"/VOLUME", end)
+// 	if err != nil {
+// 		return 0, 0, err
+// 	}
+// 	query, err = self.promqlEngine.NewInstantQuery(
+// 		self.tsDB,
+// 		`avg(
+// 			count_over_time(`+index.MetricIndexValue+`{symbol="`+symbol+`_VOLUME"}[`+timeWindow+`])
+// 			/
+// 			(`+strconv.Itoa(int(end.Sub(start).Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
+// 		)`,
+// 		end,
+// 	)
+// 	if err != nil {
+// 		return 0, 0, errors.Wrap(err, "creating query")
+// 	}
+// 	defer query.Close()
+// 	confidenceV := query.Exec(self.ctx)
+// 	if confidenceV.Err != nil {
+// 		return 0, 0, errors.Wrapf(confidenceV.Err, "evaluating query:%v", query.Statement())
+// 	}
 
-	if len(confidenceP.Value.(promql.Vector)) == 0 || len(confidenceV.Value.(promql.Vector)) == 0 {
-		return 0, 0, errors.Errorf("no result for VWAP confidence query:%v", query.Statement())
-	}
+// 	if len(confidenceP.Value.(promql.Vector)) == 0 || len(confidenceV.Value.(promql.Vector)) == 0 {
+// 		return 0, 0, errors.Errorf("no result for VWAP confidence query:%v", query.Statement())
+// 	}
 
-	// Use the smaller confidence of volume or value.
-	confidence := confidenceP.Value.(promql.Vector)[0].V
-	if confidence > confidenceV.Value.(promql.Vector)[0].V {
-		confidence = confidenceV.Value.(promql.Vector)[0].V
-	}
+// 	// Use the smaller confidence of volume or value.
+// 	confidence := confidenceP.Value.(promql.Vector)[0].V
+// 	if confidence > confidenceV.Value.(promql.Vector)[0].V {
+// 		confidence = confidenceV.Value.(promql.Vector)[0].V
+// 	}
 
-	// Return the last VWAP price.
-	return result[len(result)-1].V, confidence * 100, nil
-}
+// 	// Return the last VWAP price.
+// 	return result[len(result)-1].V, confidence * 100, nil
+// }
 
 // median returns the median and the confidence calculated with
 // the difference between the min and max values.
