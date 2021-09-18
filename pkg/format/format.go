@@ -41,3 +41,19 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 		return errors.Errorf("invalid duration")
 	}
 }
+
+var (
+	now = time.Now // Set as a var to allow overriding in the tests.
+)
+
+func EOD() int64 {
+	year, month, day := now().Date()
+	eod := time.Date(year, month, day, 0, 0, 0, 0, now().Location())
+
+	return eod.Unix()
+}
+
+func BOD() int64 {
+	secsInAday := int64(86400)
+	return EOD() - secsInAday
+}

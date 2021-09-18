@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/pkg/errors"
 )
 
@@ -52,23 +53,15 @@ func Get(ctx context.Context, url string, headers map[string]string) ([]byte, er
 	return data, nil
 }
 
-var (
-	now = time.Now // Set as a var to allowe overriging in the tests.
-)
-
 func ExpandTimeVars(url string) string {
-	year, month, day := now().Date()
-	eod := time.Date(year, month, day, 0, 0, 0, 0, now().Location())
-
-	secsInAday := int64(86400)
-
-	bod := eod.Unix() - secsInAday
+	eod := format.EOD()
+	bod := format.BOD()
 
 	// Need to be first so that the longer string substitution happens first.
-	url = strings.Replace(url, "$EODM", strconv.Itoa(int(eod.Unix()*1000)), -1)
+	url = strings.Replace(url, "$EODM", strconv.Itoa(int(eod*1000)), -1)
 	url = strings.Replace(url, "$BODM", strconv.Itoa(int(bod*1000)), -1)
 
-	url = strings.Replace(url, "$EOD", strconv.Itoa(int(eod.Unix())), -1)
+	url = strings.Replace(url, "$EOD", strconv.Itoa(int(eod)), -1)
 	url = strings.Replace(url, "$BOD", strconv.Itoa(int(bod)), -1)
 
 	return url

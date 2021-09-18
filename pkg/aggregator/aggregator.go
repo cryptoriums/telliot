@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/db"
+	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/go-kit/kit/log"
@@ -112,9 +113,7 @@ func (self *Aggregator) MedianAt(symbol string, at time.Time) (float64, float64,
 }
 
 func (self *Aggregator) MedianAtEOD(symbol string, at time.Time) (float64, float64, error) {
-	d := 24 * time.Hour
-	eod := time.Now().Truncate(d)
-	return self.MedianAt(symbol, eod)
+	return self.MedianAt(symbol, time.Unix(format.EOD(), 0))
 }
 
 func (self *Aggregator) MeanAt(symbol string, at time.Time) (float64, float64, error) {

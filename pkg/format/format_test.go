@@ -1,10 +1,9 @@
 // Copyright (c) The Cryptorium Authors.
 // Licensed under the MIT License.
 
-package helpers
+package format
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -46,12 +45,10 @@ func Test_ExpandTimeVars(t *testing.T) {
 			return n
 		}
 
-		ts, err := strconv.Atoi(ExpandTimeVars("$EOD"))
-		testutil.Ok(t, err)
+		ts := EOD()
 		testutil.Equals(t, tc.expectedEOD, time.Unix(int64(ts), 0).UTC().String())
 
-		ts, err = strconv.Atoi(ExpandTimeVars("$BOD"))
-		testutil.Ok(t, err)
+		ts = BOD()
 		testutil.Equals(t, tc.expectedBOD, time.Unix(int64(ts), 0).UTC().String())
 
 	}
