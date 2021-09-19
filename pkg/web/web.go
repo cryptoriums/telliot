@@ -17,6 +17,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/componentor"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
@@ -109,7 +110,7 @@ func New(
 func Data(
 	ctx context.Context,
 	logger log.Logger,
-	header string,
+	componentor componentor.Componentor,
 	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	envFilePath string,
@@ -145,13 +146,26 @@ func Data(
 
 		postResult := ""
 		if r.Method == "POST" {
-			tx, err := createDispute(ctx, logger, r, client, contract, envFilePath)
+			err := r.ParseForm()
 			if err != nil {
-				http.Error(w, fmt.Sprintf("creating a dispute:%v", err), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("parsing form data:%v", err), http.StatusInternalServerError)
 				return
 			}
-
-			postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
+			if err := checkPass(client, envFilePath, r.PostForm.Get("pass")); err != nil {
+				http.Error(w, fmt.Sprintf("checking  password:%v", err), http.StatusInternalServerError)
+				return
+			}
+			switch r.PostForm.Get("action") {
+			case "dispute":
+				tx, err := createDispute(ctx, logger, r, client, contract)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("creating a dispute:%v", err), http.StatusInternalServerError)
+					return
+				}
+				postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
+			case "toggleStatus":
+				componentor.ToggleStatus()
+			}
 		}
 
 		lookBack := time.Hour
@@ -212,6 +226,7 @@ func Data(
 			<style>
 				body {
 					font-family: arial;
+					position:absolute;
 				}
 				label {
 					min-width: 9em;
@@ -236,7 +251,13 @@ func Data(
 			</style>
 		</head>
 		<body>
-		` + header + `
+		<h2>` + componentor.ID() + ` status: ` + formatStatus(componentor.Status()) + `
+			<form style="display:inline" id="toggleStatus" method="post">
+				<input type="hidden" id="action" name="action" value="toggleStatus" >
+				<input placeholder="EnvFile Pass" type="password" name="pass" id="pass"/>
+				<input type="submit" value="Toggle Status">
+			</form>
+		</h2>
 		` + netWarning + `
 		` + postResult + `
 		` + postForm + `
@@ -299,6 +320,15 @@ func Data(
 	})
 }
 
+func formatStatus(status bool) string {
+	switch status {
+	case true:
+		return `<span style="color:grey">disabled</span>`
+	default:
+		return `<span style="color:red">enabled</span>`
+	}
+}
+
 func prepareDisputeForm(ctx context.Context, logger log.Logger, client ethereum.EthClient, contract contracts.TellorCaller, values url.Values) (string, error) {
 	accOpts := ""
 	accounts, err := ethereum.GetAccounts(logger)
@@ -334,8 +364,9 @@ func prepareDisputeForm(ctx context.Context, logger log.Logger, client ethereum.
 			<fieldset>
     		<legend>Confirm dispute details:</legend>
 				<form id="dispute" method="post">
-					<label for="submitPass">Submit pass:</label><input type="password" name="submitPass" id="submitPass"/><br/>
-					<label for="submitPass">Account:</label>
+					<input type="hidden" id="action" name="action" value="dispute" >
+					<label for="pass">EnvFile Pass:</label><input type="password" name="pass" id="pass"/><br/>
+					<label for="account">Account:</label>
 						<select name="account" id="account">` + accOpts + `</select><br/>
 					<label for="dataID">Data ID:</label>
 						<input type="text" readonly="readonly" id="dataID" name="dataID" value="` + values.Get("dataID") + `" ><br/>
@@ -366,33 +397,8 @@ func createDispute(
 	r *http.Request,
 	client ethereum.EthClient,
 	contract contracts.TellorCaller,
-	envFilePath string,
 ) (*types.Transaction, error) {
-	err := r.ParseForm()
-	if err != nil {
-		return nil, errors.Wrap(err, "parsing form data")
-	}
 
-	env, err := ioutil.ReadFile(envFilePath)
-	if err != nil {
-		return nil, errors.Wrap(err, "reading env file")
-	}
-
-	if !util.IsText(env) {
-		_, err = private_file.Decrypt(env, r.PostForm.Get("submitPass"))
-		if err != nil {
-			return nil, errors.New("incorrect password")
-		}
-	} else {
-		switch client.NetworkID() {
-		case 4:
-		case 5:
-		default:
-			return nil, errors.New("file is not encrypted - dispute creation is forbidden via the web with unencrypted env file for the current network")
-		}
-	}
-
-	r.PostForm.Get("submitPass")
 	ctx, cncl := context.WithTimeout(ctx, 20*time.Second)
 	defer cncl()
 	account, err := ethereum.GetAccountByPubAddress(logger, r.PostForm.Get("account"))
@@ -420,6 +426,28 @@ func createDispute(
 		return nil, errors.Wrap(err, "creating dispute TX")
 	}
 	return tx, nil
+}
+
+func checkPass(client ethereum.EthClient, envFilePath string, pass string) error {
+	env, err := ioutil.ReadFile(envFilePath)
+	if err != nil {
+		return errors.Wrap(err, "reading env file")
+	}
+
+	if !util.IsText(env) {
+		_, err = private_file.Decrypt(env, pass)
+		if err != nil {
+			return errors.New("incorrect password")
+		}
+	} else {
+		switch client.NetworkID() {
+		case 4:
+		case 5:
+		default:
+			return errors.New("file is not encrypted - action is forbidden via the web with unencrypted env file for the current network")
+		}
+	}
+	return nil
 }
 
 func (self *Web) Start() error {

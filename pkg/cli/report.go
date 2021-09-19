@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
+	"github.com/cryptoriums/telliot/pkg/componentor"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
@@ -77,23 +78,6 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 			level.Warn(logger).Log("msg", "FOR NEW DB INSTANCES IT IS NORMAL TO SEE SOME QUERY ERRORS AS THE DATABASE IS NOT YET POPULATED WITH VALUES")
 		}
 
-		// Web/Api server.
-		{
-			handlers := make(map[string]http.HandlerFunc)
-			handlers["/"] = web.Data(ctx, logger, "<h2>Reporter</h2>", client, contract, cfg.EnvFile)
-			srv, err := web.New(ctx, logger, handlers, tsDB, cfg.Web)
-			if err != nil {
-				return errors.Wrap(err, "creating component:"+web.ComponentName)
-			}
-			g.Add(func() error {
-				err := srv.Start()
-				level.Info(logger).Log("msg", "shutdown complete", "component", web.ComponentName)
-				return err
-			}, func(error) {
-				srv.Stop()
-			})
-		}
-
 		// Aggregator.
 		aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, tsDB)
 		if err != nil {
@@ -127,74 +111,92 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 			return errors.Wrap(err, "creating gas price tracker")
 		}
 
-		if cfg.SubmitterTellor.Enabled {
-			// Event tasker.
-			taskerE, taskerChs, err := tasker.New(ctx, logger, cfg.Tasker, client, contract, accounts)
+		// Event tasker.
+		taskerE, taskerChs, err := tasker.New(ctx, logger, cfg.Tasker, client, contract, accounts)
+		if err != nil {
+			return errors.Wrap(err, "creating component:"+tasker.ComponentName)
+		}
+		g.Add(func() error {
+			err := taskerE.Start()
+			level.Info(logger).Log("msg", "shutdown complete", "component", tasker.ComponentName)
+			return err
+		}, func(error) {
+			taskerE.Stop()
+		})
+
+		psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
+
+		// Create a submitter for each account.
+		multiComponentor := &componentor.MultiComponentor{}
+		for _, account := range accounts {
+			loggerWithAddr := log.With(logger, "addr", account.Address.Hex()[:8])
+
+			transactor, err := transactorTellor.New(
+				loggerWithAddr,
+				cfg.TransactorTellor,
+				gasPriceQuerier,
+				client,
+				account,
+				contract,
+			)
 			if err != nil {
-				return errors.Wrap(err, "creating component:"+tasker.ComponentName)
+				return errors.Wrap(err, "creating transactor")
+			}
+			multiComponentor.Add(transactor)
+
+			// Get a channel on which it listens for new data to submit.
+			submitter, submitterCh, err := tellorSubmit.New(
+				ctx,
+				loggerWithAddr,
+				cfg.SubmitterTellor,
+				client,
+				contract,
+				account,
+				transactor,
+				psr,
+			)
+			if err != nil {
+				return errors.Wrap(err, "creating component:"+tellorSubmit.ComponentName)
 			}
 			g.Add(func() error {
-				err := taskerE.Start()
-				level.Info(logger).Log("msg", "shutdown complete", "component", tasker.ComponentName)
+				err := submitter.Start()
+				level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", tellorSubmit.ComponentName)
 				return err
 			}, func(error) {
-				taskerE.Stop()
+				submitter.Stop()
 			})
 
-			psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
-
-			// Create a submitter for each account.
-			for _, account := range accounts {
-				loggerWithAddr := log.With(logger, "addr", account.Address.Hex()[:8])
-
-				transactor, err := transactorTellor.New(
-					loggerWithAddr,
-					cfg.TransactorTellor,
-					gasPriceQuerier,
-					client,
-					account,
-					contract,
-				)
-				if err != nil {
-					return errors.Wrap(err, "creating transactor")
-				}
-
-				// Get a channel on which it listens for new data to submit.
-				submitter, submitterCh, err := tellorSubmit.New(
-					ctx,
-					loggerWithAddr,
-					cfg.SubmitterTellor,
-					client,
-					contract,
-					account,
-					transactor,
-					psr,
-				)
-				if err != nil {
-					return errors.Wrap(err, "creating component:"+tellorSubmit.ComponentName)
-				}
-				g.Add(func() error {
-					err := submitter.Start()
-					level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", tellorSubmit.ComponentName)
-					return err
-				}, func(error) {
-					submitter.Stop()
-				})
-
-				// The Miner component.
-				miner, err := mining.NewManager(ctx, loggerWithAddr, cfg.Mining, contract, taskerChs[account.Address.Hex()], submitterCh, client)
-				if err != nil {
-					return errors.Wrap(err, "creating component:"+mining.ComponentName)
-				}
-				g.Add(func() error {
-					err := miner.Start()
-					level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", mining.ComponentName)
-					return err
-				}, func(error) {
-					miner.Stop()
-				})
+			// The Miner component.
+			miner, err := mining.NewManager(ctx, loggerWithAddr, cfg.Mining, contract, taskerChs[account.Address.Hex()], submitterCh, client)
+			if err != nil {
+				return errors.Wrap(err, "creating component:"+mining.ComponentName)
 			}
+			g.Add(func() error {
+				err := miner.Start()
+				level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", mining.ComponentName)
+				return err
+			}, func(error) {
+				miner.Stop()
+			})
 		}
+
+		// Web/Api server.
+		{
+			handlers := make(map[string]http.HandlerFunc)
+			handlers["/"] = web.Data(ctx, logger, multiComponentor, client, contract, cfg.EnvFile)
+			srv, err := web.New(ctx, logger, handlers, tsDB, cfg.Web)
+			if err != nil {
+				return errors.Wrap(err, "creating component:"+web.ComponentName)
+			}
+			g.Add(func() error {
+				err := srv.Start()
+				level.Info(logger).Log("msg", "shutdown complete", "component", web.ComponentName)
+				return err
+			}, func(error) {
+				srv.Stop()
+			})
+		}
+
 	}
 
 	if err := g.Run(); err != nil {

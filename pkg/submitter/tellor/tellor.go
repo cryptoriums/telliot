@@ -29,7 +29,6 @@ type Transactor interface {
 }
 
 type Config struct {
-	Enabled         bool
 	LogLevel        string
 	MinSubmitPeriod format.Duration `help:"The time limit between each submit for a staked reporter."`
 }

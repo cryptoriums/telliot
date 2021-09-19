@@ -65,7 +65,6 @@ var DefaultConfig = Config{
 		Transact:      true,
 	},
 	SubmitterTellor: tellor.Config{
-		Enabled: true,
 		// With a 30 second delay here as a workaround to prevent a race condition in the oracle contract check.
 		MinSubmitPeriod: format.Duration{Duration: 15*time.Minute + 30*time.Second},
 	},
