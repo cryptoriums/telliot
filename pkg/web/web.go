@@ -323,9 +323,9 @@ func Data(
 func formatStatus(status bool) string {
 	switch status {
 	case true:
-		return `<span style="color:grey">disabled</span>`
-	default:
 		return `<span style="color:red">enabled</span>`
+	default:
+		return `<span style="color:grey">disabled</span>`
 	}
 }
 
