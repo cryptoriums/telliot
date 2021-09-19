@@ -564,7 +564,6 @@ Flags:
 		"MinConfidence": "Required:false, Default:80"
 	},
 	"SubmitterTellor": {
-		"Enabled": "Required:false, Default:true",
 		"LogLevel": "Required:false, Default:",
 		"MinSubmitPeriod": {
 			"Duration": "Required:false, Default:15m30s"
@@ -582,7 +581,8 @@ Flags:
 	},
 	"TransactorTellor": {
 		"GasMaxTipGwei": "Required:false, Default:10, Description:Hard limit of the gas tip in Gwei.",
-		"LogLevel": "Required:false, Default:"
+		"LogLevel": "Required:false, Default:",
+		"Transact": "Required:false, Default:true"
 	},
 	"Web": {
 		"ListenHost": "Required:false, Default:",
@@ -617,7 +617,6 @@ Here are the config defaults in json format:
 		"MinConfidence": 80
 	},
 	"SubmitterTellor": {
-		"Enabled": true,
 		"LogLevel": "",
 		"MinSubmitPeriod": "15m30s"
 	},
@@ -631,7 +630,8 @@ Here are the config defaults in json format:
 	},
 	"TransactorTellor": {
 		"GasMaxTipGwei": 10,
-		"LogLevel": ""
+		"LogLevel": "",
+		"Transact": true
 	},
 	"Web": {
 		"ListenHost": "",
