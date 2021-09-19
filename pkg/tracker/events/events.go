@@ -37,16 +37,16 @@ type Contract interface {
 }
 
 type TrackerEvents struct {
-	logger      log.Logger
-	ctx         context.Context
-	stop        context.CancelFunc
-	client      ethereum_t.EthClient
-	mtx         sync.Mutex
-	cacheHeadTX gcache.Cache
-	contract    Contract
-	lookBack    time.Duration
-	eventName   string
-	dstChan     chan types.Log
+	logger       log.Logger
+	ctx          context.Context
+	stop         context.CancelFunc
+	client       ethereum_t.EthClient
+	mtx          sync.Mutex
+	cacheSentTXs gcache.Cache
+	contract     Contract
+	lookBack     time.Duration
+	eventName    string
+	dstChan      chan types.Log
 
 	reorgWaitPeriod  time.Duration
 	reorgWaitPending map[string]context.CancelFunc
@@ -81,7 +81,7 @@ func New(
 		reorgWaitPeriod:  reorgWaitPeriod,
 		reorgWaitPending: make(map[string]context.CancelFunc),
 		// To be on the safe side create the cache 2 times bigger then the expected block count during the reorg wait.
-		cacheHeadTX: gcache.New(int(math.Max(50, 2*ethereum_t.BlocksPerSecond*reorgWaitPeriod.Seconds()))).LRU().Build(),
+		cacheSentTXs: gcache.New(int(math.Max(50, 2*ethereum_t.BlocksPerSecond*reorgWaitPeriod.Seconds()))).LRU().Build(),
 	}, dstChan, nil
 }
 func (self *TrackerEvents) Start() error {
@@ -147,6 +147,16 @@ func (self *TrackerEvents) Start() error {
 
 				select {
 				case <-waitReorg.C:
+					// With short reorg wait it is possible to try and send the same TX twice so this check mitigates that.
+					_, err := self.cacheSentTXs.Get(event.TxHash.Hex())
+					if err != gcache.KeyNotFoundError {
+						level.Debug(self.logger).Log("msg", "skipping event that has already been processed")
+						return
+					}
+					if err := self.cacheSentTXs.Set(event.TxHash.Hex(), true); err != nil {
+						level.Error(self.logger).Log("msg", "adding tx event cache", "err", err)
+					}
+
 					self.cancelPending(hashFromLog(event))
 					select {
 					case self.dstChan <- event:
