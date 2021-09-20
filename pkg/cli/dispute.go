@@ -101,7 +101,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 		level.Info(logger).Log("msg", "disputed reporter status", "status", contracts.ReporterStatusName(status.Int64()))
 		if status.Int64() != 1 {
-			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue dispite its status:", false)
+			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue despite its status:", false)
 			if err == nil && strings.ToLower(promptResp) != "y" {
 				return errors.New("canceled")
 			}

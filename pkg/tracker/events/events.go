@@ -148,12 +148,12 @@ func (self *TrackerEvents) Start() error {
 				select {
 				case <-waitReorg.C:
 					// With short reorg wait it is possible to try and send the same TX twice so this check mitigates that.
-					_, err := self.cacheSentTXs.Get(event.TxHash.Hex())
+					_, err := self.cacheSentTXs.Get(hashFromLog(event))
 					if err != gcache.KeyNotFoundError {
 						level.Debug(self.logger).Log("msg", "skipping event that has already been processed")
 						return
 					}
-					if err := self.cacheSentTXs.Set(event.TxHash.Hex(), true); err != nil {
+					if err := self.cacheSentTXs.Set(hashFromLog(event), true); err != nil {
 						level.Error(self.logger).Log("msg", "adding tx event cache", "err", err)
 					}
 
