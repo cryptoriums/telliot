@@ -25,7 +25,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/private_file"
-	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/web/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -124,7 +123,7 @@ func Data(
 			return time.Unix(ts, 0).UTC().Format("15:04")
 		},
 		"psrDetails": func(id *big.Int) string {
-			return strings.Replace(tellor.Psrs[id.Int64()].Pair+"_"+tellor.Psrs[id.Int64()].Aggr, " ", "_", -1)
+			return strings.Replace(psr_tellor.Psrs[id.Int64()].Pair+"_"+psr_tellor.Psrs[id.Int64()].Aggr, " ", "_", -1)
 		},
 
 		"isInactive": func(id *big.Int) string {
@@ -136,7 +135,7 @@ func Data(
 		},
 
 		"applyGranularity": func(val *big.Int) string {
-			return fmt.Sprintf("%.6f", float64(val.Int64())/tellor.DefaultGranularity)
+			return fmt.Sprintf("%.6f", float64(val.Int64())/psr_tellor.DefaultGranularity)
 		},
 	})
 
@@ -448,6 +447,82 @@ func checkPass(client ethereum.EthClient, envFilePath string, pass string) error
 		}
 	}
 	return nil
+}
+
+func PSRs(
+	ctx context.Context,
+	logger log.Logger,
+	psr *psr_tellor.Psr,
+) http.HandlerFunc {
+	t := template.New("template")
+
+	type val struct {
+		Name  string
+		Value float64
+		Error string
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var vals []val
+		for id, meta := range psr_tellor.Psrs {
+			if psr_tellor.IsInactive(id) {
+				continue
+			}
+			v, err := psr.GetValue(id, time.Now())
+			val := val{
+				Name:  meta.Pair + "-" + meta.Aggr,
+				Value: v / psr_tellor.DefaultGranularity,
+			}
+			if err != nil {
+				val.Error = err.Error()
+			}
+			vals = append(vals, val)
+
+		}
+
+		t, err := t.Parse(`
+		<!DOCTYPE html>
+		<html lang='en'>
+		<head>
+			<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'>
+			<title>Telliot PSRS</title>
+			<style>
+				body {
+					font-family: arial;
+					position:absolute;
+				}
+				td, tr {
+					padding: 0.2em;
+					margin: 0;
+				}
+			</style>
+		</head>
+		<body>
+
+		<table>
+		{{range $index, $val := .}}
+			<tr>
+				<td>{{ $val.Name }}</td>
+				<td>{{ $val.Value }}</td>
+				<td>{{ $val.Error }}</td>
+			</tr>
+		{{end}}
+		</table>
+		</body>
+		</html>
+		`)
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("parsing html template submit logs:%v", err), http.StatusInternalServerError)
+			return
+		}
+
+		err = t.Execute(w, vals)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("executing the html template:%v", err), http.StatusInternalServerError)
+			return
+		}
+	})
 }
 
 func (self *Web) Start() error {
