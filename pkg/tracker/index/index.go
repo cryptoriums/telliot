@@ -405,8 +405,7 @@ type Manual struct {
 
 func NewManual(data string, interval time.Duration, parser Parser) *Manual {
 	return &Manual{
-		[]byte(data), parser, interval,
-	}
+		[]byte(data), parser, interval}
 }
 
 func (self *Manual) Get(ctx context.Context) (float64, float64, error) {
@@ -422,7 +421,7 @@ func (self *Manual) Get(ctx context.Context) (float64, float64, error) {
 }
 
 func (self *Manual) Interval() time.Duration {
-	return 0
+	return self.interval
 }
 
 func (self *Manual) Source() string {
