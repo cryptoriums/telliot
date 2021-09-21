@@ -254,7 +254,7 @@ func Data(
 			<form style="display:inline" id="toggleStatus" method="post">
 				<input type="hidden" id="action" name="action" value="toggleStatus" >
 				<input placeholder="EnvFile Pass" type="password" name="pass" id="pass"/>
-				<input type="submit" value="Toggle Status">
+				<input type="submit" value="Change Status">
 			</form>
 		</h2>
 		` + netWarning + `
@@ -457,6 +457,7 @@ func PSRs(
 	t := template.New("template")
 
 	type val struct {
+		ID    int64
 		Name  string
 		Value float64
 		Error string
@@ -470,6 +471,7 @@ func PSRs(
 			}
 			v, err := psr.GetValue(id, time.Now())
 			val := val{
+				ID:    id,
 				Name:  meta.Pair + "-" + meta.Aggr,
 				Value: v / psr_tellor.DefaultGranularity,
 			}
@@ -502,8 +504,9 @@ func PSRs(
 		<table>
 		{{range $index, $val := .}}
 			<tr>
-				<td>{{ $val.Name }}</td>
-				<td>{{ $val.Value }}</td>
+			<td>{{ $val.ID }}</td>
+			<td>{{ $val.Name }}</td>
+			<td>{{ $val.Value }}</td>
 				<td>{{ $val.Error }}</td>
 			</tr>
 		{{end}}
