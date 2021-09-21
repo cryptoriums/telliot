@@ -9,7 +9,6 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 )
 
@@ -72,6 +71,7 @@ var Psrs = map[int64]PsrID{
 	38: {Pair: "GNO/USD", Aggr: Median},
 	39: {Pair: "DAI/USD", Aggr: Median},
 	40: {Pair: "STEEM/BTC", Aggr: Median},
+	// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
 	41: {Pair: "USPCE", Aggr: Median},
 	42: {Pair: "BTC/USD", Aggr: MedianEOD},
 	43: {Pair: "TRB/ETH", Aggr: Median},
@@ -121,20 +121,8 @@ func (self *Psr) GetValue(reqID int64, ts time.Time) (float64, error) {
 }
 
 func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
-	val, found, err := self.aggregator.ManualValue("tellor", reqID, ts)
-	if err != nil {
-		level.Error(self.logger).Log("msg", "get manual value", "reqID", reqID, "err", err)
-	}
-	if found {
-		level.Warn(self.logger).Log("msg", "USING MANUAL VALUE", "reqID", reqID, "val", val)
-		return val, nil
-	}
-
-	// ID 41 is always manual so it sholud never get here.
-	// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
-	if reqID == 41 && val == 0 {
-		return 0, errors.New("no manual entry for request ID 41")
-	}
+	var val float64
+	var err error
 
 	if _, ok := Psrs[reqID]; !ok {
 		return 0, errors.Errorf("invalid reqID id:%v", reqID)
@@ -238,8 +226,6 @@ func IsInactive(id int64) bool {
 	case 39:
 		return true
 	case 40:
-		return true
-	case 41:
 		return true
 	case 42:
 		return true

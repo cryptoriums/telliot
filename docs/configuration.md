@@ -544,8 +544,7 @@ Flags:
 ```json
 {
 	"Aggregator": {
-		"LogLevel": "Required:false, Default:",
-		"ManualDataFile": "Required:false, Default:configs/manualData.json"
+		"LogLevel": "Required:false, Default:"
 	},
 	"Db": {
 		"LogLevel": "Required:false, Default:",
@@ -599,8 +598,7 @@ Here are the config defaults in json format:
 ```json
 {
 	"Aggregator": {
-		"LogLevel": "",
-		"ManualDataFile": "configs/manualData.json"
+		"LogLevel": ""
 	},
 	"Db": {
 		"LogLevel": "",

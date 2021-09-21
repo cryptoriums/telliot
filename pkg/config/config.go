@@ -71,9 +71,6 @@ var DefaultConfig = Config{
 	PsrTellor: psrTellor.Config{
 		MinConfidence: 80,
 	},
-	Aggregator: aggregator.Config{
-		ManualDataFile: "configs/manualData.json",
-	},
 	TrackerIndex: index.Config{
 		Interval:  format.Duration{Duration: time.Minute},
 		IndexFile: "configs/index.json",

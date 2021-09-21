@@ -28,5 +28,15 @@
                 "TimeFormat": "2006-01-02T15:04:05.999999999" // For apis that don't return time in a second timestamp can specify the time format in date iso format.
             }
         ]
+    },
+    "USPCE": {
+        "endpoints": [
+            {
+                "Type": "manual", // Can have manual entries.
+                "URL": "{\"VALUE\": 115.33970000000000,\"DATE\": 1633096800}",
+                "Value": "$.VALUE",
+                "Time": "$.DATE"
+            }
+        ]
     }
 }

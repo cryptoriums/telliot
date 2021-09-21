@@ -160,6 +160,10 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 			}
 
 			switch endpoint.Type {
+			case manual:
+				{
+					source = NewManual(endpoint.URL, api.Interval.Duration, NewParser(endpoint))
+				}
 			case httpSource:
 				{
 					source = NewJSONapi(api.Interval.Duration, endpoint.URL, NewParser(endpoint))
@@ -362,6 +366,7 @@ const (
 	httpSource     IndexType = "http"
 	bravenewcoin   IndexType = "bravenewcoin"
 	ethereumSource IndexType = "ethereum"
+	manual         IndexType = "manual"
 )
 
 // ParserType -> index parser for Api.
@@ -390,6 +395,38 @@ type Apis struct {
 	// Due to API rate limiting of the provider.
 	Interval  format.Duration
 	Endpoints []Endpoint
+}
+
+type Manual struct {
+	data []byte
+	Parser
+	interval time.Duration
+}
+
+func NewManual(data string, interval time.Duration, parser Parser) *Manual {
+	return &Manual{
+		[]byte(data), parser, interval,
+	}
+}
+
+func (self *Manual) Get(ctx context.Context) (float64, float64, error) {
+	value, err := self.Parse(self.data, paramNameValue)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing value")
+	}
+	timestamp, err := self.Parse(self.data, paramNameTs)
+	if err != nil {
+		return 0, 0, errors.Wrapf(err, "parsing timestamp")
+	}
+	return value, timestamp, err
+}
+
+func (self *Manual) Interval() time.Duration {
+	return 0
+}
+
+func (self *Manual) Source() string {
+	return "http://manual/" + string(self.data)
 }
 
 // NewJSONapiVolume are treated differently and return 0 values when the api returns the same timestamp.

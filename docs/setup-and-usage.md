@@ -14,16 +14,8 @@ The CLI support only linux and is provided as a pre-built binary with every rele
 
 ## Config files.
  - `.env` - keeps private information(private keys, api keys etc.). Most commands require some secrets and these are kept in this file as a precaution against accidental exposure. For a working setup it is required to at least add one private key in your `"ETH_PRIVATE_KEYS"` environment variable. Multiple private keys are supported separated by `,`.
- - `index.json` - all api endpoint for data providers. The cli uses these provider endpoints to gather data which is then used to submit to the onchain oracle.
- - `manualdata.json` - for providing data manually.
- For testing purposes, or if you want to hardcode in a specific value, you can use the file to add manual data for a given requestID. Add the request ID, a given value \(with granularity\), and a date on which the manual data expires.
-The following example shows request ID 4, inputting a value of 9000 with 6 digits granularity. Note the date is a unix timestamp.
-```bash
-"4":{
-    "VALUE":9000.123456,
-    "DATE":1596153600
-}
-```
+ - `index.json` - all api endpoint for data providers. The cli uses these provider endpoints to gather data which is then used to submit to the onchain oracle. For testing purposes, or if you want to hardcode in a specific value, you can use the manual index file type entry. See the example index file for the exact format.
+
  - `config.json` - optional config file to override any of the defaults. See the [configuration page](configuration.md) for full reference.
 
 
@@ -35,7 +27,6 @@ The following example shows request ID 4, inputting a value of 9000 with 6 digit
 mkdir ./configs
 cd ./configs
 wget https://raw.githubusercontent.com/cryptoriums/telliot/master/configs/index.json
-wget https://raw.githubusercontent.com/cryptoriums/telliot/master/configs/manualData.json
 wget https://raw.githubusercontent.com/cryptoriums/telliot/master/configs/.env.example
 mv .env.example .env
 cd ../

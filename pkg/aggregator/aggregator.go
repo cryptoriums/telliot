@@ -5,10 +5,7 @@ package aggregator
 
 import (
 	"context"
-	"encoding/json"
-	"io/ioutil"
 	"math"
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -30,8 +27,7 @@ type IAggregator interface {
 }
 
 type Config struct {
-	LogLevel       string
-	ManualDataFile string
+	LogLevel string
 }
 
 type Aggregator struct {
@@ -62,38 +58,6 @@ func New(
 		promqlEngine: engine,
 		cfg:          cfg,
 	}, nil
-}
-
-func (self *Aggregator) ManualValue(oracleName string, reqID int64, ts time.Time) (float64, bool, error) {
-	jsonFile, err := os.Open(self.cfg.ManualDataFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, false, nil
-		}
-		return 0, false, errors.Wrapf(err, "manual data file read Error")
-	}
-	defer jsonFile.Close()
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	var result map[string]map[string]map[string]float64
-	err = json.Unmarshal([]byte(byteValue), &result)
-	if err != nil {
-		return 0, false, errors.Wrap(err, "unmarshal manual data file")
-	}
-
-	oracleManualVals, ok := result[oracleName]
-	if !ok {
-		return 0, false, errors.Wrapf(err, "malformatted json file for oracle:%v", oracleName)
-	}
-	val := oracleManualVals[strconv.FormatInt(reqID, 10)]["VALUE"]
-	if val != 0 {
-		_timestamp := int64(oracleManualVals[strconv.FormatInt(reqID, 10)]["DATE"])
-		timestamp := time.Unix(_timestamp, 0)
-		if ts.After(timestamp) {
-			return 0, false, errors.Errorf("manual entry value has expired:%v", ts)
-		}
-		return val, true, nil
-	}
-	return 0, false, nil
 }
 
 func (self *Aggregator) MedianAt(symbol string, at time.Time) (float64, float64, error) {
