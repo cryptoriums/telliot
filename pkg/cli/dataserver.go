@@ -5,11 +5,14 @@ package cli
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"syscall"
 	"time"
 
+	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/config"
+	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/cryptoriums/telliot/pkg/web"
 	"github.com/go-kit/kit/log"
@@ -68,6 +71,13 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 
 		// Web/Api server.
 		{
+			// Aggregator.
+			aggregator, err := aggregator.New(ctx, logger, cfg.Aggregator, tsDB)
+			if err != nil {
+				return errors.Wrap(err, "creating aggregator")
+			}
+			handlers := make(map[string]http.HandlerFunc)
+			handlers["/psrs"] = web.PSRs(ctx, logger, psr_tellor.New(logger, cfg.PsrTellor, aggregator))
 			srv, err := web.New(ctx, logger, nil, tsDB, cfg.Web)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+web.ComponentName)
