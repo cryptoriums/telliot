@@ -5,7 +5,7 @@ package componentor
 
 type Componentor interface {
 	Status() bool
-	ToggleStatus()
+	ChangeStatus()
 	ID() string
 }
 
@@ -17,9 +17,9 @@ func (self *MultiComponentor) Add(componentor Componentor) {
 	self.componentors = append(self.componentors, componentor)
 }
 
-func (self *MultiComponentor) ToggleStatus() {
+func (self *MultiComponentor) ChangeStatus() {
 	for _, c := range self.componentors {
-		c.ToggleStatus()
+		c.ChangeStatus()
 	}
 }
 

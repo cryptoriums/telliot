@@ -152,7 +152,7 @@ func (self *Tellor) Transact(ctx context.Context, solution string, ids [5]*big.I
 	return nil, errors.Wrapf(finalError, "submit tx after 5 attempts")
 }
 
-func (self *Tellor) ToggleStatus() {
+func (self *Tellor) ChangeStatus() {
 	self.cfg.Transact = !self.cfg.Transact
 	level.Info(self.logger).Log("msg", "status changed", "newStatus", self.cfg.Transact)
 }

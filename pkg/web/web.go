@@ -162,8 +162,8 @@ func Data(
 					return
 				}
 				postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
-			case "toggleStatus":
-				componentor.ToggleStatus()
+			case "changeStatus":
+				componentor.ChangeStatus()
 			}
 		}
 
@@ -251,8 +251,8 @@ func Data(
 		</head>
 		<body>
 		<h2>` + componentor.ID() + ` status: ` + formatStatus(componentor.Status()) + `
-			<form style="display:inline" id="toggleStatus" method="post">
-				<input type="hidden" id="action" name="action" value="toggleStatus" >
+			<form style="display:inline" id="changeStatus" method="post">
+				<input type="hidden" id="action" name="action" value="changeStatus" >
 				<input placeholder="EnvFile Pass" type="password" name="pass" id="pass"/>
 				<input type="submit" value="Change Status">
 			</form>
