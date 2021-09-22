@@ -141,6 +141,7 @@ func (self *TrackerEvents) Start() error {
 			}
 			ctx, cncl := context.WithCancel(self.ctx)
 			self.addPending(hashFromLog(event), cncl)
+
 			go func(ctxReorg context.Context, event types.Log) {
 				waitReorg := time.NewTicker(self.reorgWaitPeriod)
 				defer waitReorg.Stop()
@@ -172,7 +173,6 @@ func (self *TrackerEvents) Start() error {
 		case err := <-subs.Err():
 			level.Error(self.logger).Log("msg", "subscription failed will try to resubscribe", "err", err)
 			src, subs = self.waitSubscribe()
-
 		}
 	}
 }
@@ -182,10 +182,10 @@ func (self *TrackerEvents) Stop() {
 }
 
 func (self *TrackerEvents) waitSubscribe() (chan types.Log, event.Subscription) {
-
 	ticker := time.NewTicker(1)
 	defer ticker.Stop()
 	var resetTicker sync.Once
+
 	for {
 		select {
 		case <-self.ctx.Done():
