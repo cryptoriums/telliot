@@ -23,7 +23,7 @@ import (
 const ComponentName = "aggregator"
 
 type IAggregator interface {
-	TimeWeightedAvg(symbol string, start time.Time, lookBack time.Duration) (float64, float64, error)
+	TimeWeightedAvg(symbol string, domain string, start time.Time, lookBack time.Duration) (float64, float64, error)
 }
 
 type Config struct {
@@ -123,6 +123,7 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 // avg(count_over_time(trackerIndex_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/trackerIndex_interval)).
 func (self *Aggregator) TimeWeightedAvg(
 	symbol string,
+	domain string,
 	start time.Time,
 	lookBack time.Duration,
 ) (float64, float64, error) {
@@ -131,11 +132,16 @@ func (self *Aggregator) TimeWeightedAvg(
 		return 0, 0, err
 	}
 
+	domainQ := ""
+	if domain != "" {
+		domainQ = `,domain="` + domain + `"`
+	}
+
 	// Avg value over the look back period.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		`avg_over_time(
-				`+index.MetricIndexValue+`{symbol="`+symbol+`"}
+				`+index.MetricIndexValue+`{symbol="`+symbol+`"`+domainQ+`}
 		[`+lookBack.String()+`:])
 		`,
 		start,
