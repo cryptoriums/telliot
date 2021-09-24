@@ -131,7 +131,7 @@ func (self *Submitter) blockUntilTimeToSubmit(newChallengeReplace context.Contex
 		nextSubmit := timeOfLastSubmit.Add(self.cfg.MinSubmitPeriod.Duration)
 		level.Info(self.logger).Log("msg", "min transaction submit threshold hasn't passed",
 			"nextSubmitTs", nextSubmit.Unix(),
-			"nextSubmit", nextSubmit,
+			"nextSubmit", nextSubmit.UTC(),
 			"minSubmitPeriod", self.cfg.MinSubmitPeriod,
 		)
 		timeToSubmit, cncl := context.WithDeadline(newChallengeReplace, nextSubmit)
