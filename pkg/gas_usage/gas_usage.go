@@ -11,7 +11,7 @@ import (
 )
 
 type GasUsageQuerier interface {
-	Query(ctx context.Context, account *ethereum.Account, slot uint64) (uint64, error)
+	Query(ctx context.Context, account *ethereum.Account, slot uint64, params ...interface{}) (uint64, error)
 	Name() string
 }
 
@@ -30,7 +30,7 @@ func (self *Default) Name() string {
 	return "default"
 }
 
-func (self *Default) Query(ctx context.Context, _ *ethereum.Account, slot uint64) (uint64, error) {
+func (self *Default) Query(ctx context.Context, _ *ethereum.Account, slot uint64, params ...interface{}) (uint64, error) {
 	switch slot {
 	case 0:
 		fallthrough
