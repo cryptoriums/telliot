@@ -133,9 +133,9 @@ func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
 	case Median:
 		val, conf, err = self.aggregator.MedianAt(Psrs[reqID].Pair, ts)
 	case TimeWeightedAvg24h:
-		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, "", ts, 24*time.Hour)
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, ts, 24*time.Hour)
 	case TimeWeightedAvg1h:
-		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, "", ts, time.Hour)
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, ts, time.Hour)
 	case MedianEOD:
 		val, conf, err = self.aggregator.MedianAtEOD(Psrs[reqID].Pair, ts)
 	case Mean:

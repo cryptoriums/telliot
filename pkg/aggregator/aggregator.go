@@ -23,7 +23,7 @@ import (
 const ComponentName = "aggregator"
 
 type IAggregator interface {
-	TimeWeightedAvg(symbol string, domain string, start time.Time, lookBack time.Duration) (float64, float64, error)
+	Min(symbol string, domain string, start time.Time, lookBack time.Duration) (float64, float64, error)
 }
 
 type Config struct {
@@ -111,7 +111,24 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 	return priceSum / float64(len(vals)), ConfidenceInDifference(min, max)
 }
 
-// TimeWeightedAvg returns price and confidence level for a given symbol.
+func (self *Aggregator) TimeWeightedAvg(
+	symbol string,
+	start time.Time,
+	lookBack time.Duration,
+) (float64, float64, error) {
+	return self.overTime("avg_over_time", "", symbol, start, lookBack)
+}
+
+func (self *Aggregator) Min(
+	symbol string,
+	domain string,
+	start time.Time,
+	lookBack time.Duration,
+) (float64, float64, error) {
+	return self.overTime("min_over_time", symbol, domain, start, lookBack)
+}
+
+// overTime runs an  aggregation function over a period of time and returns price and confidence level for a given symbol.
 // Confidence is calculated based on maximum possible samples over the actual samples for a given period.
 // avg(maxPossibleSamplesCount/actualSamplesCount)
 // For example with 1h look back and source interval of 60sec maxPossibleSamplesCount = 36
@@ -121,26 +138,21 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 // Example for 1h.
 // maxDataPointCount is calculated by deviding the seconds in 1h by how often the tracker queries the APIs.
 // avg(count_over_time(trackerIndex_value{symbol="AMPL_USD"}[1h]) / (3.6e+12/trackerIndex_interval)).
-func (self *Aggregator) TimeWeightedAvg(
+func (self *Aggregator) overTime(
+	funcName string,
 	symbol string,
 	domain string,
 	start time.Time,
 	lookBack time.Duration,
 ) (float64, float64, error) {
-	resolution, err := self.resolution(symbol, start)
-	if err != nil {
-		return 0, 0, err
-	}
-
 	domainQ := ""
 	if domain != "" {
 		domainQ = `,domain="` + domain + `"`
 	}
-
 	// Avg value over the look back period.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`avg_over_time(
+		funcName+`(
 				`+index.MetricIndexValue+`{symbol="`+symbol+`"`+domainQ+`}
 		[`+lookBack.String()+`:])
 		`,
@@ -156,6 +168,11 @@ func (self *Aggregator) TimeWeightedAvg(
 	}
 	if len(vals.Value.(promql.Vector)) == 0 {
 		return 0, 0, errors.Errorf("no result for TWAP vals query:%v", query.Statement())
+	}
+
+	resolution, err := self.resolution(symbol, start)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	// Confidence level.
