@@ -382,7 +382,7 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 	// Confidence level.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`sum(count_over_time(`+index.MetricIndexValue+`{ symbol="`+symbol+`" }[`+lookBack.String()+`]))`,
+		`count(`+index.MetricIndexValue+`{ symbol="`+symbol+`" })`,
 		at,
 	)
 	if err != nil {
