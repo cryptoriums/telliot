@@ -338,7 +338,7 @@ func (self *TrackerIndex) recordValue(symbol string, dataSource DataSource) erro
 	// as some exchanges don't process many orders
 	// and don't update the price so often.
 	// Still a good failsafe to not use data that is hours or days old.
-	if timeFromNow > 4*dataSource.Interval() {
+	if timeFromNow > 10*dataSource.Interval() {
 		return errors.Errorf("data source returned old data timeFromNow:%v, dataSource interval:%v", timeFromNow, dataSource.Interval())
 	}
 
