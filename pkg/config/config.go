@@ -71,6 +71,9 @@ var DefaultConfig = Config{
 	},
 	PsrTellor: psrTellor.Config{
 		MinConfidenceDefault: 80,
+		MinConfidencePerSymbol: map[string]float64{
+			"41": 100,
+		},
 	},
 	TrackerIndex: index.Config{
 		Interval:  format.Duration{Duration: time.Minute},
