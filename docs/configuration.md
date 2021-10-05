@@ -561,7 +561,7 @@ Flags:
 	},
 	"PsrTellor": {
 		"MinConfidenceDefault": "Required:false, Default:80",
-		"MinConfidencePerSymbol": "Required:false, Default:map[]"
+		"MinConfidencePerSymbol": "Required:false, Default:map[41:100]"
 	},
 	"SubmitterTellor": {
 		"LogLevel": "Required:false, Default:",
@@ -614,7 +614,9 @@ Here are the config defaults in json format:
 	},
 	"PsrTellor": {
 		"MinConfidenceDefault": 80,
-		"MinConfidencePerSymbol": null
+		"MinConfidencePerSymbol": {
+			"41": 100
+		}
 	},
 	"SubmitterTellor": {
 		"LogLevel": "",
