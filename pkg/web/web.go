@@ -175,7 +175,7 @@ func Data(
 				return
 			}
 		}
-		ctx, cncl := context.WithTimeout(ctx, time.Minute)
+		ctx, cncl := context.WithTimeout(ctx, 5*time.Minute)
 		defer cncl()
 		submits, err := contracts.GetSubmitLogs(
 			ctx,
