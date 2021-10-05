@@ -5,6 +5,7 @@ package tellor
 
 import (
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
@@ -102,7 +103,8 @@ func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr 
 }
 
 type Config struct {
-	MinConfidence float64
+	MinConfidenceDefault   float64
+	MinConfidencePerSymbol map[string]float64
 }
 
 type Psr struct {
@@ -111,8 +113,8 @@ type Psr struct {
 	cfg        Config
 }
 
-func (self *Psr) ConfidenceThreshold() float64 {
-	return self.cfg.MinConfidence
+func (self *Psr) ConfidenceThreshold(id int64) float64 {
+	return self.cfg.MinConfidencePerSymbol[strconv.Itoa(int(id))]
 }
 
 func (self *Psr) GetValue(reqID int64, ts time.Time) (float64, error) {
@@ -146,8 +148,12 @@ func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
 		return 0, err
 	}
 
-	if conf < self.cfg.MinConfidence {
-		return 0, errors.Errorf("not enough confidence based on the aggregator calculations - value:%v, conf:%v,confidence threshold:%v", val, conf, self.cfg.MinConfidence)
+	if confS, ok := self.cfg.MinConfidencePerSymbol[strconv.Itoa(int(reqID))]; ok {
+		if conf < confS {
+			return 0, errors.Errorf("not enough confidence based on the aggregator calculations - reqID:%v, value:%v, conf:%v,symbol confidence threshold:%v", reqID, val, conf, self.cfg.MinConfidencePerSymbol[strconv.Itoa(int(reqID))])
+		}
+	} else if conf < self.cfg.MinConfidenceDefault {
+		return 0, errors.Errorf("not enough confidence based on the aggregator calculations - reqID:%v, value:%v, conf:%v,default confidence threshold:%v", reqID, val, conf, self.cfg.MinConfidenceDefault)
 	}
 
 	return val, err

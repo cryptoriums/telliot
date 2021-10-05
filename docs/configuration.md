@@ -560,7 +560,8 @@ Flags:
 		"LogLevel": "Required:false, Default:"
 	},
 	"PsrTellor": {
-		"MinConfidence": "Required:false, Default:80"
+		"MinConfidenceDefault": "Required:false, Default:80",
+		"MinConfidencePerSymbol": "Required:false, Default:map[]"
 	},
 	"SubmitterTellor": {
 		"LogLevel": "Required:false, Default:",
@@ -612,7 +613,8 @@ Here are the config defaults in json format:
 		"LogLevel": ""
 	},
 	"PsrTellor": {
-		"MinConfidence": 80
+		"MinConfidenceDefault": 80,
+		"MinConfidencePerSymbol": null
 	},
 	"SubmitterTellor": {
 		"LogLevel": "",

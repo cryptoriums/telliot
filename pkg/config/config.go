@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ var DefaultConfig = Config{
 		MinSubmitPeriod: format.Duration{Duration: 15*time.Minute + 30*time.Second},
 	},
 	PsrTellor: psrTellor.Config{
-		MinConfidence: 80,
+		MinConfidenceDefault: 80,
 	},
 	TrackerIndex: index.Config{
 		Interval:  format.Duration{Duration: time.Minute},
@@ -84,11 +85,28 @@ func LoadConfig(ctx context.Context, logger log.Logger, path string, strictParsi
 		return nil, errors.Wrap(err, "creating config")
 	}
 
+	if err := Validate(cfg); err != nil {
+		return nil, errors.Wrap(err, "validate config")
+	}
+
 	err = LoadEnvFile(ctx, logger, cfg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "loading the enf file:%v", cfg.EnvFile)
 	}
 	return cfg, nil
+}
+
+func Validate(cfg *Config) error {
+	for id := range cfg.PsrTellor.MinConfidencePerSymbol {
+		idI, err := strconv.Atoi(id)
+		if err != nil {
+			return errors.Wrapf(err, "parsing json PSR id:%v", id)
+		}
+		if _, exists := psrTellor.Psrs[int64(idI)]; !exists {
+			return errors.Errorf("confidence level for invalid PSR id:%v", id)
+		}
+	}
+	return nil
 }
 
 func Parse(logger log.Logger, path string, strictParsing bool) (*Config, error) {
