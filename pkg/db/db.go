@@ -94,7 +94,7 @@ func NewPromqlEngineOpts(logger log.Logger) promql.EngineOpts {
 	return promql.EngineOpts{
 		Logger:                   logger,
 		Reg:                      nil,
-		MaxSamples:               30000,
+		MaxSamples:               1000000,
 		Timeout:                  10 * time.Second,
 		LookbackDelta:            5 * time.Minute,
 		EnableAtModifier:         true,
