@@ -10,7 +10,7 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/private_file"
 	"github.com/cryptoriums/telliot/pkg/prompt"
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 )
 

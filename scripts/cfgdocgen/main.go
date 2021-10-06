@@ -19,8 +19,8 @@ import (
 	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 )
 

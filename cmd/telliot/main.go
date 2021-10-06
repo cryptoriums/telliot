@@ -12,8 +12,8 @@ import (
 	"github.com/cryptoriums/telliot/pkg/cli"
 	"github.com/cryptoriums/telliot/pkg/github"
 	"github.com/cryptoriums/telliot/pkg/logging"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
 var GitTag string

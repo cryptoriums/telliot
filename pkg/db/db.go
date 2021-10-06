@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	promConfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"

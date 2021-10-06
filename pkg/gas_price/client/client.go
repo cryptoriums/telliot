@@ -10,7 +10,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/gas_price"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 )
 
 const ComponentName = "gasPriceClient"

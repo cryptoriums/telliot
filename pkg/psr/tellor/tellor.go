@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 )
 
