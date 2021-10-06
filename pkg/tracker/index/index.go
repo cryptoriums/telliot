@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -333,13 +334,13 @@ func (self *TrackerIndex) recordValue(symbol string, dataSource DataSource) erro
 
 	// When value is older then the interval can skip it
 	// as it makes sense to add only recent data.
-	timeFromNow := time.Since(time.Unix(int64(timestamp), 0))
+	valueAge := time.Since(time.Unix(int64(timestamp), 0))
 	// Few times the data source interval
 	// as some exchanges don't process many orders
 	// and don't update the price so often.
 	// Still a good failsafe to not use data that is hours or days old.
-	if timeFromNow > 10*dataSource.Interval() {
-		return errors.Errorf("data source returned old data timeFromNow:%v, dataSource interval:%v", timeFromNow, dataSource.Interval())
+	if float64(valueAge) > math.Max(float64(10*time.Minute), float64(10*dataSource.Interval())) {
+		return errors.Errorf("data source returned old data valueAge:%v, dataSource interval:%v", valueAge, dataSource.Interval())
 	}
 
 	lbls := labels.Labels{
