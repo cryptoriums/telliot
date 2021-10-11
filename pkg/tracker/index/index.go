@@ -28,6 +28,8 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/itchyny/gojq"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/tsdb"
 	"github.com/yalp/jsonpath"
@@ -36,9 +38,10 @@ import (
 const (
 	ComponentName = "trackerIndex"
 
-	MetricIndexValue = ComponentName + "_value"
-	MetricInterval   = ComponentName + "_interval"
-	MetricRecCount   = ComponentName + "_requests_total"
+	MetricIndexValue       = ComponentName + "_" + MetricIndexValueSuffix
+	MetricIndexValueSuffix = "value"
+	MetricInterval         = ComponentName + "_interval"
+	MetricRecCount         = ComponentName + "_requests_total"
 
 	paramNameValue = "value"
 	paramNameTs    = "timestamp"
@@ -76,6 +79,8 @@ type TrackerIndex struct {
 	mtx              sync.Mutex
 	requestCount     map[string]float64
 	requestCountErrs map[string]float64
+
+	values *prometheus.GaugeVec
 }
 
 func New(
@@ -105,6 +110,14 @@ func New(
 		cfg:              cfg,
 		requestCount:     make(map[string]float64),
 		requestCountErrs: make(map[string]float64),
+		values: promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      MetricIndexValueSuffix,
+			Help:      "Values by source and symbol",
+		},
+			[]string{"source", "domain", "symbol"},
+		),
 	}, nil
 }
 
@@ -342,6 +355,8 @@ func (self *TrackerIndex) recordValue(symbol string, dataSource DataSource) erro
 	if float64(valueAge) > math.Max(float64(10*time.Minute), float64(10*dataSource.Interval())) {
 		return errors.Errorf("data source returned old data valueAge:%v, dataSource interval:%v", valueAge, dataSource.Interval())
 	}
+
+	self.values.WithLabelValues(dataSource.Source(), source.Host, symbol).Set(value)
 
 	lbls := labels.Labels{
 		labels.Label{Name: "__name__", Value: MetricIndexValue},
