@@ -572,6 +572,9 @@ Flags:
 	"Tasker": {
 		"LogLevel": "Required:false, Default:"
 	},
+	"TrackerBlocks": {
+		"LogLevel": "Required:false, Default:"
+	},
 	"TrackerIndex": {
 		"IndexFile": "Required:false, Default:configs/index.json",
 		"Interval": {
@@ -623,6 +626,9 @@ Here are the config defaults in json format:
 		"MinSubmitPeriod": "15m30s"
 	},
 	"Tasker": {
+		"LogLevel": ""
+	},
+	"TrackerBlocks": {
 		"LogLevel": ""
 	},
 	"TrackerIndex": {
