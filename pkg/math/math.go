@@ -31,6 +31,11 @@ func PercentageDiff(old, new float64) float64 {
 
 }
 
+func BigIntToFloat(input *big.Int) float64 {
+	fl, _ := big.NewFloat(0).SetInt(input).Float64()
+	return fl
+}
+
 func BigIntToFloatDiv(input *big.Int, devider float64) float64 {
 	if devider == 1 {
 		fl, _ := big.NewFloat(0).SetInt(input).Float64()
