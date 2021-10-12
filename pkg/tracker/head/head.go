@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
-	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
@@ -35,7 +35,7 @@ type TrackerHead struct {
 	logger      log.Logger
 	ctx         context.Context
 	stop        context.CancelFunc
-	client      ethereum.EthClient
+	client      ethereum.ChainReader
 	mtx         sync.Mutex
 	cacheHeadTX gcache.Cache
 	dstChan     chan *types.Block
@@ -47,7 +47,7 @@ type TrackerHead struct {
 func New(
 	ctx context.Context,
 	logger log.Logger,
-	client ethereum.EthClient,
+	client ethereum.ChainReader,
 	reorgWaitPeriod time.Duration,
 ) (*TrackerHead, chan *types.Block, error) {
 	logger, err := logging.ApplyFilter("info", logger)
@@ -67,7 +67,7 @@ func New(
 		reorgWaitPeriod:  reorgWaitPeriod,
 		reorgWaitPending: make(map[string]context.CancelFunc),
 		// To be on the safe side create the cache few times bigger then the expected block count during the reorg wait.
-		cacheHeadTX: gcache.New(int(math.Max(50, 3*ethereumT.BlocksPerSecond*reorgWaitPeriod.Seconds()))).LRU().Build(),
+		cacheHeadTX: gcache.New(int(math.Max(50, 3*ethereum_t.BlocksPerSecond*reorgWaitPeriod.Seconds()))).LRU().Build(),
 	}, dstChan, nil
 }
 func (self *TrackerHead) Start() error {
