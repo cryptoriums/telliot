@@ -23,6 +23,7 @@ import (
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/submitter/tellor"
 	"github.com/cryptoriums/telliot/pkg/tasker"
+	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	transactorTellor "github.com/cryptoriums/telliot/pkg/transactor/tellor"
 	"github.com/cryptoriums/telliot/pkg/web"
@@ -41,6 +42,7 @@ type Config struct {
 	Tasker           tasker.Config
 	TransactorTellor transactorTellor.Config
 	TrackerIndex     index.Config
+	TrackerBlocks    blocks.Config
 	Aggregator       aggregator.Config
 	PsrTellor        psrTellor.Config
 	Db               db.Config

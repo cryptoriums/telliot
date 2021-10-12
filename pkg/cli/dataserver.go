@@ -12,7 +12,9 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/config"
+	"github.com/cryptoriums/telliot/pkg/contracts"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
+	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/cryptoriums/telliot/pkg/web"
 	"github.com/go-kit/log"
@@ -67,6 +69,24 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			return err
 		}, func(error) {
 			trackerIndex.Stop()
+		})
+
+		cfg, client, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+		if err != nil {
+			return err
+		}
+
+		trackerBlocks, err := blocks.New(ctx, logger, cfg.TrackerBlocks, tsDB, client)
+		if err != nil {
+			return errors.Wrap(err, "creating com:"+blocks.ComponentName)
+		}
+
+		g.Add(func() error {
+			trackerBlocks.Start()
+			level.Info(logger).Log("msg", "shutdown complete", "component", blocks.ComponentName)
+			return err
+		}, func(error) {
+			trackerBlocks.Stop()
 		})
 
 		// Web/Api server.
