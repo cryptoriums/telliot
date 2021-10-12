@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	ComponentName          = "trackerGasPrice"
+	ComponentName          = "trackerBlocks"
 	MetricBlockTime        = ComponentName + "_block_time"
 	MetricBlockNum         = ComponentName + "_block_num"
 	MetricBlockGasPriceAvg = ComponentName + "_block_gas_price_avg"

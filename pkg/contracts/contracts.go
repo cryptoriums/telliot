@@ -589,7 +589,7 @@ func CreateTellorTx(
 	if overwritePending {
 		nonce, err = client.NonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey), nil)
 		if err != nil {
-			return nil, "", errors.Wrap(err, "getting pending nonce")
+			return nil, "", errors.Wrap(err, "getting last nonce")
 		}
 	} else {
 		nonce, err = client.PendingNonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey))
