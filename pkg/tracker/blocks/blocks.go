@@ -115,8 +115,8 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 
 	var blokTxsPriceTotal float64
 	defer func() {
-		self.record(ctx, logger, MetricBlockNum, float64(block.Time()))
-		self.record(ctx, logger, MetricBlockTime, float64(block.Number().Int64()))
+		self.record(ctx, logger, MetricBlockTime, float64(block.Time()))
+		self.record(ctx, logger, MetricBlockNum, float64(block.Number().Int64()))
 		self.record(ctx, logger, MetricBlockGasPriceAvg, blokTxsPriceTotal/float64(len(block.Transactions())))
 	}()
 
