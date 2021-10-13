@@ -114,12 +114,6 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 	defer cncl()
 
 	var blokTxsPriceTotal float64
-	defer func() {
-		self.record(ctx, logger, MetricBlockTime, float64(block.Time()))
-		self.record(ctx, logger, MetricBlockNum, float64(block.Number().Int64()))
-		self.record(ctx, logger, MetricBlockGasPriceAvg, blokTxsPriceTotal/float64(len(block.Transactions())))
-	}()
-
 	for _, tx := range block.Transactions() {
 		txFee := math.BigIntToFloat(block.BaseFee()) + math.BigIntToFloat(tx.GasTipCap())
 		maxAllowed := math.BigIntToFloat(tx.GasFeeCap())
@@ -127,6 +121,17 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 			txFee = maxAllowed
 		}
 		blokTxsPriceTotal += txFee
+	}
+
+	if len(block.Transactions()) > 0 { // Some testnets have blocks without TXs.
+		blockGasAvg := blokTxsPriceTotal / float64(len(block.Transactions()))
+		level.Debug(logger).Log("msg", "adding",
+			"blockTs", block.Time(),
+			"blockGasAvg", blockGasAvg,
+		)
+		self.record(ctx, logger, MetricBlockTime, float64(block.Time()))
+		self.record(ctx, logger, MetricBlockNum, float64(block.Number().Int64()))
+		self.record(ctx, logger, MetricBlockGasPriceAvg, blockGasAvg)
 	}
 }
 
