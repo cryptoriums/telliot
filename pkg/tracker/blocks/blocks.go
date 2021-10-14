@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/db"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
+	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/ethereum/go-ethereum"
+
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/tracker/head"
@@ -36,7 +38,6 @@ type TrackerBlocks struct {
 	ctx    context.Context
 	stop   context.CancelFunc
 	cfg    Config
-	client ethereum.EthClient
 	tsDB   *tsdb.DB
 
 	headTracker *head.TrackerHead
@@ -48,7 +49,7 @@ func New(
 	logger log.Logger,
 	cfg Config,
 	tsDB *tsdb.DB,
-	client ethereum.EthClient,
+	client ethereum.ChainReader,
 ) (*TrackerBlocks, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
@@ -60,7 +61,7 @@ func New(
 		ctx,
 		logger,
 		client,
-		ethereum.ReorgEventWait,
+		ethereum_t.ReorgEventWait,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating head tracker")
@@ -69,7 +70,6 @@ func New(
 	ctx, stop := context.WithCancel(ctx)
 
 	return &TrackerBlocks{
-		client:      client,
 		cfg:         cfg,
 		ctx:         ctx,
 		stop:        stop,
@@ -94,14 +94,12 @@ func (self *TrackerBlocks) Start() {
 }
 
 func (self *TrackerBlocks) monitorHead() {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-self.ctx.Done():
 			return
 		case block := <-self.headBlocks:
+			time.Sleep(time.Second)
 			self.processBlock(block)
 		}
 	}
@@ -109,7 +107,6 @@ func (self *TrackerBlocks) monitorHead() {
 
 func (self *TrackerBlocks) processBlock(block *types.Block) {
 	logger := log.With(self.logger, "block", block.Number().Int64())
-	level.Debug(logger).Log("msg", "new block", "time", time.Unix(int64(block.Time()), 0).UTC())
 	ctx, cncl := context.WithTimeout(self.ctx, time.Minute)
 	defer cncl()
 
@@ -125,13 +122,14 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 
 	if len(block.Transactions()) > 0 { // Some testnets have blocks without TXs.
 		blockGasAvg := blokTxsPriceTotal / float64(len(block.Transactions()))
-		level.Debug(logger).Log("msg", "adding",
-			"blockTs", block.Time(),
-			"blockGasAvg", blockGasAvg,
-		)
 		self.record(ctx, logger, MetricBlockTime, float64(block.Time()))
 		self.record(ctx, logger, MetricBlockNum, float64(block.Number().Int64()))
 		self.record(ctx, logger, MetricBlockGasPriceAvg, blockGasAvg)
+		level.Debug(logger).Log("msg", "added block details",
+			"blockTs", block.Time(),
+			"txCount", len(block.Transactions()),
+			"blockGasAvg", blockGasAvg,
+		)
 	}
 }
 
