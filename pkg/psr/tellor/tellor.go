@@ -30,6 +30,7 @@ const (
 	Mean                 = "Mean"
 	TimeWeightedAvg1h    = "TWAP 1h"
 	TimeWeightedAvg24h   = "TWAP 24h"
+	Week                 = 168 * time.Hour
 	TimeWeightedAvg7Days = "TWAP 1w"
 )
 
@@ -96,7 +97,7 @@ var Psrs = map[int64]PsrID{
 	57: {Pair: "DEFITVL", Aggr: Median},
 	58: {Pair: "DEFIMCAP", Aggr: Mean},
 	59: {Pair: "ETH/JPY", Aggr: Median},
-	60: {Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[10m]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset 10m)`},
+	60: {Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[` + Week.String() + `]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset ` + Week.String() + `)`},
 }
 
 func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr {
@@ -144,7 +145,7 @@ func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
 	case TimeWeightedAvg1h:
 		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, Psrs[reqID].ConfidenceQuery, ts, time.Hour)
 	case TimeWeightedAvg7Days:
-		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, Psrs[reqID].ConfidenceQuery, ts, 10*time.Minute)
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, Psrs[reqID].ConfidenceQuery, ts, Week)
 	case MedianEOD:
 		val, conf, err = self.aggregator.MedianAtEOD(Psrs[reqID].Pair, ts)
 	case Mean:
