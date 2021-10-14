@@ -9,24 +9,28 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
+	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
+	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 )
 
 type PsrID struct {
-	Pair string
-	Aggr string
+	Pair            string
+	Aggr            string
+	ConfidenceQuery string
 }
 
 const (
 	ComponentName      = "psrTellor"
 	DefaultGranularity = 1000000
 
-	Median             = "Median"
-	MedianEOD          = "Median EOD"
-	Mean               = "Mean"
-	TimeWeightedAvg1h  = "TWAP 1h"
-	TimeWeightedAvg24h = "TWAP 24h"
+	Median               = "Median"
+	MedianEOD            = "Median EOD"
+	Mean                 = "Mean"
+	TimeWeightedAvg1h    = "TWAP 1h"
+	TimeWeightedAvg24h   = "TWAP 24h"
+	TimeWeightedAvg7Days = "TWAP 1w"
 )
 
 var Psrs = map[int64]PsrID{
@@ -92,6 +96,7 @@ var Psrs = map[int64]PsrID{
 	57: {Pair: "DEFITVL", Aggr: Median},
 	58: {Pair: "DEFIMCAP", Aggr: Mean},
 	59: {Pair: "ETH/JPY", Aggr: Median},
+	60: {Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[10m]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset 10m)`},
 }
 
 func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr {
@@ -135,9 +140,11 @@ func (self *Psr) getValue(reqID int64, ts time.Time) (float64, error) {
 	case Median:
 		val, conf, err = self.aggregator.MedianAt(Psrs[reqID].Pair, ts)
 	case TimeWeightedAvg24h:
-		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, ts, 24*time.Hour)
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, Psrs[reqID].ConfidenceQuery, ts, 24*time.Hour)
 	case TimeWeightedAvg1h:
-		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, ts, time.Hour)
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, Psrs[reqID].ConfidenceQuery, ts, time.Hour)
+	case TimeWeightedAvg7Days:
+		val, conf, err = self.aggregator.TimeWeightedAvg(Psrs[reqID].Pair, Psrs[reqID].ConfidenceQuery, ts, 10*time.Minute)
 	case MedianEOD:
 		val, conf, err = self.aggregator.MedianAtEOD(Psrs[reqID].Pair, ts)
 	case Mean:

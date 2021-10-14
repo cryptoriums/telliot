@@ -113,10 +113,11 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 
 func (self *Aggregator) TimeWeightedAvg(
 	symbol string,
+	confidenceQuery string,
 	start time.Time,
 	lookBack time.Duration,
 ) (float64, float64, error) {
-	return self.overTime("avg_over_time", "", symbol, start, lookBack)
+	return self.overTime("avg_over_time", symbol, "", confidenceQuery, start, lookBack)
 }
 
 func (self *Aggregator) Min(
@@ -125,7 +126,7 @@ func (self *Aggregator) Min(
 	start time.Time,
 	lookBack time.Duration,
 ) (float64, float64, error) {
-	return self.overTime("min_over_time", symbol, domain, start, lookBack)
+	return self.overTime("min_over_time", symbol, domain, "", start, lookBack)
 }
 
 // overTime runs an  aggregation function over a period of time and returns price and confidence level for a given symbol.
@@ -142,15 +143,49 @@ func (self *Aggregator) overTime(
 	funcName string,
 	symbol string,
 	domain string,
+	confidenceQuery string,
 	start time.Time,
 	lookBack time.Duration,
 ) (float64, float64, error) {
+	// Confidence level.
+	if confidenceQuery == "" {
+		resolution, err := self.resolution(symbol, start)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		confidenceQuery = `avg(
+			count_over_time(
+				` + index.MetricIndexValue + `{ symbol="` + symbol + `" }
+			[` + lookBack.String() + `:` + resolution.String() + `])
+			/
+			(` + strconv.Itoa(int(lookBack.Nanoseconds())) + ` / ` + strconv.Itoa(int(resolution.Nanoseconds())) + `)
+		)`
+	}
+	query, err := self.promqlEngine.NewInstantQuery(
+		self.tsDB,
+		confidenceQuery,
+		start,
+	)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "creating query")
+	}
+	defer query.Close()
+	_confidence := query.Exec(self.ctx)
+	if _confidence.Err != nil {
+		return 0, 0, errors.Wrapf(_confidence.Err, "evaluating query:%v", query.Statement())
+	}
+	if len(_confidence.Value.(promql.Vector)) == 0 {
+		return 0, 0, errors.Errorf("no result for TWAP confidence query:%v", query.Statement())
+	}
+	confidence := _confidence.Value.(promql.Vector)[0].V * 100
+
 	domainQ := ""
 	if domain != "" {
 		domainQ = `,domain="` + domain + `"`
 	}
 	// Avg value over the look back period.
-	query, err := self.promqlEngine.NewInstantQuery(
+	query, err = self.promqlEngine.NewInstantQuery(
 		self.tsDB,
 		funcName+`(
 				`+index.MetricIndexValue+`{symbol="`+symbol+`"`+domainQ+`}
@@ -169,37 +204,6 @@ func (self *Aggregator) overTime(
 	if len(vals.Value.(promql.Vector)) == 0 {
 		return 0, 0, errors.Errorf("no result for TWAP vals query:%v", query.Statement())
 	}
-
-	resolution, err := self.resolution(symbol, start)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	// Confidence level.
-	query, err = self.promqlEngine.NewInstantQuery(
-		self.tsDB,
-		`avg(
-			count_over_time(
-				`+index.MetricIndexValue+`{ symbol="`+symbol+`" }
-			[`+lookBack.String()+`:`+resolution.String()+`])
-			/
-			(`+strconv.Itoa(int(lookBack.Nanoseconds()))+` / `+strconv.Itoa(int(resolution.Nanoseconds()))+`)
-		)`,
-		start,
-	)
-
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "creating query")
-	}
-	defer query.Close()
-	_confidence := query.Exec(self.ctx)
-	if _confidence.Err != nil {
-		return 0, 0, errors.Wrapf(_confidence.Err, "evaluating query:%v", query.Statement())
-	}
-	if len(_confidence.Value.(promql.Vector)) == 0 {
-		return 0, 0, errors.Errorf("no result for TWAP confidence query:%v", query.Statement())
-	}
-	confidence := _confidence.Value.(promql.Vector)[0].V * 100
 
 	var prices []float64
 	for _, price := range vals.Value.(promql.Vector) {

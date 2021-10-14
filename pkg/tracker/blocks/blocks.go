@@ -14,6 +14,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/tracker/head"
+	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -23,10 +24,9 @@ import (
 )
 
 const (
-	ComponentName          = "trackerBlocks"
-	MetricBlockTime        = ComponentName + "_block_time"
-	MetricBlockNum         = ComponentName + "_block_num"
-	MetricBlockGasPriceAvg = ComponentName + "_block_gas_price_avg"
+	ComponentName                = "trackerBlocks"
+	MetricSymbolBlockNum         = "BLOCK_NUM"
+	MetricSymbolBlockGasPriceAvg = "BLOCK_GAS_PRICE_AVG"
 )
 
 type Config struct {
@@ -121,10 +121,9 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 	}
 
 	if len(block.Transactions()) > 0 { // Some testnets have blocks without TXs.
-		blockGasAvg := blokTxsPriceTotal / float64(len(block.Transactions()))
-		self.record(ctx, logger, MetricBlockTime, float64(block.Time()))
-		self.record(ctx, logger, MetricBlockNum, float64(block.Number().Int64()))
-		self.record(ctx, logger, MetricBlockGasPriceAvg, blockGasAvg)
+		blockGasAvg := blokTxsPriceTotal / float64(len(block.Transactions())) / 1e9 // Record the value in GWEI.
+		self.record(ctx, logger, MetricSymbolBlockNum, float64(block.Number().Int64()))
+		self.record(ctx, logger, MetricSymbolBlockGasPriceAvg, blockGasAvg)
 		level.Debug(logger).Log("msg", "added block details",
 			"blockTs", block.Time(),
 			"txCount", len(block.Transactions()),
@@ -133,9 +132,10 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 	}
 }
 
-func (self *TrackerBlocks) record(ctx context.Context, logger log.Logger, name string, v float64) {
+func (self *TrackerBlocks) record(ctx context.Context, logger log.Logger, symbol string, v float64) {
 	lbls := labels.Labels{
-		labels.Label{Name: "__name__", Value: name},
+		labels.Label{Name: "__name__", Value: index.MetricIndexValue},
+		labels.Label{Name: "symbol", Value: symbol},
 	}
 	err := db.Add(ctx, self.tsDB, lbls, v)
 	if err != nil {
