@@ -479,8 +479,11 @@ func PSRs(
 				val.Error = err.Error()
 			}
 			vals = append(vals, val)
-
 		}
+
+		sort.Slice(vals, func(i, j int) bool {
+			return vals[i].ID < vals[j].ID
+		})
 
 		t, err := t.Parse(`
 		<!DOCTYPE html>
