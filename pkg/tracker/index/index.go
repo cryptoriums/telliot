@@ -161,6 +161,10 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 				api.Interval = cfg.Interval
 			}
 
+			if api.Interval.Duration > db.DbLookback {
+				return nil, errors.Errorf("index interval:%v for symbol:%v can't be lower than the default DB look back of:%v, this will cause look up errors", api.Interval.Duration, symbol, db.DbLookback)
+			}
+
 			// Fail early when the url has env that is not set.
 			url := helpers.ExpandTimeVars(endpoint.URL)
 			os.Expand(url, func(key string) string {

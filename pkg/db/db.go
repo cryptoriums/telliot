@@ -26,6 +26,7 @@ import (
 )
 
 const ComponentName = "db"
+const DbLookback = 6 * time.Minute
 
 type Config struct {
 	LogLevel string
@@ -96,7 +97,7 @@ func NewPromqlEngineOpts(logger log.Logger) promql.EngineOpts {
 		Reg:                      nil,
 		MaxSamples:               1000000,
 		Timeout:                  10 * time.Second,
-		LookbackDelta:            5 * time.Minute,
+		LookbackDelta:            DbLookback,
 		EnableAtModifier:         true,
 		EnableNegativeOffset:     true,
 		NoStepSubqueryIntervalFn: noStepSubqueryInterval.Get,
