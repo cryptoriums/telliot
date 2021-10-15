@@ -383,10 +383,19 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 		prices = append(prices, price.V)
 	}
 
+	// Also add an avg price as if there is too much deviation this means that something is wrong
+	//  and the values difference will trigger lower confidence.
+	avg, _, err := self.TimeWeightedAvg(symbol, "", at, time.Hour)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getting avg for calculating the conf")
+	}
+	prices = append(prices, avg)
+
 	// Confidence level.
+	// Max available endpoint/ currently available endpoints.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`count(`+index.MetricIndexValue+`{ symbol="`+symbol+`" })`,
+		`100 * (count(`+index.MetricIndexValue+`{symbol="`+symbol+`"} )/ max_over_time(count(`+index.MetricInterval+`{symbol="`+symbol+`"})[3h:]))`,
 		at,
 	)
 	if err != nil {
@@ -401,12 +410,7 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 		return nil, 0, errors.Errorf("no vals for confidence at:%v, query:%v", at, query.Statement())
 	}
 
-	var confidenceL = float64(50)
-	if confidence.Value.(promql.Vector)[0].V > 1 {
-		confidenceL = 100
-	}
-
-	return prices, confidenceL, nil
+	return prices, confidence.Value.(promql.Vector)[0].V, nil
 }
 
 // valsAt returns all vals from all indexes at a given time.
