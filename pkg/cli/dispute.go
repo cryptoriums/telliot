@@ -117,7 +117,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 	if err != nil {
 		return errors.Wrap(err, "send dispute txn")
 	}
-	level.Info(logger).Log("msg", "dispute started",
+	level.Info(logger).Log("msg", "dispute tx created",
 		"dataID", self.DataID,
 		"ts", self.Timestamp,
 		"slot", self.Slot,
