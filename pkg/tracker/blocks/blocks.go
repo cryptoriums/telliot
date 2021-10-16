@@ -30,6 +30,7 @@ const (
 	MetricSymbolBlockNum         = "BLOCK_NUM"
 	MetricSymbolBlockGasPriceAvg = "BLOCK_GAS_PRICE_AVG"
 	MetricSymbolBlockBaseFee     = "BLOCK_BASE_FEE"
+	MetricSymbolBlockTip         = "BLOCK_TIP_AVG"
 )
 
 type Config struct {
@@ -113,23 +114,36 @@ func (self *TrackerBlocks) processBlock(block *types.Block) {
 	ctx, cncl := context.WithTimeout(self.ctx, time.Minute)
 	defer cncl()
 
-	var blokTxsPriceTotal float64
+	var blockTxsPriceTotal float64
+	var blokTxsTipTotal float64
 	for _, tx := range block.Transactions() {
-		txFee := math.BigIntToFloat(block.BaseFee()) + math.BigIntToFloat(tx.GasTipCap())
+		fee := math.BigIntToFloat(block.BaseFee()) + math.BigIntToFloat(tx.GasTipCap())
+		tip := math.BigIntToFloat(tx.GasTipCap())
+
 		maxAllowed := math.BigIntToFloat(tx.GasFeeCap())
-		if txFee > maxAllowed {
-			txFee = maxAllowed
+		maxAllowedTip := maxAllowed - math.BigIntToFloat(block.BaseFee())
+
+		if fee > maxAllowed {
+			fee = maxAllowed
 		}
-		blokTxsPriceTotal += txFee
+		if tip > maxAllowedTip {
+			tip = maxAllowedTip
+		}
+
+		blockTxsPriceTotal += fee
+		blokTxsTipTotal += tip
+
 	}
 
 	if len(block.Transactions()) > 0 { // Some testnets have blocks without TXs.
 		baseFee := math.BigIntToFloatDiv(block.BaseFee(), params.GWei)
-		blockGasAvg := blokTxsPriceTotal / float64(len(block.Transactions())) / params.GWei // Record the value in GWEI.
+		blockGasAvg := blockTxsPriceTotal / float64(len(block.Transactions())) / params.GWei // Record the value in GWEI.
+		blockTipAvg := blokTxsTipTotal / float64(len(block.Transactions())) / params.GWei    // Record the value in GWEI.
 
 		self.record(ctx, logger, MetricSymbolBlockNum, float64(block.Number().Int64()))
 		self.record(ctx, logger, MetricSymbolBlockGasPriceAvg, blockGasAvg)
 		self.record(ctx, logger, MetricSymbolBlockBaseFee, baseFee)
+		self.record(ctx, logger, MetricSymbolBlockTip, blockTipAvg)
 
 		level.Debug(logger).Log("msg", "added block details",
 			"blockTs", block.Time(),
