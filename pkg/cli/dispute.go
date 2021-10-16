@@ -367,7 +367,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	}
 
 	// Open the TSDB database.
-	var querable storage.SampleAndChunkQueryable
+	var querable storage.Queryable
 	if cfg.Db.RemoteHost != "" {
 		querable, err = db.NewRemoteDB(cfg.Db)
 		if err != nil {

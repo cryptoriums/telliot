@@ -33,7 +33,7 @@ type Config struct {
 type Aggregator struct {
 	logger       log.Logger
 	ctx          context.Context
-	tsDB         storage.SampleAndChunkQueryable
+	tsDB         storage.Queryable
 	promqlEngine *promql.Engine
 	cfg          Config
 }
@@ -42,7 +42,7 @@ func New(
 	ctx context.Context,
 	logger log.Logger,
 	cfg Config,
-	tsDB storage.SampleAndChunkQueryable,
+	tsDB storage.Queryable,
 ) (*Aggregator, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {

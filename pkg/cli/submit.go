@@ -181,8 +181,8 @@ func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, c
 	return vals, nil
 }
 
-func (self *SubmitCmd) CreateAggr(ctx context.Context, logger log.Logger, cfg *config.Config) (storage.SampleAndChunkQueryable, *aggregator.Aggregator, error) {
-	var querable storage.SampleAndChunkQueryable
+func (self *SubmitCmd) CreateAggr(ctx context.Context, logger log.Logger, cfg *config.Config) (storage.Queryable, *aggregator.Aggregator, error) {
+	var querable storage.Queryable
 	var err error
 	if cfg.Db.RemoteHost != "" {
 		querable, err = db.NewRemoteDB(cfg.Db)
