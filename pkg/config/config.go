@@ -155,7 +155,10 @@ func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
 			level.Info(logger).Log("msg", "running inside k8s so will wait for web password decrypt input")
 			env = private_file.DecryptWithWebPassword(ctx, logger, "<h2>Transacting is:"+transacting+"</h2>", env, cfg.Web.ListenHost, cfg.Web.ListenPort)
 		} else {
-			env = private_file.DecryptWithPasswordLoop(env)
+			env, err = private_file.DecryptWithPasswordLoop(env)
+			if err != nil {
+				return errors.Wrap(err, "decrypt input file")
+			}
 		}
 	}
 
