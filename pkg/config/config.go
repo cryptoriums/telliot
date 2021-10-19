@@ -18,7 +18,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/cryptoriums/telliot/pkg/mining"
 	"github.com/cryptoriums/telliot/pkg/private_file"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/submitter/tellor"
@@ -37,7 +36,6 @@ import (
 // Config is the top-level configuration that holds configs for all components.
 type Config struct {
 	Web              web.Config
-	Mining           mining.Config
 	SubmitterTellor  tellor.Config
 	Tasker           tasker.Config
 	TransactorTellor transactorTellor.Config
@@ -51,9 +49,6 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	Mining: mining.Config{
-		Heartbeat: time.Minute,
-	},
 	Web: web.Config{
 		ListenHost: "", // Listen on all addresses.
 		ListenPort: 9090,

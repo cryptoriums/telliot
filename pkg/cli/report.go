@@ -15,7 +15,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/gas_price/gas_station"
-	"github.com/cryptoriums/telliot/pkg/mining"
 	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	tellorSubmit "github.com/cryptoriums/telliot/pkg/submitter/tellor"
 	"github.com/cryptoriums/telliot/pkg/tasker"
@@ -166,18 +165,6 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 				submitter.Stop()
 			})
 
-			// The Miner component.
-			miner, err := mining.NewManager(ctx, loggerWithAddr, cfg.Mining, contract, taskerChs[account.Address.Hex()], submitterCh, client)
-			if err != nil {
-				return errors.Wrap(err, "creating component:"+mining.ComponentName)
-			}
-			g.Add(func() error {
-				err := miner.Start()
-				level.Info(loggerWithAddr).Log("msg", "shutdown complete", "component", mining.ComponentName)
-				return err
-			}, func(error) {
-				miner.Stop()
-			})
 		}
 
 		// Web/Api server.

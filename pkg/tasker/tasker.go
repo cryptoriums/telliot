@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	ComponentName = "taskerNewChallenge"
+	ComponentName = "taskerNewReport"
 )
 
 const defaultDelay = 10 * time.Second
