@@ -18,9 +18,11 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0
+	github.com/posener/complete v1.2.3
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.31.2-0.20211001070444-c4fba801dbbe
 	github.com/prometheus/prometheus v1.8.2-0.20211005191246-5a4c3734b10c
+	github.com/willabides/kongplete v0.2.0
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/goleak v1.1.12

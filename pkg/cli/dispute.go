@@ -99,7 +99,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		if err != nil {
 			return errors.Wrap(err, "getting reporter status")
 		}
-		level.Info(logger).Log("msg", "disputed reporter status", "status", contracts.ReporterStatusName(status.Int64()))
+		level.Info(logger).Log("msg", "disputed reporter status", "addr", reporters[self.Slot].Hex()[:8], "status", contracts.ReporterStatusName(status.Int64()))
 		if status.Int64() != 1 {
 			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue despite its status:", false)
 			if err == nil && strings.ToLower(promptResp) != "y" {
@@ -367,7 +367,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	}
 
 	// Open the TSDB database.
-	var querable storage.Queryable
+	var querable storage.SampleAndChunkQueryable
 	if cfg.Db.RemoteHost != "" {
 		querable, err = db.NewRemoteDB(cfg.Db)
 		if err != nil {
