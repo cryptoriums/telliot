@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"syscall"
-	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/componentor"
@@ -62,8 +61,7 @@ func (self *ReportCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		} else {
 			// Open the TSDB database.
 			tsdbOptions := tsdb.DefaultOptions()
-			// 30 days are enough as the maximum data we need it for disputes which don't run for more than 2-3 days.
-			tsdbOptions.RetentionDuration = int64(30 * 24 * time.Hour)
+			tsdbOptions.RetentionDuration = cfg.Db.Retention.Milliseconds()
 			_tsDB, err := tsdb.Open(cfg.Db.Path, nil, nil, tsdbOptions, tsdb.NewDBStats())
 			if err != nil {
 				return errors.Wrap(err, "opening local tsdb DB")

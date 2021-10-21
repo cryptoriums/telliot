@@ -62,6 +62,7 @@ var DefaultConfig = Config{
 		RemotePort:    9090,
 		Path:          "db",
 		RemoteTimeout: format.Duration{Duration: 5 * time.Second},
+		Retention:     format.Duration{Duration: 60 * 24 * time.Hour}, // 60 days.
 	},
 	TransactorTellor: transactorTellor.Config{
 		GasMaxTipGwei: 10,
