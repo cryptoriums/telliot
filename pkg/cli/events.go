@@ -36,6 +36,7 @@ func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	trackerEvents, output, err := events.New(
 		ctx,
 		logger,
+		events.Config{LogLevel: "debug"},
 		client,
 		contract,
 		self.LookBack,
