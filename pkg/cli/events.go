@@ -20,7 +20,7 @@ import (
 
 type eventsCmd struct {
 	LookBack  time.Duration `help:"how far to look for the initiali qyery"`
-	EventName string        `required:"" enum:"NonceSubmitted,NewTellorAddress" help:"the name of the log to watch"`
+	EventName string        `required:"" enum:"NonceSubmitted,NewTellorAddress,Transfer" help:"the name of the log to watch"`
 	ReorgWait time.Duration `default:"3s" help:"how long to wait for removed logs from reorg events"`
 }
 
@@ -36,6 +36,7 @@ func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	trackerEvents, output, err := events.New(
 		ctx,
 		logger,
+		events.Config{LogLevel: "debug"},
 		client,
 		contract,
 		self.LookBack,
@@ -104,6 +105,15 @@ func (self *eventsCmd) unpack(contract contracts.TellorCaller, logRaw types.Log)
 		fmt.Printf("%+v \n", log)
 	case contracts.EventNameContractUpgrade:
 		log := &contracts.NewTellorAddress{}
+		err := contract.UnpackLog(log, eventName, logRaw)
+		if err != nil {
+			return errors.Wrap(err, "unpack event from logs")
+		}
+		log.Raw = logRaw
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Printf("%+v \n", log)
+	case contracts.EventNameTransfer:
+		log := &contracts.TellorTransferred{}
 		err := contract.UnpackLog(log, eventName, logRaw)
 		if err != nil {
 			return errors.Wrap(err, "unpack event from logs")

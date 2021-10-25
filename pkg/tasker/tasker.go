@@ -71,6 +71,7 @@ func New(
 	eventsTracker, logsOutput, err := events.New(
 		ctx,
 		logger,
+		events.Config{LogLevel: cfg.LogLevel},
 		client,
 		contract,
 		0,

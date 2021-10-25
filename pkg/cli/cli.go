@@ -17,6 +17,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
+	"github.com/willabides/kongplete"
 )
 
 const VersionMessage = `
@@ -74,6 +75,8 @@ type CLI struct {
 	Decrypt  DecryptCmd  `cmd:"" help:"Decrypts an ecrypted file and write the decrytped version to disk"`
 	Events   eventsCmd   `cmd:"" help:"Subscribe to watch logs from the network."`
 	Version  VersionCmd  `cmd:"" help:"Show the CLI version information"`
+
+	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"install shell completions"`
 }
 
 type disputeCmd struct {

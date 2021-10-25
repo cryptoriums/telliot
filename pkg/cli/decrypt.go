@@ -23,7 +23,11 @@ func (self *DecryptCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return errors.Wrap(err, "reading input file")
 	}
-	decrypted := private_file.DecryptWithPasswordLoop(in)
+
+	decrypted, err := private_file.DecryptWithPasswordLoop(in)
+	if err != nil {
+		return errors.Wrap(err, "decrypt input file")
+	}
 
 	filename := prompt.PromptFileName()
 

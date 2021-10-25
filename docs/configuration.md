@@ -340,6 +340,24 @@ Flags:
 
 ```
 
+* `install-completions`
+
+```
+Usage: telliot install-completions
+
+install shell completions
+
+Flags:
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
+
+      --uninstall
+
+```
+
 * `report`
 
 ```
@@ -553,6 +571,9 @@ Flags:
 		"RemotePort": "Required:false, Default:9090",
 		"RemoteTimeout": {
 			"Duration": "Required:false, Default:5s"
+		},
+		"Retention": {
+			"Duration": "Required:false, Default:1440h0m0s"
 		}
 	},
 	"Mining": {
@@ -609,7 +630,8 @@ Here are the config defaults in json format:
 		"Path": "db",
 		"RemoteHost": "",
 		"RemotePort": 9090,
-		"RemoteTimeout": "5s"
+		"RemoteTimeout": "5s",
+		"Retention": "1440h0m0s"
 	},
 	"Mining": {
 		"Heartbeat": 60000000000,

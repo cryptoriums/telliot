@@ -30,6 +30,10 @@ const (
 	defaultDelay  = 10 * time.Second
 )
 
+type Config struct {
+	LogLevel string
+}
+
 type Contract interface {
 	Abi() abi.ABI
 	WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error)
@@ -55,13 +59,14 @@ type TrackerEvents struct {
 func New(
 	ctx context.Context,
 	logger log.Logger,
+	cfg Config,
 	client ethereum_t.EthClient,
 	contract Contract,
 	lookBack time.Duration,
 	eventName string,
 	reorgWaitPeriod time.Duration,
 ) (*TrackerEvents, chan types.Log, error) {
-	logger, err := logging.ApplyFilter("info", logger)
+	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "apply filter logger")
 	}
@@ -137,6 +142,7 @@ func (self *TrackerEvents) Start() error {
 		case event := <-src:
 			if event.Removed {
 				self.cancelPending(hashFromLog(event))
+				level.Debug(self.logger).Log("msg", "canceling event due to reorg", "hash", hashFromLog(event))
 				continue
 			}
 			ctx, cncl := context.WithCancel(self.ctx)
@@ -158,7 +164,8 @@ func (self *TrackerEvents) Start() error {
 						level.Error(self.logger).Log("msg", "adding tx event cache", "err", err)
 					}
 
-					self.cancelPending(hashFromLog(event))
+					self.cancelPending(hashFromLog(event)) // Cleanup the ctx.
+					level.Debug(self.logger).Log("msg", "sending event", "hash", hashFromLog(event))
 					select {
 					case self.dstChan <- event:
 						return
@@ -166,6 +173,7 @@ func (self *TrackerEvents) Start() error {
 						return
 					}
 				case <-ctxReorg.Done():
+					level.Debug(self.logger).Log("msg", "canceled due to reorg", "hash", hashFromLog(event))
 					return
 				}
 

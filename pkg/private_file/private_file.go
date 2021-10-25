@@ -21,6 +21,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
+	"golang.org/x/tools/godoc/util"
 )
 
 func createHash(key string) (string, error) {
@@ -82,6 +83,10 @@ func EncryptFile(inFile string, outFile string, passphrase string) error {
 	in, err := ioutil.ReadFile(inFile)
 	if err != nil {
 		return errors.Wrap(err, "reading input file")
+	}
+
+	if !util.IsText(in) {
+		return errors.New("input is already encrypted")
 	}
 
 	bb, err := encrypt(in, passphrase)
@@ -163,7 +168,11 @@ func DecryptWithWebPassword(ctx context.Context, logger log.Logger, header strin
 	return b[0]
 }
 
-func DecryptWithPasswordLoop(input []byte) []byte {
+func DecryptWithPasswordLoop(input []byte) ([]byte, error) {
+	if util.IsText(input) {
+		return nil, errors.New("input is not encrypted")
+
+	}
 	for {
 		pass, err := prompt.Prompt("Enter Password: ", true)
 		if err != nil {
@@ -177,7 +186,7 @@ func DecryptWithPasswordLoop(input []byte) []byte {
 			fmt.Println("Decrypt error try again:", err)
 			continue
 		}
-		return output
+		return output, nil
 	}
 }
 

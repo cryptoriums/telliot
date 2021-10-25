@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"syscall"
-	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/config"
@@ -41,8 +40,8 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 
 		// Open the TSDB database.
 		tsdbOptions := tsdb.DefaultOptions()
-		// 30 days are enough as the maximum data we need it for disputes which don't run for more than 2-3 days.
-		tsdbOptions.RetentionDuration = int64(30 * 24 * time.Hour)
+
+		tsdbOptions.RetentionDuration = cfg.Db.Retention.Milliseconds()
 		if err := os.MkdirAll(cfg.Db.Path, 0777); err != nil {
 			return errors.Wrap(err, "creating tsdb DB folder")
 		}

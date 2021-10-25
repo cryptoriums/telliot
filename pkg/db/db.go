@@ -35,6 +35,7 @@ type Config struct {
 	RemoteHost    string
 	RemotePort    uint
 	RemoteTimeout format.Duration
+	Retention     format.Duration
 }
 
 func NewRemoteDB(cfg Config) (storage.SampleAndChunkQueryable, error) {
