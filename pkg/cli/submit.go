@@ -44,7 +44,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		return err
 	}
 
-	resp, err := contract.GetNewCurrentVariables(&bind.CallOpts{Context: ctx})
+	resp, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return errors.Wrap(err, "get current DATA ids")
 	}
@@ -85,7 +85,7 @@ func (self *SubmitCmd) Submit(
 	vals [5]*big.Int,
 ) error {
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.SubmitMiningSolutionGasLimit)
+	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.SubmitValueGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -108,7 +108,7 @@ func (self *SubmitCmd) Submit(
 			return errors.Wrap(err, "creting TX")
 		}
 	} else {
-		tx, err = contract.SubmitMiningSolution(opts, "krasi!", ids, vals)
+		tx, err = contract.SubmitValue(opts, "krasi!", ids, vals)
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}

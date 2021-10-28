@@ -13,6 +13,7 @@ import (
 
 	"github.com/cryptoriums/telliot/pkg/contracts/balancer"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor"
+	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor_proxy"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellor_testing"
 	"github.com/cryptoriums/telliot/pkg/contracts/uniswap"
@@ -34,7 +35,7 @@ import (
 
 const (
 	TellorAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	TellorAddressRinkeby     = TellorAddress
+	TellorAddressRinkeby     = "0x6807d197dAc4c131f2390B7a7F0c9199df6f70f4"
 	TellorAddressGoerli      = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
 	TellorAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	TellorAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
@@ -46,14 +47,13 @@ const (
 	UnlockFeeGasLimit              = 300_000
 	VoteGasUSage                   = 200_000
 	NewDisputeGasLimit             = 700_000
-	SubmitMiningSolutionGasLimit   = 3_000_000
+	SubmitGasLimit                 = 3_000_000
 
-	MethodNameSubmit     = "submitMiningSolution"
+	MethodNameSubmit     = "submitValue"
 	MethodNameNewDispute = "beginDispute"
 
-	EventNameNewTask         = "NewChallenge"
-	EventNameNewSubmit       = "NonceSubmitted"
-	EventNameNewValue        = "NewValue"
+	EventNameNewReport       = "NewReport"
+	EventNameNewTip          = "TipAdded"
 	EventNameTally           = "DisputeVoteTallied"
 	EventNameNewDispute      = "NewDispute"
 	EventNameTransfer        = "Transfer"
@@ -65,38 +65,37 @@ const (
 
 type TellorCaller interface {
 	GetUintVar(opts *bind.CallOpts, _data [32]byte) (*big.Int, error)
-	SubmitMiningSolution(opts *bind.TransactOpts, _nonce string, _requestId [5]*big.Int, _value [5]*big.Int) (*types.Transaction, error)
+	SubmitValue(opts *bind.TransactOpts, _nonce string, _requestId [5]*big.Int, _value [5]*big.Int) (*types.Transaction, error)
 	GetStakerInfo(opts *bind.CallOpts, _staker common.Address) (*big.Int, *big.Int, error)
-	GetNewCurrentVariables(opts *bind.CallOpts) (struct {
-		Challenge  [32]byte
-		RequestIds [5]*big.Int
-		Difficulty *big.Int
-		Tip        *big.Int
-	}, error)
+	// GetTimestampCountById returns the current nonce that needs to be used when making a submit.
+	GetTimestampCountById(opts *bind.CallOpts, _queryId [32]byte) (*big.Int, error)
+	DepositStake(opts *bind.TransactOpts) (*types.Transaction, error)
+	WithdrawStake(opts *bind.TransactOpts) (*types.Transaction, error)
+	RequestStakingWithdraw(opts *bind.TransactOpts) (*types.Transaction, error)
+
+	// GetMinersByRequestIdAndTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]common.Address, error)
+	// GetSubmissionsByTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]*big.Int, error)
+
 	Addr() common.Address
 	Abi() abi.ABI
 	AbiRaw() string
-	BalanceOf(opts *bind.CallOpts, _user common.Address) (*big.Int, error)
-	GetAllDisputeVars(opts *bind.CallOpts, _disputeId *big.Int) ([32]byte, bool, bool, bool, common.Address, common.Address, common.Address, [9]*big.Int, *big.Int, error)
-	GetDisputeUintVars(opts *bind.CallOpts, _disputeId *big.Int, _data [32]byte) (*big.Int, error)
-	TallyVotes(opts *bind.TransactOpts, _disputeId *big.Int) (*types.Transaction, error)
-	UnlockDisputeFee(opts *bind.TransactOpts, _disputeId *big.Int) (*types.Transaction, error)
-	DepositStake(opts *bind.TransactOpts) (*types.Transaction, error)
 	UnpackLog(out interface{}, event string, log types.Log) error
 	WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error)
-	DisputeUnlockWindow() time.Duration
-	GetMinersByRequestIdAndTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]common.Address, error)
-	GetSubmissionsByTimestamp(opts *bind.CallOpts, _requestId *big.Int, _timestamp *big.Int) ([5]*big.Int, error)
-	GetNewValueCountbyRequestId(opts *bind.CallOpts, _requestId *big.Int) (*big.Int, error)
-	GetTimestampbyRequestIDandIndex(opts *bind.CallOpts, _requestID *big.Int, _index *big.Int) (*big.Int, error)
-	GetRequestUintVars(opts *bind.CallOpts, _requestId *big.Int, _data [32]byte) (*big.Int, error)
-	BeginDispute(opts *bind.TransactOpts, _requestId *big.Int, _timestamp *big.Int, _minerIndex *big.Int) (*types.Transaction, error)
-	DidVote(opts *bind.CallOpts, _disputeId *big.Int, _address common.Address) (bool, error)
-	Vote(opts *bind.TransactOpts, _disputeId *big.Int, _supportsDispute bool) (*types.Transaction, error)
-	WithdrawStake(opts *bind.TransactOpts) (*types.Transaction, error)
-	RequestStakingWithdraw(opts *bind.TransactOpts) (*types.Transaction, error)
+
+	BalanceOf(opts *bind.CallOpts, _user common.Address) (*big.Int, error)
 	Transfer(*bind.TransactOpts, common.Address, *big.Int) (*types.Transaction, error)
 	Approve(opts *bind.TransactOpts, dst common.Address, amt *big.Int) (*types.Transaction, error)
+
+	TallyVotes(opts *bind.TransactOpts, _disputeId *big.Int) (*types.Transaction, error)
+	BeginDispute(opts *bind.TransactOpts, _queryId [32]byte, _timestamp *big.Int) (*types.Transaction, error)
+	DidVote(opts *bind.CallOpts, _disputeId *big.Int, _address common.Address) (bool, error)
+	Vote(opts *bind.TransactOpts, _disputeId *big.Int, _supports bool, _invalidQuery bool) (*types.Transaction, error)
+
+	// GetAllDisputeVars(opts *bind.CallOpts, _disputeId *big.Int) ([32]byte, bool, bool, bool, common.Address, common.Address, common.Address, [9]*big.Int, *big.Int, error)
+	// GetDisputeUintVars(opts *bind.CallOpts, _disputeId *big.Int, _data [32]byte) (*big.Int, error)
+	// UnlockDisputeFee(opts *bind.TransactOpts, _disputeId *big.Int) (*types.Transaction, error)
+	// DisputeUnlockWindow() time.Duration
+
 }
 
 type RewardQuerier interface {
@@ -119,7 +118,8 @@ type (
 	TellorNewValue           = tellor.TellorNewValue
 	TellorDisputeVoteTallied = tellor.ExtensionDisputeVoteTallied
 	NewTellorAddress         = tellor.ExtensionNewTellorAddress
-	TellorNewChallenge       = tellor.TellorNewChallenge
+	TellorNewReport          = tellorX_oracle.OracleNewReport
+	TellorNewTip             = tellorX_oracle.OracleTipAdded
 	TellorVoted              = tellor.TellorVoted
 )
 
@@ -538,13 +538,13 @@ func GetSubmitLogs(
 	return submitBlocks, err
 }
 
-func LastSubmit(contract TellorCaller, reporter common.Address) (time.Duration, *time.Time, error) {
+func LastSubmit(ctx context.Context, contract TellorCaller, reporter common.Address) (time.Duration, *time.Time, error) {
 	address := "000000000000000000000000" + reporter.Hex()[2:]
 	decoded, err := hex.DecodeString(address)
 	if err != nil {
 		return 0, nil, errors.Wrapf(err, "decoding address")
 	}
-	last, err := contract.GetUintVar(nil, ethereum_t.Keccak256(decoded))
+	last, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256(decoded))
 
 	if err != nil {
 		return 0, nil, errors.Wrapf(err, "getting last submit time for:%v", reporter.Hex())

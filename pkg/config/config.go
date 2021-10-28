@@ -19,12 +19,9 @@ import (
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/private_file"
-	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
-	"github.com/cryptoriums/telliot/pkg/submitter/tellor"
-	"github.com/cryptoriums/telliot/pkg/tasker"
+	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
-	transactorTellor "github.com/cryptoriums/telliot/pkg/transactor/tellor"
 	"github.com/cryptoriums/telliot/pkg/web"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -35,15 +32,12 @@ import (
 
 // Config is the top-level configuration that holds configs for all components.
 type Config struct {
-	Web              web.Config
-	SubmitterTellor  tellor.Config
-	Tasker           tasker.Config
-	TransactorTellor transactorTellor.Config
-	TrackerIndex     index.Config
-	TrackerBlocks    blocks.Config
-	Aggregator       aggregator.Config
-	PsrTellor        psrTellor.Config
-	Db               db.Config
+	Web           web.Config
+	TrackerIndex  index.Config
+	TrackerBlocks blocks.Config
+	Aggregator    aggregator.Config
+	PsrTellor     psr_tellor.Config
+	Db            db.Config
 	// EnvFile location that include all private details like private key etc.
 	EnvFile string `json:"envFile"`
 }
@@ -59,15 +53,7 @@ var DefaultConfig = Config{
 		RemoteTimeout: format.Duration{Duration: 5 * time.Second},
 		Retention:     format.Duration{Duration: 60 * 24 * time.Hour}, // 60 days.
 	},
-	TransactorTellor: transactorTellor.Config{
-		GasMaxTipGwei: 10,
-		Transact:      true,
-	},
-	SubmitterTellor: tellor.Config{
-		// With a 30 second delay here as a workaround to prevent a race condition in the oracle contract check.
-		MinSubmitPeriod: format.Duration{Duration: 15*time.Minute + 30*time.Second},
-	},
-	PsrTellor: psrTellor.Config{
+	PsrTellor: psr_tellor.Config{
 		MinConfidenceDefault: 80,
 		MinConfidencePerSymbol: map[string]float64{
 			"41": 100,
@@ -103,7 +89,7 @@ func Validate(cfg *Config) error {
 		if err != nil {
 			return errors.Wrapf(err, "parsing json PSR id:%v", id)
 		}
-		if _, exists := psrTellor.Psrs[int64(idI)]; !exists {
+		if _, exists := psr_tellor.Psrs[int64(idI)]; !exists {
 			return errors.Errorf("confidence level for invalid PSR id:%v", id)
 		}
 	}
@@ -141,13 +127,13 @@ func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
 	}
 
 	if !util.IsText(env) {
-		transacting := `<span style="color:grey">disabled</span>`
-		if cfg.TransactorTellor.Transact {
-			transacting = `<span style="color:red">enabled</span>`
-		}
-
 		level.Info(logger).Log("msg", "env file is encrypted", "path", cfg.EnvFile)
 		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+			transacting := `<span style="color:grey">disabled</span>`
+			if cfg.TransactorTellor.Transact {
+				transacting = `<span style="color:red">enabled</span>`
+			}
+
 			level.Info(logger).Log("msg", "running inside k8s so will wait for web password decrypt input")
 			env = private_file.DecryptWithWebPassword(ctx, logger, "<h2>Transacting is:"+transacting+"</h2>", env, cfg.Web.ListenHost, cfg.Web.ListenPort)
 		} else {

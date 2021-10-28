@@ -59,10 +59,10 @@ generate-check: check-git generate
 .PHONY: generate-bindings
 generate-bindings: $(CONTRAGET)
 generate-bindings: generate-bindings-tellor
-	@sleep 6
-	@$(CONTRAGET) --addr=0x34319564f00C924dA8fB52fD8bA6edBfd1FfEdA8 --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_testing --pkg-aliases="Transfer=Transferred"
-	@sleep 6
-	@$(CONTRAGET) --addr=0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_proxy --pkg-aliases="Transfer=Transferred"
+# @sleep 6
+# @$(CONTRAGET) --addr=0x34319564f00C924dA8fB52fD8bA6edBfd1FfEdA8 --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_testing --pkg-aliases="Transfer=Transferred"
+# @sleep 6
+# @$(CONTRAGET) --addr=0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellor_proxy --pkg-aliases="Transfer=Transferred"
 # @sleep 6
 # @$(CONTRAGET) --addr=0x9C84391B443ea3a48788079a5f98e2EaD55c9309 --download-dst=tmp --pkg-dst=pkg/contracts --name=balancer
 # @sleep 6
@@ -70,7 +70,9 @@ generate-bindings: generate-bindings-tellor
 
 .PHONY: generate-bindings-tellor
 generate-bindings-tellor: $(CONTRAGET)
-	@$(CONTRAGET) --addr=0x2754da26f634e04b26c4decd27b3eb144cf40582 --download-dst=tmp --network=mainnet --pkg-dst=pkg/contracts --name=tellor --pkg-aliases="Transfer=Transferred"
+	@$(CONTRAGET) --addr=0x6807d197dAc4c131f2390B7a7F0c9199df6f70f4 --download-dst=tmp --pkg-dst=pkg/contracts --network=rinkeby --name=tellorX_oracle
+	@sleep 6
+	@$(CONTRAGET) --addr=0xA27E42cA926a8C036118E3C54e1f1d313F58777B --download-dst=tmp --pkg-dst=pkg/contracts --network=rinkeby --name=tellorX_governance
 
 .PHONY: generate-testdata
 generate-testdata:

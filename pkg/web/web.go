@@ -17,7 +17,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cryptoriums/telliot/pkg/componentor"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
@@ -41,6 +40,12 @@ import (
 )
 
 const ComponentName = "web"
+
+type Componentor interface {
+	Status() bool
+	ChangeStatus()
+	ID() string
+}
 
 type Config struct {
 	LogLevel    string
@@ -109,7 +114,7 @@ func New(
 func Data(
 	ctx context.Context,
 	logger log.Logger,
-	componentor componentor.Componentor,
+	componentor Componentor,
 	client ethereum.EthClient,
 	contract contracts.TellorCaller,
 	envFilePath string,
