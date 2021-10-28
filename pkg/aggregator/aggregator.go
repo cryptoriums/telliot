@@ -395,7 +395,7 @@ func (self *Aggregator) valsAtWithConfidence(symbol string, at time.Time) ([]flo
 	// Max available endpoint/ currently available endpoints.
 	query, err := self.promqlEngine.NewInstantQuery(
 		self.tsDB,
-		`100 * (count(`+index.MetricIndexValue+`{symbol="`+symbol+`"} )/ max_over_time(count(`+index.MetricInterval+`{symbol="`+symbol+`"})[3h:]))`,
+		`100 * (count(`+index.MetricIndexValue+`{symbol="`+symbol+`"} )/ max_over_time(count(`+index.MetricInterval+`{symbol="`+symbol+`"})[1h:]))`,
 		at,
 	)
 	if err != nil {
