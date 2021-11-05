@@ -57,21 +57,9 @@ One week after the request, the tokens are free to move at your discretion after
 ./telliot stake withdraw
 ```
 
-## Start mining.
-{% hint style="info" %}
-The same instance can be used with multiple private keys in the `.env` file separated by a comma.
-{% endhint %}
-
-```bash
-./telliot report
-```
-
 
 ## DataServer - a shared data API feeds.
 
-{% hint style="info" %}
-Advanced usage! If you are setting up a Tellor reporter for the first time, it might be a good idea to skip this section and come back after you're up and running with one reporter. See the [configuration page](configuration.md) for the required configs.
-{% endhint %}
 
 Some oracle feeds require 24h avarages and for these enough historical data is needed. Running a dataserver is the solution to always have enough historical data to generate these averages.
 
@@ -92,7 +80,7 @@ Tellor     <-> (multiple   | (0xb9dD) | <-> Data Server <-> Data APIs
 
 ```bash
 cp configs/.env.example configs/.env # Edit the file after the copy.
-docker run -v $(pwd)/configs:/configs cryptoriums/telliot:master report
+docker run -v $(pwd)/configs:/configs cryptoriums/telliot:master dataserver
 ```
 
 ### To build a custom docker image.

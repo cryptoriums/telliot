@@ -4,22 +4,6 @@ description: Internal architecture of the project.
 
 # Internal architecture
 
-## Tasker
-
-Monitors the oracle contract for new data requests(aka "oracle blocks").
-As soon as a new challenge is emitted it is sent to the miner module to find a solution.
-
-## Miner
-
-It simply solves the PoW challenge which is required by the oracle contract when submitting values.
-
-## Submitter
-
-Submits the currently requested data IDs to the oracle contract.
-It supports submitting to different oracle contracts(see the setup page for more details).
-It makes all the necessary checks to prepare the data accordingly to avoid failed transactions.
-The data is taken from the PSR module.
-
 ## PSR
 
 It defines all DATA ids for the oracle contract.
