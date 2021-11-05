@@ -19,8 +19,8 @@ import (
 	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/math"
+	math_t "github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/prompt"
-	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/params"
@@ -46,17 +46,12 @@ type NewDisputeCmd struct {
 	NoChks
 	DataID    int64 `required:""  help:"the request id to dispute"`
 	Timestamp int64 `required:""  help:"the submitted timestamp to dispute"`
-	Slot      int64 `required:""  help:"the reporter index to dispute"`
 }
 
 func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, oracle, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
-	}
-
-	if self.Slot < 0 || self.Slot > 4 {
-		return errors.Errorf("reporter index should be between 0 and 4 (got %v)", self.Slot)
 	}
 
 	if self.Timestamp == 0 {
@@ -73,15 +68,32 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return err
 	}
 
+	psr, err := psr_tellor.PsrByID(self.DataID)
+	if err != nil {
+		return errors.Wrap(err, "get psr")
+	}
+
+	if psr.Inactive {
+		return errors.Wrap(err, "psr is inactive so opening a dispute is pointless")
+	}
+
+	disputeCost, err := govern.DisputeFee(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return errors.Wrap(err, "get dispute cost")
+	}
+
 	if !self.NoChecks {
-		balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+		val, err := oracle.GetValueByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryHash, big.NewInt(self.Timestamp))
 		if err != nil {
-			return errors.Wrap(err, "fetch balance")
+			return errors.Wrap(err, "getting the val to dispute")
+		}
+		if len(val) == 0 {
+			return errors.Errorf("value with timestamp:%v doesn't exist. it is possible that it has been removed by another dispute", self.Timestamp)
 		}
 
-		disputeCost, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256([]byte("_DISPUTE_FEE")))
+		balance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
-			return errors.Wrap(err, "get dispute cost")
+			return errors.Wrap(err, "fetch balance")
 		}
 
 		if balance.Cmp(disputeCost) < 0 {
@@ -90,16 +102,16 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 				math.BigIntToFloatDiv(disputeCost, params.Ether))
 		}
 
-		reporters, err := contract.GetMinersByRequestIdAndTimestamp(&bind.CallOpts{Context: ctx}, big.NewInt(self.DataID), big.NewInt(self.Timestamp))
+		reporter, err := oracle.GetReporterByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryHash, big.NewInt(self.Timestamp))
 		if err != nil {
-			return errors.Wrap(err, "getting submit block reporters")
+			return errors.Wrap(err, "getting submit reporter")
 		}
 
-		status, _, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, reporters[self.Slot])
+		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, reporter)
 		if err != nil {
 			return errors.Wrap(err, "getting reporter status")
 		}
-		level.Info(logger).Log("msg", "disputed reporter status", "addr", reporters[self.Slot].Hex()[:8], "status", contracts.ReporterStatusName(status.Int64()))
+		level.Info(logger).Log("msg", "disputed reporter status", "addr", reporter.Hex()[:8], "status", contracts.ReporterStatusName(status.Int64()))
 		if status.Int64() != 1 {
 			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue despite its status:", false)
 			if err == nil && strings.ToLower(promptResp) != "y" {
@@ -108,19 +120,24 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 	}
 
+	promptResp, err := prompt.Prompt("Dispute fee is TRB: "+fmt.Sprintf("%.2f", math_t.BigIntToFloatDiv(disputeCost, params.Ether))+" Press Y to continue:", false)
+	if err == nil && strings.ToLower(promptResp) != "y" {
+		return errors.New("canceled")
+	}
+
 	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.NewDisputeGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
+	fmt.Println("psr.QueryHash", psr.QueryHash)
 
-	tx, err := contract.BeginDispute(opts, big.NewInt(self.DataID), big.NewInt(self.Timestamp), big.NewInt(self.Slot))
+	tx, err := govern.BeginDispute(opts, psr.QueryHash, big.NewInt(self.Timestamp))
 	if err != nil {
 		return errors.Wrap(err, "send dispute txn")
 	}
 	level.Info(logger).Log("msg", "dispute tx created",
-		"dataID", self.DataID,
+		"queryHash", psr.QueryHash,
 		"ts", self.Timestamp,
-		"slot", self.Slot,
 		"tx", tx.Hash())
 	return nil
 }
@@ -130,10 +147,11 @@ type VoteCmd struct {
 	DispID
 	NoChks
 	Support bool `required:"" help:"true or false"`
+	Invalid bool `required:"" help:"true or false"`
 }
 
 func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -143,7 +161,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return err
 	}
 
-	dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), contract)
+	dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), govern)
 	if err != nil {
 		return errors.Wrap(err, "getting dispute details")
 	}
@@ -152,7 +170,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	}
 
 	if !self.NoChecks {
-		voted, err := contract.DidVote(&bind.CallOpts{Context: ctx}, big.NewInt(self.DisputeID), account.Address)
+		voted, err := govern.DidVote(&bind.CallOpts{Context: ctx}, big.NewInt(self.DisputeID), account.Address)
 		if err != nil {
 			return errors.Wrapf(err, "check if you've already voted")
 		}
@@ -166,7 +184,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
-	tx, err := contract.Vote(opts, big.NewInt(self.DisputeID), self.Support)
+	tx, err := govern.Vote(opts, big.NewInt(self.DisputeID), self.Support, self.Invalid)
 	if err != nil {
 		return errors.Wrapf(err, "submit vote transaction")
 	}
@@ -182,7 +200,7 @@ type TallyCmd struct {
 }
 
 func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -190,7 +208,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 	var disputes []*contracts.DisputeLog
 
 	if self.All {
-		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 30*24*time.Hour)
+		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, govern, 30*24*time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dispute logs")
 		}
@@ -199,7 +217,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		if self.DisputeID == 0 {
 			return errors.New("dispute ID is empty")
 		}
-		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), contract)
+		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), govern)
 		if err != nil {
 			return errors.Wrap(err, "get dispute info")
 		}
@@ -212,8 +230,13 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 	}
 
 	for _, dispute := range disputes {
-		if dispute.Executed {
-			level.Info(logger).Log("msg", "dipsute already executed", "id", dispute.ID)
+		if dispute.TallyTs > 0 {
+			level.Info(logger).Log("msg", "dispute already tallied", "id", dispute.ID)
+			continue
+		}
+
+		if time.Now().After(dispute.VoteEnds) {
+			level.Info(logger).Log("msg", "dispute voting period hasn't passed", "id", dispute.ID, "timeLeft", time.Since(dispute.VoteEnds))
 			continue
 		}
 
@@ -222,7 +245,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
 
-		tx, err := contract.TallyVotes(opts, big.NewInt(dispute.ID))
+		tx, err := govern.TallyVotes(opts, big.NewInt(dispute.ID))
 		if err != nil {
 			return errors.Wrapf(err, "run tally votes")
 		}
@@ -237,12 +260,12 @@ type TallyListCmd struct {
 }
 
 func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	logs, err := contracts.GetTallyLogs(ctx, client, contract, self.LookBack)
+	logs, err := contracts.GetTallyLogs(ctx, client, govern, self.LookBack)
 	if err != nil {
 		return errors.Wrap(err, "getting latest disputes")
 	}
@@ -253,10 +276,8 @@ func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Println()
 		fmt.Fprintln(w, "TxHash:\t", log.Raw.TxHash, "\t")
-		fmt.Fprintln(w, "ID:\t", log.DisputeID, "\t")
-		fmt.Fprintln(w, "Passed:\t", log.Passed, "\t")
-		fmt.Fprintln(w, "Reported:\t", log.ReportedMiner.Hex(), "\t")
-		fmt.Fprintln(w, "Reporter:\t", log.ReportingParty.Hex(), "\t")
+		fmt.Fprintln(w, "ID:\t", log.DisputeId, "\t")
+		fmt.Fprintln(w, "Result:\t", log.Result, "\t")
 		w.Flush()
 	}
 
@@ -271,7 +292,7 @@ type UnlockFeeCmd struct {
 }
 
 func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -284,7 +305,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	var disputes []*contracts.DisputeLog
 
 	if self.All {
-		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, contract, 30*24*time.Hour)
+		disputes, err = contracts.GetDisputeLogs(ctx, logger, client, govern, 30*24*time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dispute logs")
 		}
@@ -293,7 +314,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		if self.DisputeID == 0 {
 			return errors.New("dispute ID is empty")
 		}
-		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), contract)
+		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), govern)
 		if err != nil {
 			return errors.Wrap(err, "get dispute info")
 		}
@@ -301,42 +322,21 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	}
 
 	for _, dispute := range disputes {
-		paid, err := contract.GetDisputeUintVars(
-			&bind.CallOpts{Context: ctx},
-			big.NewInt(dispute.ID),
-			ethereum_t.Keccak256([]byte("_PAID")),
-		)
-		if err != nil {
-			return errors.Wrap(err, "get _PAID")
+		if dispute.TallyTs == 0 {
+			level.Info(logger).Log("msg", "dispute needs to be tallied first", "id", dispute.ID)
+			continue
 		}
-
-		if paid.Int64() == 1 {
+		if time.Now().After(dispute.VoteEnds) {
+			level.Info(logger).Log("msg", "voting period haven't passed", "id", dispute.ID, "ends", time.Since(dispute.VoteEnds))
+		}
+		if dispute.Executed {
 			level.Info(logger).Log("msg", "dispute already paid out", "id", dispute.ID)
 			continue
 		}
 
-		if !self.NoChecks {
-			tallyTs, err := contract.GetDisputeUintVars(
-				&bind.CallOpts{Context: ctx},
-				big.NewInt(dispute.ID),
-				ethereum_t.Keccak256([]byte("_TALLY_DATE")),
-			)
-			if err != nil {
-				return errors.Wrap(err, "get _TALLY_DATE")
-			}
-
-			if tallyTs.Int64() == 0 {
-				level.Info(logger).Log("msg", "dispute not executed yet", "id", dispute.ID)
-				continue
-			}
-
-			timePassed := time.Since(time.Unix(tallyTs.Int64(), 0))
-
-			if timePassed < 24*time.Hour {
-				level.Info(logger).Log("msg", "not enough time has passed after tallying", "id", dispute.ID, "required", "24h", "current", timePassed)
-				continue
-			}
-
+		if time.Now().After(dispute.ExecuteTimeLock) {
+			level.Info(logger).Log("msg", "not enough time has passed after tallying", "id", dispute.ID, "time", time.Since(dispute.ExecuteTimeLock))
+			continue
 		}
 
 		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.UnlockFeeGasLimit)
@@ -344,7 +344,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
 
-		tx, err := contract.UnlockDisputeFee(opts, big.NewInt(dispute.ID))
+		tx, err := govern.ExecuteVote(opts, big.NewInt(dispute.ID))
 		if err != nil {
 			return errors.Wrapf(err, "run unlock fee")
 		}
@@ -361,7 +361,7 @@ type ListCmd struct {
 }
 
 func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -382,9 +382,9 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return errors.Wrap(err, "creating aggregator")
 	}
 
-	psr := psr_tellor.New(logger, cfg.PsrTellor, aggregator)
+	psrT := psr_tellor.New(logger, cfg.PsrTellor, aggregator)
 
-	logs, err := contracts.GetDisputeLogs(ctx, logger, client, contract, self.LookBack)
+	logs, err := contracts.GetDisputeLogs(ctx, logger, client, govern, self.LookBack)
 	if err != nil {
 		return errors.Wrap(err, "getting latest disputes")
 	}
@@ -398,58 +398,45 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
 
-		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Println()
-		fmt.Fprintln(w, "ID: \t", log.ID, "\t")
-		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
-		fmt.Fprintln(w, "Passed: \t", log.Passed, "\t")
-		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
-		fmt.Fprintln(w, "Ends: \t", -time.Since(log.Ends), "\t")
-		fmt.Fprintln(w, "Tally: \t", log.Tally, "\t")
-		fmt.Fprintln(w, "Votes: \t", log.Votes, "\t")
-		fmt.Fprintln(w, "Pairs: \t", tellor.Psrs[log.DataID].Pair, "\t")
-		fmt.Fprintln(w, "DataId: \t", log.DataID, "\t")
-		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(log.DataTime.Unix()))+" "+log.DataTime.Format(logging.DefaultTimeFormat), "\t")
-		fmt.Fprintln(w, "Slot:\t", log.DisputedSlot, "\t")
-		fmt.Fprintln(w, "Disputer: \t", log.Disputer.Hex(), "\t")
-		fmt.Fprintln(w, "Disputed: \t", log.Disputed.Hex(), "\t")
-		fmt.Fprintln(w, "TxHash: \t", log.TxHash.Hex(), "\t")
-		w.Flush()
-
+		query := psr_tellor.BytesToQuery([]byte(log.QueryHash))
+		psr, err := psr_tellor.PsrByID(query.ID)
+		if err != nil {
+			level.Error(logger).Log("msg", "getting psr", "id", log.ID, "err", err)
+			continue
+		}
 		var suggested float64
 		if cfg.Db.RemoteHost != "" {
-			suggested, err = psr.GetValue(log.DataID, log.DataTime)
+			suggested, err = psrT.GetValue(*query, log.DataTime)
 			if err != nil {
 				level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
 			}
 		}
 
-		_submits, err := contract.GetSubmissionsByTimestamp(
-			&bind.CallOpts{Context: ctx},
-			big.NewInt(log.DataID),
-			big.NewInt(log.DataTime.Unix()),
-		)
-		if err != nil {
-			level.Error(logger).Log("msg", "getting all submits", "err", err)
-			continue
-		}
-
-		for i, submit := range _submits {
-			var disputed string
-			if i == int(log.DisputedSlot) {
-				disputed = "disputed"
-			}
-
-			//lint:ignore faillint looks cleaner with print instead of logs
-			fmt.Printf("value:%.6f, suggestedValue:%.6f, minerIndex:%v, %v \n",
-				float64(submit.Int64())/psr_tellor.DefaultGranularity,
-				suggested/psr_tellor.DefaultGranularity,
-				i,
-				disputed,
-			)
-		}
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Printf("\n\n")
+		fmt.Println()
+		fmt.Fprintln(w, "ID: \t", log.ID, "\t")
+		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
+		fmt.Fprintln(w, "Result: \t", log.Result, "\t")
+		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
+		fmt.Fprintln(w, "Vote Ends: \t", -time.Since(log.VoteEnds), "\t")
+		fmt.Fprintln(w, "Tally Ts: \t", log.TallyTs, "\t")
+		fmt.Fprintln(w, "Votes Support: \t", log.VotesSupport, "\t")
+		fmt.Fprintln(w, "Votes Against: \t", log.VotesAgainst, "\t")
+		fmt.Fprintln(w, "Votes Invalid: \t", log.VotesInvalid, "\t")
+		fmt.Fprintln(w, "Pairs: \t", psr.Pair, "\t")
+		fmt.Fprintln(w, "QueryHash: \t", log.QueryHash, "\t")
+		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(log.DataTime.Unix()))+" "+log.DataTime.Format(logging.DefaultTimeFormat), "\t")
+		fmt.Fprintln(w, "Disputer: \t", log.Disputer.Hex(), "\t")
+		fmt.Fprintln(w, "Reporter: \t", log.Reporter.Hex(), "\t")
+		fmt.Fprintln(w, "Disputed    Id: \t", query.ID, "\t")
+		fmt.Fprintln(w, "Disputed  Time: \t", log.DataTime, "\t")
+		fmt.Fprintln(w, "Disputed   Val: \t", fmt.Sprintf("%.6f", log.DataVal), "\t")
+		fmt.Fprintln(w, "Suggested  Val: \t", fmt.Sprintf("%.6f", suggested/psr_tellor.DefaultGranularity), "\t")
+		fmt.Fprintln(w, "TxHash: \t", log.TxHash.Hex(), "\t")
+		w.Flush()
+
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Printf("\n")
 	}
 
 	return nil

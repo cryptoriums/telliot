@@ -30,7 +30,6 @@ const VersionMessage = `
 var CLIDefault = CLI{
 
 	Dataserver: DataserverCmd{},
-	Report:     ReportCmd{},
 
 	Transfer: TransferCmd{},
 	Approve:  ApproveCmd{},
@@ -61,7 +60,6 @@ type CLI struct {
 	ContractFlag
 
 	Dataserver DataserverCmd `cmd:"" help:"launch only a dataserver instance"`
-	Report     ReportCmd     `cmd:"" help:"Submit data to the oracle contracts"`
 	Submit     SubmitCmd     `cmd:"" help:"Make a single manual submit to the oracle contracts"`
 
 	Transfer TransferCmd `cmd:"" help:"Transfer tokens"`
@@ -172,7 +170,7 @@ type AccountsCmd struct {
 }
 
 func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -186,12 +184,12 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		if err != nil {
 			return errors.Wrap(err, "get eth balance")
 		}
-		trbBalance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+		trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
 			return errors.Wrapf(err, "getting trb balance")
 		}
 
-		status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		status, startTime, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
 			return errors.Wrapf(err, "getting stake status")
 		}
@@ -214,26 +212,33 @@ func ConfigClientContract(
 	configStrictParsing bool,
 	contractAddr string,
 	params contracts.Params,
-) (*config.Config, ethereum.EthClient, contracts.TellorCaller, error) {
+) (
+	*config.Config,
+	ethereum.EthClient,
+	contracts.TellorMasterCaller,
+	contracts.TellorOracleCaller,
+	contracts.TellorGovernCaller,
+	error,
+) {
 	cfg, err := config.LoadConfig(ctx, logger, configPath, configStrictParsing)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	client, err := ethereum.NewClient(ctx, logger)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "creating ethereum client")
+		return nil, nil, nil, nil, nil, errors.Wrap(err, "creating ethereum client")
 	}
 
 	if params == (contracts.Params{}) {
 		params = contracts.DefaultParams
 	}
 
-	contract, err := contracts.NewITellor(ctx, logger, client, common.HexToAddress(contractAddr), params)
+	master, oracle, govern, err := contracts.NewContracts(ctx, logger, client, common.HexToAddress(contractAddr), params)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "create tellor contract instance")
+		return nil, nil, nil, nil, nil, errors.Wrap(err, "create tellor contract instance")
 	}
 
-	return cfg, client, contract, nil
+	return cfg, client, master, oracle, govern, nil
 
 }

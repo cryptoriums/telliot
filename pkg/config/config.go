@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -30,8 +29,13 @@ import (
 	"golang.org/x/tools/godoc/util"
 )
 
+type Transactor struct {
+	Transact bool
+}
+
 // Config is the top-level configuration that holds configs for all components.
 type Config struct {
+	Transactor    Transactor
 	Web           web.Config
 	TrackerIndex  index.Config
 	TrackerBlocks blocks.Config
@@ -55,8 +59,8 @@ var DefaultConfig = Config{
 	},
 	PsrTellor: psr_tellor.Config{
 		MinConfidenceDefault: 80,
-		MinConfidencePerSymbol: map[string]float64{
-			"41": 100,
+		MinConfidencePerSymbol: map[int64]float64{
+			41: 100,
 		},
 	},
 	TrackerIndex: index.Config{
@@ -85,11 +89,7 @@ func LoadConfig(ctx context.Context, logger log.Logger, path string, strictParsi
 
 func Validate(cfg *Config) error {
 	for id := range cfg.PsrTellor.MinConfidencePerSymbol {
-		idI, err := strconv.Atoi(id)
-		if err != nil {
-			return errors.Wrapf(err, "parsing json PSR id:%v", id)
-		}
-		if _, exists := psr_tellor.Psrs[int64(idI)]; !exists {
+		if _, err := psr_tellor.PsrByID(id); err != nil {
 			return errors.Errorf("confidence level for invalid PSR id:%v", id)
 		}
 	}
@@ -130,7 +130,7 @@ func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
 		level.Info(logger).Log("msg", "env file is encrypted", "path", cfg.EnvFile)
 		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 			transacting := `<span style="color:grey">disabled</span>`
-			if cfg.TransactorTellor.Transact {
+			if cfg.Transactor.Transact {
 				transacting = `<span style="color:red">enabled</span>`
 			}
 

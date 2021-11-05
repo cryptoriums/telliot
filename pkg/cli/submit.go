@@ -18,11 +18,11 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
-	ethereumT "github.com/cryptoriums/telliot/pkg/ethereum"
+	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
+	math_t "github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/prompt"
-	psrTellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
+	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -32,6 +32,7 @@ import (
 )
 
 type SubmitCmd struct {
+	DataID int64 `required:""  help:"the request id to submit"`
 	Gas
 	AccountArgOptional
 	CustomSubmit bool
@@ -39,29 +40,28 @@ type SubmitCmd struct {
 }
 
 func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, _, oracle, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	resp, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return errors.Wrap(err, "get current DATA ids")
-	}
-
 	_, aggr, err := self.CreateAggr(ctx, logger, cfg)
 	if err != nil {
-		return errors.Wrap(err, "couldn't get create an aggregator")
+		return errors.Wrap(err, "creating an aggregator")
 	}
 
-	ids := resp.RequestIds
-	vals, err := self.GetValuesFromDB(ctx, logger, cfg, aggr, ids)
+	psr, err := psr_tellor.PsrByID(self.DataID)
+	if err != nil {
+		return errors.Wrap(err, "getting psr")
+	}
+
+	val, err := self.GetValueFromDB(ctx, logger, cfg, aggr, *psr_tellor.NewQuery(self.DataID))
 	if err != nil {
 		level.Error(logger).Log("msg", "couldn't get values from the DB so will proceed with manual submit", "err", err)
-		vals = GetValuesFromInput(logger, resp.RequestIds)
+		val = GetValueFromInput(logger, psr)
 	}
 
-	shouldContinue := FinalPrompt(ctx, logger, contract, self.SkipConfirm, self.GasPrice, resp.RequestIds, vals)
+	shouldContinue := FinalPrompt(ctx, logger, oracle, self.SkipConfirm, self.GasPrice, psr, val)
 	if !shouldContinue {
 		return errors.New("canceled")
 	}
@@ -71,7 +71,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		return err
 	}
 
-	return self.Submit(cli, ctx, logger, account, client, contract, ids, vals)
+	return self.Submit(cli, ctx, logger, account, client, oracle, self.DataID, val)
 }
 
 func (self *SubmitCmd) Submit(
@@ -80,12 +80,20 @@ func (self *SubmitCmd) Submit(
 	logger log.Logger,
 	account *ethereum.Account,
 	client ethereum.EthClient,
-	contract contracts.TellorCaller,
-	ids [5]*big.Int,
-	vals [5]*big.Int,
+	contract contracts.TellorOracleCaller,
+	id int64,
+	val float64,
 ) error {
+	psr, err := psr_tellor.PsrByID(id)
+	if err != nil {
+		return errors.Wrap(err, "get psr")
+	}
+	nonce, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx}, psr.QueryHash)
+	if err != nil {
+		return errors.Wrap(err, "get current DATA ids")
+	}
 
-	opts, err := ethereumT.PrepareTx(ctx, client, account, self.GasPrice, contracts.SubmitValueGasLimit)
+	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -93,22 +101,24 @@ func (self *SubmitCmd) Submit(
 	level.Info(logger).Log(
 		"msg", "submitting",
 		"account", account.Address.Hex()[:8],
-		"ids", fmt.Sprintf("%+v", ids),
-		"vals", fmt.Sprintf("%+v", vals),
+		"id", fmt.Sprintf("%+v", id),
+		"val", fmt.Sprintf("%+v", val),
 	)
+
+	qBytes, err := psr_tellor.NewQuery(id).Bytes()
+	if err != nil {
+		return errors.Wrap(err, "getting query bytes")
+	}
 
 	var tx *types.Transaction
 	if cli.Contract != "" && self.CustomSubmit {
-		contractP, err := contracts.NewITellorProxy(ctx, common.HexToAddress(cli.Contract), client)
-		if err != nil {
-			return err
-		}
-		tx, err = contractP.SubmitMiningSolution0(opts, "krasi!", ids, vals, big.NewInt(0))
-		if err != nil {
-			return errors.Wrap(err, "creting TX")
-		}
+		// TODO re-implement if needed.
+		// contractP, err := contracts.NewITellorProxy(ctx, common.HexToAddress(cli.Contract), client)
+		// if err != nil {
+		// 	return err
+		// }
 	} else {
-		tx, err = contract.SubmitValue(opts, "krasi!", ids, vals)
+		tx, err = contract.SubmitValue(opts, psr.QueryHash, math_t.FloatToBigInt(val).Bytes(), nonce, qBytes)
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}
@@ -142,43 +152,41 @@ func (self *SubmitCmd) SelectAccount(logger log.Logger) (*ethereum.Account, erro
 	return accounts[0], nil
 }
 
-func GetValuesFromInput(logger log.Logger, dataIDs [5]*big.Int) [5]*big.Int {
-	var vals [5]*big.Int
-	for i, dataID := range dataIDs {
-		if psrTellor.IsInactive(dataID.Int64()) {
-			level.Warn(logger).Log("msg", "dataID is inactive so adding 0 value", "datID", dataID.Int64())
-			vals[i] = big.NewInt(0)
+func GetValueFromInput(logger log.Logger, psr psr_tellor.PsrID) float64 {
+	//lint:ignore faillint for prompts can't use logs.
+	fmt.Println("Enter values in the format (1.123456)")
+	for {
+		_val, err := prompt.Prompt(PSRDetails(psr)+" Val:", false)
+		if err != nil {
+			//lint:ignore faillint for prompts can't use logs.
+			fmt.Println(err)
 			continue
 		}
-		//lint:ignore faillint for prompts can't use logs.
-		fmt.Println("Enter values in the format (1.123456)")
-		for {
-			_val, err := prompt.Prompt(dataID.String()+":"+DataIdFullName(dataID.Int64())+" Val:", false)
-			if err != nil {
-				//lint:ignore faillint for prompts can't use logs.
-				fmt.Println(err)
-				continue
-			}
-			val, err := strconv.ParseFloat(_val, 64)
-			if err != nil {
-				//lint:ignore faillint for prompts can't use logs.
-				fmt.Println(err)
-				continue
-			}
-			vals[i] = big.NewInt(int64(val * float64(psrTellor.DefaultGranularity)))
-			break
+		val, err := strconv.ParseFloat(_val, 64)
+		if err != nil {
+			//lint:ignore faillint for prompts can't use logs.
+			fmt.Println(err)
+			continue
 		}
+		return val * float64(psr_tellor.DefaultGranularity)
 	}
-	return vals
 }
 
-func (self *SubmitCmd) GetValuesFromDB(ctx context.Context, logger log.Logger, cfg *config.Config, aggregator *aggregator.Aggregator, dataIDs [5]*big.Int) ([5]*big.Int, error) {
-	psr := psrTellor.New(logger, cfg.PsrTellor, aggregator)
-	vals, err := requestVals(logger, psr, dataIDs)
+func (self *SubmitCmd) GetValueFromDB(
+	ctx context.Context,
+	logger log.Logger,
+	cfg *config.Config,
+	aggregator *aggregator.Aggregator,
+	query psr_tellor.Query,
+) (float64, error) {
+	psr := psr_tellor.New(logger, cfg.PsrTellor, aggregator)
+
+	val, err := psr.GetValue(query, time.Now())
 	if err != nil {
-		return vals, errors.Wrap(err, "getting variable values")
+		return 0, errors.Wrapf(err, "getting value for query:%v", query)
 	}
-	return vals, nil
+
+	return val, nil
 }
 
 func (self *SubmitCmd) CreateAggr(ctx context.Context, logger log.Logger, cfg *config.Config) (storage.Queryable, *aggregator.Aggregator, error) {
@@ -209,58 +217,29 @@ func (self *SubmitCmd) CreateAggr(ctx context.Context, logger log.Logger, cfg *c
 	return querable, aggregator, nil
 }
 
-func requestVals(logger log.Logger, psr *psrTellor.Psr, dataIDs [5]*big.Int) ([5]*big.Int, error) {
-	var vals [5]*big.Int
-	for i, dataID := range dataIDs {
-		if psrTellor.IsInactive(dataID.Int64()) {
-			level.Warn(logger).Log("msg", "dataID is inactive so adding 0 value", "datID", dataID.Int64())
-			vals[i] = big.NewInt(0)
-			continue
-		}
-		val, err := psr.GetValue(dataID.Int64(), time.Now())
-		if err != nil {
-			return vals, errors.Wrapf(err, "getting value for request ID:%v", dataID)
-		}
-		vals[i] = big.NewInt(int64(val))
-	}
-	return vals, nil
-}
-
 func FinalPrompt(
 	ctx context.Context,
 	logger log.Logger,
-	contract contracts.TellorCaller,
+	contract contracts.TellorOracleCaller,
 	skipConfirm bool,
 	gasMaxFee float64,
-	dataIDs,
-	vals [5]*big.Int,
+	psr psr_tellor.PsrID,
+	val float64,
 ) bool {
-
-	slot, err := contract.GetUintVar(&bind.CallOpts{Context: ctx}, ethereum.Keccak256([]byte("_SLOT_PROGRESS")))
+	timeOfLastNewValue, err := contract.TimeOfLastNewValue(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		level.Error(logger).Log("msg", "getting current slot", "err", err)
-	}
-
-	timeOfLastNewValue, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_TIME_OF_LAST_NEW_VALUE")))
-	if err != nil {
+		timeOfLastNewValue = big.NewInt(0)
 		level.Error(logger).Log("msg", "getting last submit time", "err", err)
 	}
 
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Printf(">>>>>>>> Current Slot:%v GasPrice:%v LastSubmit:%v \n", slot.String(), gasMaxFee, time.Since(time.Unix(timeOfLastNewValue.Int64(), 0)))
+	fmt.Printf(">>>>>>>> GasPrice:%v LastSubmit:%v \n", gasMaxFee, time.Since(time.Unix(timeOfLastNewValue.Int64(), 0)))
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psrTellor.DefaultGranularity))
+	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psr_tellor.DefaultGranularity))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-
-	var dataIDstr, dataValstr string
-	for i, id := range dataIDs {
-		dataIDstr += id.String() + ":" + DataIdFullName(id.Int64()) + "\t"
-		dataValstr += fmt.Sprintf("%g", float64(vals[i].Int64())/float64(psrTellor.DefaultGranularity)) + "\t"
-	}
-
-	fmt.Fprintln(w, "IDs:\t"+dataIDstr)
-	fmt.Fprintln(w, "Vals:\t"+dataValstr)
+	fmt.Fprintln(w, "Psr:\t"+PSRDetails(psr)+"\t")
+	fmt.Fprintln(w, "Val:\t"+fmt.Sprintf("%g", float64(val)/float64(psr_tellor.DefaultGranularity))+"\t")
 	w.Flush()
 
 	if skipConfirm {
@@ -273,12 +252,12 @@ func FinalPrompt(
 	}
 	promptResp, err = prompt.Prompt("Press Y if you want to enter values manually?:", false)
 	if err == nil && strings.ToLower(promptResp) == "y" {
-		vals = GetValuesFromInput(logger, dataIDs)
-		return FinalPrompt(ctx, logger, contract, skipConfirm, gasMaxFee, dataIDs, vals)
+		val = GetValueFromInput(logger, psr)
+		return FinalPrompt(ctx, logger, contract, skipConfirm, gasMaxFee, psr, val)
 	}
 	return false
 }
 
-func DataIdFullName(id int64) string {
-	return psrTellor.Psrs[id].Pair + "(" + psrTellor.Psrs[id].Aggr + ")"
+func PSRDetails(psr psr_tellor.PsrID) string {
+	return psr.Pair + ":" + psr.Aggr + ", inactive:" + strconv.FormatBool(psr.Inactive)
 }

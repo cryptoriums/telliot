@@ -25,7 +25,7 @@ type DepositCmd struct {
 }
 
 func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -42,12 +42,12 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	}
 
 	if !self.NoChecks {
-		balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
+		balance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, addrToCheck)
 		if err != nil {
 			return errors.Wrap(err, "get TRB balance")
 		}
 
-		status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
+		status, startTime, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, addrToCheck)
 		if err != nil {
 			return errors.Wrap(err, "get stake status")
 		}
@@ -57,7 +57,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 			return nil
 		}
 
-		stakeAmt, err := contract.GetUintVar(nil, ethereum.Keccak256([]byte("_STAKE_AMOUNT")))
+		stakeAmt, err := master.GetUintVar(nil, ethereum.Keccak256("_STAKE_AMOUNT"))
 		if err != nil {
 			return errors.Wrap(err, "fetching stake amount")
 		}
@@ -74,7 +74,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.DepositStake(opts)
+	tx, err := master.DepositStake(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract failed")
 	}
@@ -87,7 +87,7 @@ type WithdrawCmd struct {
 }
 
 func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return err
 	}
 
-	status, startTime, err := contract.GetStakerInfo(nil, account.Address)
+	status, startTime, err := master.GetStakerInfo(nil, account.Address)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}
@@ -112,7 +112,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.WithdrawStake(opts)
+	tx, err := master.WithdrawStake(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract")
 	}
@@ -126,7 +126,7 @@ type RequestCmd struct {
 }
 
 func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	status, startTime, err := contract.GetStakerInfo(nil, account.Address)
+	status, startTime, err := master.GetStakerInfo(nil, account.Address)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}
@@ -150,7 +150,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
 
-	tx, err := contract.RequestStakingWithdraw(opts)
+	tx, err := master.RequestStakingWithdraw(opts)
 	if err != nil {
 		return errors.Wrap(err, "contract")
 	}
@@ -165,14 +165,14 @@ type StatusCmd struct {
 }
 
 func (self *StatusCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, _, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, _, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
 	addr := common.HexToAddress(self.Account)
 
-	status, startTime, err := contract.GetStakerInfo(&bind.CallOpts{Context: ctx}, addr)
+	status, startTime, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, addr)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}

@@ -43,14 +43,14 @@ func (self *tokenCmd) Validate() error {
 type TransferCmd tokenCmd
 
 func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
 	from := common.HexToAddress(self.From)
 
-	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, from)
+	balance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, from)
 	if err != nil {
 		return errors.Wrap(err, "get balance")
 	}
@@ -77,7 +77,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 
 	to := common.HexToAddress(self.To)
 
-	tx, err := contract.Transfer(opts, to, amount)
+	tx, err := master.Transfer(opts, to, amount)
 	if err != nil {
 		return errors.Wrap(err, "calling transfer")
 	}
@@ -93,14 +93,14 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 type ApproveCmd tokenCmd
 
 func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
 	from := common.HexToAddress(self.From)
 
-	balance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, from)
+	balance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, from)
 	if err != nil {
 		return errors.Wrap(err, "get balance")
 	}
@@ -128,7 +128,7 @@ func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 
 	spender := common.HexToAddress(self.To)
 
-	tx, err := contract.Approve(opts, spender, amount)
+	tx, err := master.Approve(opts, spender, amount)
 	if err != nil {
 		return errors.Wrap(err, "calling approve")
 	}
@@ -142,7 +142,7 @@ type BalanceCmd struct {
 }
 
 func (self *BalanceCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (self *BalanceCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return errors.Wrap(err, "get eth balance")
 	}
-	trbBalance, err := contract.BalanceOf(&bind.CallOpts{Context: ctx}, addr)
+	trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, addr)
 	if err != nil {
 		return errors.Wrapf(err, "getting trb balance")
 	}

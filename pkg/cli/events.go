@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
+	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
+	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
 	"github.com/cryptoriums/telliot/pkg/tracker/events"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/log"
@@ -19,19 +21,31 @@ import (
 )
 
 type eventsCmd struct {
-	LookBack  time.Duration `help:"how far to look for the initiali qyery"`
-	EventName string        `required:"" enum:"NonceSubmitted,NewTellorAddress,Transfer" help:"the name of the log to watch"`
-	ReorgWait time.Duration `default:"3s" help:"how long to wait for removed logs from reorg events"`
+	LookBack     time.Duration `help:"how far to look for the initiali qyery"`
+	Event        string        `required:"" enum:"NonceSubmitted,NewTellorAddress,Transfer" help:"the name of the log to watch"`
+	ContractName string        `required:"" enum:"master,oracle,govern" help:"the name of the contract to watch"`
+	ReorgWait    time.Duration `default:"3s" help:"how long to wait for removed logs from reorg events"`
 }
 
 func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, oracle, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
 	ctx, cncl := context.WithCancel(ctx)
 	defer cncl()
+
+	var contract contracts.ContractCaller
+	switch self.ContractName {
+	case "master":
+		contract = master
+	case "oracle":
+		contract = oracle
+	case "govern":
+		contract = govern
+
+	}
 
 	trackerEvents, output, err := events.New(
 		ctx,
@@ -40,7 +54,7 @@ func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		client,
 		contract,
 		self.LookBack,
-		self.EventName,
+		self.Event,
 		self.ReorgWait,
 	)
 	if err != nil {
@@ -92,19 +106,10 @@ func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	return nil
 }
 
-func (self *eventsCmd) unpack(contract contracts.TellorCaller, logRaw types.Log) error {
-	switch eventName := self.EventName; eventName {
+func (self *eventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Log) error {
+	switch eventName := self.Event; eventName {
 	case contracts.EventNameNewSubmit:
-		log := &contracts.TellorNonceSubmitted{}
-		err := contract.UnpackLog(log, eventName, logRaw)
-		if err != nil {
-			return errors.Wrap(err, "unpack event from logs")
-		}
-		log.Raw = logRaw
-		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Printf("%+v \n", log)
-	case contracts.EventNameContractUpgrade:
-		log := &contracts.NewTellorAddress{}
+		log := &tellorX_oracle.OracleNewReport{}
 		err := contract.UnpackLog(log, eventName, logRaw)
 		if err != nil {
 			return errors.Wrap(err, "unpack event from logs")
@@ -113,7 +118,7 @@ func (self *eventsCmd) unpack(contract contracts.TellorCaller, logRaw types.Log)
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Printf("%+v \n", log)
 	case contracts.EventNameTransfer:
-		log := &contracts.TellorTransferred{}
+		log := &tellorX_master.ControllerTransfer{}
 		err := contract.UnpackLog(log, eventName, logRaw)
 		if err != nil {
 			return errors.Wrap(err, "unpack event from logs")

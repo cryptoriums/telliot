@@ -142,10 +142,10 @@ Flags:
       --contract=STRING          hex address of the contract to interract with
 
 Commands:
-  dispute new --data-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
+  dispute new --data-id=INT-64 --timestamp=INT-64 <account>
     start a new dispute
 
-  dispute vote --dispute-id=INT-64 --support <account>
+  dispute vote --dispute-id=INT-64 --support --invalid <account>
     vote on a open dispute
 
   dispute list
@@ -186,7 +186,7 @@ Flags:
 * `dispute new`
 
 ```
-Usage: telliot dispute new --data-id=INT-64 --timestamp=INT-64 --slot=INT-64 <account>
+Usage: telliot dispute new --data-id=INT-64 --timestamp=INT-64 <account>
 
 start a new dispute
 
@@ -206,7 +206,6 @@ Flags:
                                  running against a test contract
       --data-id=INT-64           the request id to dispute
       --timestamp=INT-64         the submitted timestamp to dispute
-      --slot=INT-64              the reporter index to dispute
 
 ```
 
@@ -276,7 +275,7 @@ Flags:
 * `dispute vote`
 
 ```
-Usage: telliot dispute vote --dispute-id=INT-64 --support <account>
+Usage: telliot dispute vote --dispute-id=INT-64 --support --invalid <account>
 
 vote on a open dispute
 
@@ -296,6 +295,7 @@ Flags:
                                  balance, did vote etc. Useful to disable when
                                  running against a test contract
       --support                  true or false
+      --invalid                  true or false
 
 ```
 
@@ -322,7 +322,7 @@ Flags:
 * `events`
 
 ```
-Usage: telliot events --event-name=STRING
+Usage: telliot events --event=STRING --contract-name=STRING
 
 Subscribe to watch logs from the network.
 
@@ -334,7 +334,8 @@ Flags:
       --contract=STRING          hex address of the contract to interract with
 
       --look-back=DURATION       how far to look for the initiali qyery
-      --event-name=STRING        the name of the log to watch
+      --event=STRING             the name of the log to watch
+      --contract-name=STRING     the name of the contract to watch
       --reorg-wait=3s            how long to wait for removed logs from reorg
                                  events
 
@@ -355,22 +356,6 @@ Flags:
       --contract=STRING          hex address of the contract to interract with
 
       --uninstall
-
-```
-
-* `report`
-
-```
-Usage: telliot report
-
-Submit data to the oracle contracts
-
-Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --config-strict-parsing    whether to return an error when the config
-                                 contains unknown fields
-      --contract=STRING          hex address of the contract to interract with
 
 ```
 
@@ -491,7 +476,7 @@ Flags:
 * `submit`
 
 ```
-Usage: telliot submit [<account>]
+Usage: telliot submit --data-id=INT-64 [<account>]
 
 Make a single manual submit to the oracle contracts
 
@@ -505,6 +490,7 @@ Flags:
                                  contains unknown fields
       --contract=STRING          hex address of the contract to interract with
 
+      --data-id=INT-64           the request id to submit
       --gas-price=FLOAT-64       gas max fee to use when running the command
       --custom-submit
       --skip-confirm             submit without confirming, useful for testing
@@ -576,22 +562,9 @@ Flags:
 			"Duration": "Required:false, Default:1440h0m0s"
 		}
 	},
-	"Mining": {
-		"Heartbeat": "Required:false, Default:1m0s",
-		"LogLevel": "Required:false, Default:"
-	},
 	"PsrTellor": {
 		"MinConfidenceDefault": "Required:false, Default:80",
 		"MinConfidencePerSymbol": "Required:false, Default:map[41:100]"
-	},
-	"SubmitterTellor": {
-		"LogLevel": "Required:false, Default:",
-		"MinSubmitPeriod": {
-			"Duration": "Required:false, Default:15m30s"
-		}
-	},
-	"Tasker": {
-		"LogLevel": "Required:false, Default:"
 	},
 	"TrackerBlocks": {
 		"LogLevel": "Required:false, Default:"
@@ -603,10 +576,8 @@ Flags:
 		},
 		"LogLevel": "Required:false, Default:"
 	},
-	"TransactorTellor": {
-		"GasMaxTipGwei": "Required:false, Default:10, Description:Hard limit of the gas tip in Gwei.",
-		"LogLevel": "Required:false, Default:",
-		"Transact": "Required:false, Default:true"
+	"Transactor": {
+		"Transact": "Required:false, Default:false"
 	},
 	"Web": {
 		"ListenHost": "Required:false, Default:",
@@ -633,22 +604,11 @@ Here are the config defaults in json format:
 		"RemoteTimeout": "5s",
 		"Retention": "1440h0m0s"
 	},
-	"Mining": {
-		"Heartbeat": 60000000000,
-		"LogLevel": ""
-	},
 	"PsrTellor": {
 		"MinConfidenceDefault": 80,
 		"MinConfidencePerSymbol": {
 			"41": 100
 		}
-	},
-	"SubmitterTellor": {
-		"LogLevel": "",
-		"MinSubmitPeriod": "15m30s"
-	},
-	"Tasker": {
-		"LogLevel": ""
 	},
 	"TrackerBlocks": {
 		"LogLevel": ""
@@ -658,10 +618,8 @@ Here are the config defaults in json format:
 		"Interval": "1m0s",
 		"LogLevel": ""
 	},
-	"TransactorTellor": {
-		"GasMaxTipGwei": 10,
-		"LogLevel": "",
-		"Transact": true
+	"Transactor": {
+		"Transact": false
 	},
 	"Web": {
 		"ListenHost": "",

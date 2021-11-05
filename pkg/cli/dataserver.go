@@ -70,7 +70,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			trackerIndex.Stop()
 		})
 
-		cfg, client, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+		cfg, client, _, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			}
 			handlers := make(map[string]http.HandlerFunc)
 			handlers["/psrs"] = web.PSRs(ctx, logger, psr_tellor.New(logger, cfg.PsrTellor, aggregator))
-			srv, err := web.New(ctx, logger, nil, tsDB, cfg.Web)
+			srv, err := web.New(ctx, logger, handlers, tsDB, cfg.Web)
 			if err != nil {
 				return errors.Wrap(err, "creating component:"+web.ComponentName)
 			}

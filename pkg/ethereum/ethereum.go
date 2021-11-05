@@ -159,8 +159,8 @@ func PrepareTx(
 	return opts, nil
 }
 
-func Keccak256(input []byte) [32]byte {
-	hash := crypto.Keccak256(input)
+func Keccak256(input string) [32]byte {
+	hash := crypto.Keccak256([]byte(input))
 	var hashed [32]byte
 	copy(hashed[:], hash)
 

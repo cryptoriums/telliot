@@ -6,11 +6,13 @@ package cli
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"text/tabwriter"
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/contracts"
+	math_t "github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -23,48 +25,41 @@ type DataCmd struct {
 }
 
 func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, contract, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, _, oracle, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
 	level.Info(logger).Log("msg", "params", "from", self.From, "lookBack", self.LookBack)
 
-	submits, err := contracts.GetSubmitLogs(ctx, client, contract, int64(self.From), self.LookBack)
+	submits, err := contracts.GetSubmitLogs(ctx, client, oracle, int64(self.From), self.LookBack)
 	if err != nil {
 		return errors.Wrap(err, "getting submit logs")
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	for _, submit := range submits {
-		for i, id := range submit.DataIDs {
-			if i == 0 {
-				fmt.Fprintf(w, "ts: %v mins: %v\tslots\t0\t1\tmedian:2\t3\t4\t \n",
-					submit.Timestamp,
-					int(time.Since(time.Unix(submit.Timestamp.Int64(), 0)).Minutes()),
-				)
-			}
-			inactive := ""
-			if tellor.IsInactive(id.Int64()) {
-				inactive = "(in)"
-			}
-			fmt.Fprintf(w, "%v:%v \t %vid:%v\t",
-				tellor.Psrs[id.Int64()].Pair,
-				tellor.Psrs[id.Int64()].Aggr,
-				inactive,
-				id.Int64(),
-			)
-			for i, val := range submit.Values[id.Int64()] {
-				//lint:ignore faillint looks cleaner with print instead of logs
-				fmt.Fprintf(w, "%.6f:%v\t", float64(val.Int64())/tellor.DefaultGranularity, submit.Reporters[id.Int64()][i].Hex()[:8])
-			}
-			fmt.Fprint(w, "\n")
-
+		psr, err := tellor.PsrByQueryBytes(submit.QueryData)
+		if err != nil {
+			return errors.Wrapf(err, "getting PSR by query")
 		}
-		fmt.Fprint(w, "\n")
-		w.Flush()
+		inactive := ""
+		if psr.Inactive {
+			inactive = "(in)"
+		}
+
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Fprintf(w, "ts: %v \tmins: %v \tReporter: %v \tID%v:%v \tName %v:%v \tVal: %.6f \t \n",
+			submit.Time,
+			int(time.Since(time.Unix(submit.Time.Int64(), 0)).Minutes()),
+			submit.Reporter.Hex()[:8],
+			psr.QueryHash, inactive,
+			psr.Pair, psr.Aggr,
+			math_t.BigIntToFloat(big.NewInt(0).SetBytes(submit.Value))/tellor.DefaultGranularity,
+		)
 	}
+	w.Flush()
 
 	return nil
 }
