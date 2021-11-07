@@ -118,8 +118,8 @@ func Data(
 	componentor Componentor,
 	client ethereum.EthClient,
 	master contracts.TellorMasterCaller,
-	govern contracts.TellorGovernCaller,
 	oracle contracts.TellorOracleCaller,
+	govern contracts.TellorGovernCaller,
 	envFilePath string,
 ) http.HandlerFunc {
 	var err error
@@ -289,7 +289,7 @@ func Data(
 				<td style="text-align:right">{{ slice ( $submit.Reporter).Hex 0 8 }}</td>
 				<td>
 					<form id="data">
-						<input type="hidden" id="queryHash" name="queryHash" value="{{$submit.QueryId}}" >
+						<input type="hidden" id="queryID" name="queryID" value="{{$submit.QueryId}}" >
 						<input type="hidden" id="ts" name="ts"  value="{{$submit.Time.String}}" >
 						<input type="hidden" id="look-back" name="look-back"  value="` + strconv.Itoa(int(lookBack.Hours())) + `h" >
 						<input type="submit" value="Dispute">
@@ -372,8 +372,8 @@ func prepareDisputeForm(
 					<label for="pass">EnvFile Pass:</label><input type="password" name="pass" id="pass"/><br/>
 					<label for="account">Account:</label>
 						<select name="account" id="account">` + accOpts + `</select><br/>
-					<label for="queryHash">Query Hash:</label>
-						<input type="text" readonly="readonly" id="queryHash" name="queryHash" value="` + values.Get("queryHash") + `" ><br/>
+					<label for="queryID">Query Hash:</label>
+						<input type="text" readonly="readonly" id="queryID" name="queryID" value="` + values.Get("queryID") + `" ><br/>
 					<label for="ts">Timestamp:</label>
 						<input type="text" readonly="readonly" id="ts" name="ts" value="` + values.Get("ts") + `" ><br/>
 					<input type="submit" value="BEGIN DISPUTE">
@@ -381,7 +381,7 @@ func prepareDisputeForm(
 			</fieldset>
 			`
 
-	if values.Get("queryHash") == "" {
+	if values.Get("queryID") == "" {
 		postForm = `missing Query Hash`
 	}
 	if values.Get("ts") == "" {
@@ -405,10 +405,10 @@ func createDispute(
 	if err != nil {
 		return nil, errors.Wrap(err, "getting account from selection")
 	}
-	_queryHash := []byte(r.PostForm.Get("queryHash"))
+	_queryID := []byte(r.PostForm.Get("queryID"))
 
-	var queryHash [32]byte
-	copy(queryHash[:], _queryHash)
+	var queryID [32]byte
+	copy(queryID[:], _queryID)
 	ts, err := strconv.ParseInt(r.PostForm.Get("ts"), 0, 64)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing the ts value")
@@ -418,7 +418,7 @@ func createDispute(
 	if err != nil {
 		return nil, errors.Wrap(err, "preparing dispute TX")
 	}
-	tx, err := contract.BeginDispute(opts, queryHash, big.NewInt(ts))
+	tx, err := contract.BeginDispute(opts, queryID, big.NewInt(ts))
 	if err != nil {
 		return nil, errors.Wrap(err, "creating dispute TX")
 	}

@@ -95,6 +95,12 @@ type TellorOracleCaller interface {
 	GetValueByTimestamp(opts *bind.CallOpts, _queryId [32]byte, _timestamp *big.Int) ([]byte, error)
 }
 
+const (
+	DisputeStatusFail    = 0
+	DisputeStatusPassed  = 1
+	DisputeStatusInvalid = 2
+)
+
 type TellorGovernCaller interface {
 	ContractCaller
 
@@ -235,6 +241,9 @@ func newContractsWithAddr(
 	if params.DisputeVotingDuration == 0 {
 		return nil, nil, nil, errors.New("DisputeVotingDuration should not be zero")
 	}
+	if params.DisputeUnlockFeeWaitDuration == 0 {
+		return nil, nil, nil, errors.New("DisputeUnlockFeeWaitDuration should not be zero")
+	}
 	master, err := tellorX_master.NewController(addrMaster, client)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
@@ -329,7 +338,7 @@ func GetMasterAddress(netID int64) (common.Address, error) {
 
 type DisputeLog struct {
 	ID              int64
-	QueryHash       string
+	QueryID         string
 	DataVal         float64
 	DataTime        time.Time
 	Executed        bool
@@ -436,7 +445,7 @@ func GetTallyLogs(
 
 func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, contract TellorGovernCaller) (*DisputeLog, error) {
 
-	queryHash, timestamp, val, reporter, err := contract.GetDisputeInfo(&bind.CallOpts{Context: ctx}, disputeID)
+	queryID, timestamp, val, reporter, err := contract.GetDisputeInfo(&bind.CallOpts{Context: ctx}, disputeID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get dispute details")
 	}
@@ -452,7 +461,7 @@ func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, 
 
 	return &DisputeLog{
 		ID:              disputeID.Int64(),
-		QueryHash:       fmt.Sprintf("%x", queryHash[:]),
+		QueryID:         fmt.Sprintf("%x", queryID[:]),
 		TallyTs:         int64(math_t.BigIntToFloat(voteVars[4])),
 		DataTime:        time.Unix(timestamp.Int64(), 0),
 		DataVal:         math_t.BigIntToFloatDiv(big.NewInt(0).SetBytes(val), psr.DefaultGranularity),

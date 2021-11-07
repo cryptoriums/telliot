@@ -22,7 +22,7 @@ type PsrID struct {
 	Pair            string
 	Aggr            string
 	ConfidenceQuery string
-	QueryHash       [32]byte
+	QueryID         [32]byte
 	Inactive        bool
 }
 
@@ -70,12 +70,12 @@ func PsrByQuery(query Query) (PsrID, error) {
 }
 
 func addQueryHash(psr PsrID, q Query) (PsrID, error) {
-	if psr.QueryHash == [32]byte{} {
+	if psr.QueryID == [32]byte{} {
 		qj, err := json.Marshal(q)
 		if err != nil {
 			return PsrID{}, err
 		}
-		psr.QueryHash = ethereum_t.Keccak256(string(qj))
+		psr.QueryID = ethereum_t.Keccak256(string(qj))
 	}
 	return psr, nil
 }
@@ -89,8 +89,8 @@ func BytesToQuery(val []byte) *Query {
 }
 
 var Psrs = map[Query]PsrID{
-	*NewQuery(1): {Pair: "ETH/USD", Aggr: Median, QueryHash: math_t.IntTo32Byte(1)},
-	*NewQuery(2): {Pair: "BTC/USD", Aggr: Median, QueryHash: math_t.IntTo32Byte(2)},
+	*NewQuery(1): {Pair: "ETH/USD", Aggr: Median, QueryID: math_t.IntTo32Byte(1)},
+	*NewQuery(2): {Pair: "BTC/USD", Aggr: Median, QueryID: math_t.IntTo32Byte(2)},
 	*NewQuery(3): {Inactive: true, Pair: "BNB/USD", Aggr: Median},
 	*NewQuery(4): {Inactive: true, Pair: "BTC/USD", Aggr: TimeWeightedAvg24h},
 	*NewQuery(5): {Inactive: true, Pair: "ETH/BTC", Aggr: Median},
@@ -100,7 +100,7 @@ var Psrs = map[Query]PsrID{
 	*NewQuery(9): {Inactive: true, Pair: "ETH/USD", Aggr: MedianEOD},
 	// // For more details see https://docs.google.com/document/d/1RFCApk1PznMhSRVhiyFl_vBDPA4mP2n1dTmfqjvuTNw/edit
 	// // For now this uses third party APIs and don't do local aggregation.
-	*NewQuery(10): {Pair: "AMPL/USD/VWAP", Aggr: Median, QueryHash: math_t.IntTo32Byte(10)},
+	*NewQuery(10): {Pair: "AMPL/USD/VWAP", Aggr: Median, QueryID: math_t.IntTo32Byte(10)},
 	*NewQuery(11): {Inactive: true, Pair: "ZEC/ETH", Aggr: Median},
 	*NewQuery(12): {Inactive: true, Pair: "TRX/ETH", Aggr: Median},
 	*NewQuery(13): {Inactive: true, Pair: "XRP/USD", Aggr: Median},
@@ -121,7 +121,7 @@ var Psrs = map[Query]PsrID{
 	*NewQuery(28): {Inactive: true, Pair: "ZRX/BNB", Aggr: Median},
 	*NewQuery(29): {Inactive: true, Pair: "ZEC/USD", Aggr: Median},
 	*NewQuery(30): {Inactive: true, Pair: "XAU/USD", Aggr: Median},
-	*NewQuery(31): {Pair: "MATIC/USD", Aggr: Median, QueryHash: math_t.IntTo32Byte(31)},
+	*NewQuery(31): {Pair: "MATIC/USD", Aggr: Median, QueryID: math_t.IntTo32Byte(31)},
 	*NewQuery(32): {Inactive: true, Pair: "BAT/USD", Aggr: Median},
 	*NewQuery(33): {Inactive: true, Pair: "ALGO/USD", Aggr: Median},
 	*NewQuery(34): {Inactive: true, Pair: "ZRX/USD", Aggr: Median},
@@ -132,7 +132,7 @@ var Psrs = map[Query]PsrID{
 	*NewQuery(39): {Inactive: true, Pair: "DAI/USD", Aggr: Median},
 	*NewQuery(40): {Inactive: true, Pair: "STEEM/BTC", Aggr: Median},
 	// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
-	*NewQuery(41): {Pair: "USPCE", Aggr: Median, QueryHash: math_t.IntTo32Byte(41)},
+	*NewQuery(41): {Pair: "USPCE", Aggr: Median, QueryID: math_t.IntTo32Byte(41)},
 	*NewQuery(42): {Inactive: true, Pair: "BTC/USD", Aggr: MedianEOD},
 	*NewQuery(43): {Inactive: true, Pair: "TRB/ETH", Aggr: Median},
 	*NewQuery(44): {Inactive: true, Pair: "BTC/USD", Aggr: TimeWeightedAvg1h},
@@ -141,7 +141,7 @@ var Psrs = map[Query]PsrID{
 	*NewQuery(47): {Inactive: true, Pair: "BSV/USD", Aggr: Median},
 	*NewQuery(48): {Inactive: true, Pair: "MAKER/USD", Aggr: Median},
 	*NewQuery(49): {Inactive: true, Pair: "BCH/USD", Aggr: TimeWeightedAvg24h},
-	*NewQuery(50): {Pair: "TRB/USD", Aggr: Median, QueryHash: math_t.IntTo32Byte(50)},
+	*NewQuery(50): {Pair: "TRB/USD", Aggr: Median, QueryID: math_t.IntTo32Byte(50)},
 	*NewQuery(51): {Inactive: true, Pair: "XMR/USD", Aggr: Median},
 	*NewQuery(52): {Inactive: true, Pair: "XFT/USD", Aggr: Median},
 	*NewQuery(53): {Inactive: true, Pair: "BTCDOMINANCE", Aggr: Median},
@@ -150,8 +150,8 @@ var Psrs = map[Query]PsrID{
 	*NewQuery(56): {Inactive: true, Pair: "VIXEOD", Aggr: Median},
 	*NewQuery(57): {Inactive: true, Pair: "DEFITVL", Aggr: Median},
 	*NewQuery(58): {Inactive: true, Pair: "DEFIMCAP", Aggr: Mean},
-	*NewQuery(59): {Pair: "ETH/JPY", Aggr: Median, QueryHash: math_t.IntTo32Byte(59)},
-	*NewQuery(60): {Inactive: true, Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, QueryHash: math_t.IntTo32Byte(60), ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[` + Week.String() + `]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset ` + Week.String() + `)`},
+	*NewQuery(59): {Pair: "ETH/JPY", Aggr: Median, QueryID: math_t.IntTo32Byte(59)},
+	*NewQuery(60): {Inactive: true, Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, QueryID: math_t.IntTo32Byte(60), ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[` + Week.String() + `]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset ` + Week.String() + `)`},
 }
 
 func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr {

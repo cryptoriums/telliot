@@ -88,7 +88,7 @@ func (self *SubmitCmd) Submit(
 	if err != nil {
 		return errors.Wrap(err, "get psr")
 	}
-	nonce, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx}, psr.QueryHash)
+	nonce, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx}, psr.QueryID)
 	if err != nil {
 		return errors.Wrap(err, "get current DATA ids")
 	}
@@ -118,7 +118,7 @@ func (self *SubmitCmd) Submit(
 		// 	return err
 		// }
 	} else {
-		tx, err = contract.SubmitValue(opts, psr.QueryHash, math_t.FloatToBigInt(val).Bytes(), nonce, qBytes)
+		tx, err = contract.SubmitValue(opts, psr.QueryID, math_t.FloatToBigInt(val).Bytes(), nonce, qBytes)
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}

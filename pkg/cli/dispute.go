@@ -83,7 +83,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 	}
 
 	if !self.NoChecks {
-		val, err := oracle.GetValueByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryHash, big.NewInt(self.Timestamp))
+		val, err := oracle.GetValueByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryID, big.NewInt(self.Timestamp))
 		if err != nil {
 			return errors.Wrap(err, "getting the val to dispute")
 		}
@@ -102,7 +102,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 				math.BigIntToFloatDiv(disputeCost, params.Ether))
 		}
 
-		reporter, err := oracle.GetReporterByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryHash, big.NewInt(self.Timestamp))
+		reporter, err := oracle.GetReporterByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryID, big.NewInt(self.Timestamp))
 		if err != nil {
 			return errors.Wrap(err, "getting submit reporter")
 		}
@@ -129,14 +129,14 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
-	fmt.Println("psr.QueryHash", psr.QueryHash)
+	fmt.Println("psr.QueryID", psr.QueryID)
 
-	tx, err := govern.BeginDispute(opts, psr.QueryHash, big.NewInt(self.Timestamp))
+	tx, err := govern.BeginDispute(opts, psr.QueryID, big.NewInt(self.Timestamp))
 	if err != nil {
 		return errors.Wrap(err, "send dispute txn")
 	}
 	level.Info(logger).Log("msg", "dispute tx created",
-		"queryHash", psr.QueryHash,
+		"queryHash", psr.QueryID,
 		"ts", self.Timestamp,
 		"tx", tx.Hash())
 	return nil
@@ -398,7 +398,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
 
-		query := psr_tellor.BytesToQuery([]byte(log.QueryHash))
+		query := psr_tellor.BytesToQuery([]byte(log.QueryID))
 		psr, err := psr_tellor.PsrByID(query.ID)
 		if err != nil {
 			level.Error(logger).Log("msg", "getting psr", "id", log.ID, "err", err)
@@ -424,7 +424,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Fprintln(w, "Votes Against: \t", log.VotesAgainst, "\t")
 		fmt.Fprintln(w, "Votes Invalid: \t", log.VotesInvalid, "\t")
 		fmt.Fprintln(w, "Pairs: \t", psr.Pair, "\t")
-		fmt.Fprintln(w, "QueryHash: \t", log.QueryHash, "\t")
+		fmt.Fprintln(w, "QueryID: \t", log.QueryID, "\t")
 		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(log.DataTime.Unix()))+" "+log.DataTime.Format(logging.DefaultTimeFormat), "\t")
 		fmt.Fprintln(w, "Disputer: \t", log.Disputer.Hex(), "\t")
 		fmt.Fprintln(w, "Reporter: \t", log.Reporter.Hex(), "\t")

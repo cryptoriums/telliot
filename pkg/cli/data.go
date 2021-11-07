@@ -54,7 +54,7 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			submit.Time,
 			int(time.Since(time.Unix(submit.Time.Int64(), 0)).Minutes()),
 			submit.Reporter.Hex()[:8],
-			psr.QueryHash, inactive,
+			psr.QueryID, inactive,
 			psr.Pair, psr.Aggr,
 			math_t.BigIntToFloat(big.NewInt(0).SetBytes(submit.Value))/tellor.DefaultGranularity,
 		)
