@@ -3,7 +3,6 @@ package contracts
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math"
 	"math/big"
 	"strings"
@@ -30,7 +29,7 @@ import (
 
 const (
 	MasterAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	MasterAddressRinkeby     = "0x561263f4B7D99bAA809A479626d7E224d614Fb87"
+	MasterAddressRinkeby     = "0xe2cF2EE37425D13fb051A17410C2F3626334C07c"
 	MasterAddressGoerli      = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
 	MasterAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	MasterAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
@@ -47,13 +46,13 @@ const (
 	MethodNameSubmit     = "submitValue"
 	MethodNameNewDispute = "beginDispute"
 
-	EventNameNewSubmit       = "NewReport"
-	EventNameNewTip          = "TipAdded"
-	EventNameTally           = "DisputeVoteTallied"
-	EventNameNewDispute      = "NewDispute"
-	EventNameTransfer        = "Transfer"
-	EventNameNewVote         = "Voted"
-	EventNameContractUpgrade = "NewTellorAddress"
+	EventNameNewSubmit  = "NewReport"
+	EventNameNewTip     = "TipAdded"
+	EventNameNewDispute = "NewDispute"
+	EventNameTransfer   = "Transfer"
+	EventNameNewVote    = "NewVote"
+	EventNameVoted      = "Voted"
+	EventNameVoteTally  = "VoteTallied"
 
 	DefaultDisputeVotingDuration        = 7 * 24 * time.Hour // The default voting period.
 	DefaultDisputeUnlockFeeWaitDuration = 24 * time.Hour     // The default wait period for executing the dispute and collecing the dispute fee.
@@ -93,12 +92,14 @@ type TellorOracleCaller interface {
 	GetReporterLastTimestamp(opts *bind.CallOpts, _reporter common.Address) (*big.Int, error)
 	GetReporterByTimestamp(opts *bind.CallOpts, _queryId [32]byte, _timestamp *big.Int) (common.Address, error)
 	GetValueByTimestamp(opts *bind.CallOpts, _queryId [32]byte, _timestamp *big.Int) ([]byte, error)
+	ReportingLock(opts *bind.CallOpts) (*big.Int, error)
 }
 
 const (
-	DisputeStatusFail    = 0
-	DisputeStatusPassed  = 1
-	DisputeStatusInvalid = 2
+	VoteStatusOpen     = -1
+	VoteStatusRejected = 0
+	VoteStatusPassed   = 1
+	VoteStatusInvalid  = 2
 )
 
 type TellorGovernCaller interface {
@@ -336,24 +337,30 @@ func GetMasterAddress(netID int64) (common.Address, error) {
 	}
 }
 
-type DisputeLog struct {
+type VoteLog struct {
 	ID              int64
-	QueryID         string
-	DataVal         float64
-	DataTime        time.Time
 	Executed        bool
 	ExecuteTimeLock time.Time
 	TallyTs         int64
-	Result          int64
-	Disputer        common.Address
-	Reporter        common.Address
+	ResultID        int64
+	ResultName      string
+	Initiator       common.Address
 	VoteRound       int64
 	VotesSupport    float64
 	VotesAgainst    float64
 	VotesInvalid    float64
 	VoteEnds        time.Time
+	VoteFunc        [4]byte
 	Fee             float64
-	TxHash          common.Hash
+}
+
+type DisputeLog struct {
+	QueryID  [32]byte
+	DataVal  float64
+	DataTime time.Time
+	Reporter common.Address
+	TxHash   common.Hash
+	VoteLog
 }
 
 func GetDisputeLogs(
@@ -421,7 +428,7 @@ func GetTallyLogs(
 		FromBlock: startBlock,
 		ToBlock:   nil,
 		Addresses: []common.Address{contract.Addr()},
-		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameTally].ID}},
+		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameVoteTally].ID}},
 	}
 
 	logs, err := client.FilterLogs(ctx, query)
@@ -450,26 +457,60 @@ func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, 
 		return nil, errors.Wrap(err, "get dispute details")
 	}
 
-	identifierHash, voteVars, statusVars, result, _, _, addrVars, err := contract.GetVoteInfo(&bind.CallOpts{Context: ctx}, disputeID)
+	voteInfo, err := GetVoteInfo(ctx, disputeID, contract)
 	if err != nil {
 		return nil, errors.Wrap(err, "get vote details")
 	}
 
-	if identifierHash == [32]byte{} {
-		return nil, errors.Errorf("dispute doesn't exist id:%v", disputeID)
+	return &DisputeLog{
+		QueryID:  queryID,
+		DataTime: time.Unix(timestamp.Int64(), 0),
+		DataVal:  math_t.BigIntToFloatDiv(big.NewInt(0).SetBytes(val), psr.DefaultGranularity),
+		Reporter: reporter,
+		VoteLog:  *voteInfo,
+	}, nil
+}
+
+func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCaller) (*VoteLog, error) {
+
+	identifierHash, voteVars, statusVars, result, _, voteFunc, addrVars, err := contract.GetVoteInfo(&bind.CallOpts{Context: ctx}, voteID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get vote details")
 	}
 
-	return &DisputeLog{
-		ID:              disputeID.Int64(),
-		QueryID:         fmt.Sprintf("%x", queryID[:]),
+	execute := statusVars[0]
+
+	var resultName string
+	var resultID int64
+	if execute {
+		resultName = "open"
+		resultID = VoteStatusOpen
+	} else {
+		switch result {
+		case VoteStatusPassed:
+			resultName = "passed"
+			resultID = VoteStatusPassed
+		case VoteStatusRejected:
+			resultName = "rejected"
+			resultID = VoteStatusRejected
+		case VoteStatusInvalid:
+			resultName = "invalid"
+			resultID = VoteStatusInvalid
+		}
+	}
+
+	if identifierHash == [32]byte{} {
+		return nil, errors.Errorf("dispute doesn't exist id:%v", voteID)
+	}
+
+	return &VoteLog{
 		TallyTs:         int64(math_t.BigIntToFloat(voteVars[4])),
-		DataTime:        time.Unix(timestamp.Int64(), 0),
-		DataVal:         math_t.BigIntToFloatDiv(big.NewInt(0).SetBytes(val), psr.DefaultGranularity),
 		Executed:        statusVars[0],
 		ExecuteTimeLock: time.Unix(voteVars[4].Int64(), 0).Add(contract.DisputeUnlockFeeWaitDuration() * time.Duration(math_t.BigIntToFloat(voteVars[0]))),
-		Result:          int64(result),
-		Disputer:        addrVars[1],
-		Reporter:        reporter,
+		ResultID:        resultID,
+		ResultName:      resultName,
+		Initiator:       addrVars[1],
+		VoteFunc:        voteFunc,
 		VoteRound:       int64(math_t.BigIntToFloat(voteVars[0])),
 		VotesSupport:    math_t.BigIntToFloat(voteVars[5]),
 		VotesAgainst:    math_t.BigIntToFloat(voteVars[6]),
@@ -552,15 +593,15 @@ func LastSubmit(ctx context.Context, contract TellorOracleCaller, reporter commo
 	return sinceLastSubmit, &tm, nil
 }
 
-func CreateTellorTx(
+func CreateTx(
 	ctx context.Context,
 	prvKey *ecdsa.PrivateKey,
 	to common.Address,
 	client ethereum_t.EthClient,
+	abis string,
 	overwritePending bool,
 	gasLimit uint64,
 	gasMaxFee float64,
-	abis string,
 	methodName string,
 	args []interface{},
 ) (*types.Transaction, string, error) {
@@ -600,7 +641,7 @@ func CreateTellorTx(
 }
 
 func ReporterStatusName(statusID int64) string {
-	// From https://github.com/tellor-io/tellor3/blob/7c2f38a0e3f96631fb0f96e0d0a9f73e7b355766/contracts/TellorStorage.sol#L41
+	// From https://github.com/tellor-io/tellorX/blob/f63b260375cf119b2c7c0fd920f0ce9441ca06e8/contracts/tellor3/TellorStorage.sol#L28
 	switch statusID {
 	case 0:
 		return "Not staked"

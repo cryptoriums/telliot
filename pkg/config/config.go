@@ -90,7 +90,7 @@ func LoadConfig(ctx context.Context, logger log.Logger, path string, strictParsi
 func Validate(cfg *Config) error {
 	for id := range cfg.PsrTellor.MinConfidencePerSymbol {
 		if _, err := psr_tellor.PsrByID(id); err != nil {
-			return errors.Errorf("confidence level for invalid PSR id:%v", id)
+			return errors.Wrapf(err, "confidence level for invalid PSR id:%v", id)
 		}
 	}
 	return nil

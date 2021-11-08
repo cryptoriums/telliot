@@ -4,7 +4,6 @@
 package math
 
 import (
-	"encoding/binary"
 	"math"
 	"math/big"
 )
@@ -60,17 +59,4 @@ func FloatToBigIntMul(input float64, multiplier float64) *big.Int {
 func FloatToBigInt(input float64) *big.Int {
 	result, _ := big.NewFloat(input).Int(nil)
 	return result
-}
-
-func IntTo32Byte(i uint32) [32]byte {
-	bs := make([]byte, 4) // uint32 uses only 4 bytes
-	binary.BigEndian.PutUint32(bs, i)
-
-	// Add the bytes at the end of the array.
-	var a = [32]byte{}
-	a[28] = bs[0]
-	a[29] = bs[1]
-	a[30] = bs[2]
-	a[31] = bs[3]
-	return a
 }

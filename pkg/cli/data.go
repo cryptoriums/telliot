@@ -40,9 +40,9 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	for _, submit := range submits {
-		psr, err := tellor.PsrByQueryBytes(submit.QueryData)
-		if err != nil {
-			return errors.Wrapf(err, "getting PSR by query")
+		psr, ok := tellor.Psrs[submit.QueryId]
+		if !ok {
+			return errors.Errorf("getting PSR by queryID:%v", submit.QueryId)
 		}
 		inactive := ""
 		if psr.Inactive {
@@ -54,7 +54,7 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			submit.Time,
 			int(time.Since(time.Unix(submit.Time.Int64(), 0)).Minutes()),
 			submit.Reporter.Hex()[:8],
-			psr.QueryID, inactive,
+			submit.QueryId, inactive,
 			psr.Pair, psr.Aggr,
 			math_t.BigIntToFloat(big.NewInt(0).SetBytes(submit.Value))/tellor.DefaultGranularity,
 		)

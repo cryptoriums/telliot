@@ -73,6 +73,8 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.Wrap(err, "get psr")
 	}
 
+	queryID := psr_tellor.IntToQueryID(self.DataID)
+
 	if psr.Inactive {
 		return errors.Wrap(err, "psr is inactive so opening a dispute is pointless")
 	}
@@ -83,7 +85,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 	}
 
 	if !self.NoChecks {
-		val, err := oracle.GetValueByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryID, big.NewInt(self.Timestamp))
+		val, err := oracle.GetValueByTimestamp(&bind.CallOpts{Context: ctx}, queryID, big.NewInt(self.Timestamp))
 		if err != nil {
 			return errors.Wrap(err, "getting the val to dispute")
 		}
@@ -102,7 +104,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 				math.BigIntToFloatDiv(disputeCost, params.Ether))
 		}
 
-		reporter, err := oracle.GetReporterByTimestamp(&bind.CallOpts{Context: ctx}, psr.QueryID, big.NewInt(self.Timestamp))
+		reporter, err := oracle.GetReporterByTimestamp(&bind.CallOpts{Context: ctx}, queryID, big.NewInt(self.Timestamp))
 		if err != nil {
 			return errors.Wrap(err, "getting submit reporter")
 		}
@@ -129,14 +131,13 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
-	fmt.Println("psr.QueryID", psr.QueryID)
 
-	tx, err := govern.BeginDispute(opts, psr.QueryID, big.NewInt(self.Timestamp))
+	tx, err := govern.BeginDispute(opts, queryID, big.NewInt(self.Timestamp))
 	if err != nil {
 		return errors.Wrap(err, "send dispute txn")
 	}
 	level.Info(logger).Log("msg", "dispute tx created",
-		"queryHash", psr.QueryID,
+		"queryID", queryID,
 		"ts", self.Timestamp,
 		"tx", tx.Hash())
 	return nil
@@ -398,15 +399,14 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
 
-		query := psr_tellor.BytesToQuery([]byte(log.QueryID))
-		psr, err := psr_tellor.PsrByID(query.ID)
-		if err != nil {
-			level.Error(logger).Log("msg", "getting psr", "id", log.ID, "err", err)
+		psr, ok := psr_tellor.Psrs[log.QueryID]
+		if !ok {
+			level.Error(logger).Log("msg", "getting psr", "queryID", log.QueryID, "err", err)
 			continue
 		}
 		var suggested float64
 		if cfg.Db.RemoteHost != "" {
-			suggested, err = psrT.GetValue(*query, log.DataTime)
+			suggested, err = psrT.GetValue(log.QueryID, log.DataTime)
 			if err != nil {
 				level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
 			}
@@ -416,7 +416,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Println()
 		fmt.Fprintln(w, "ID: \t", log.ID, "\t")
 		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
-		fmt.Fprintln(w, "Result: \t", log.Result, "\t")
+		fmt.Fprintln(w, "Result: \t", log.ResultName, "\t")
 		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
 		fmt.Fprintln(w, "Vote Ends: \t", -time.Since(log.VoteEnds), "\t")
 		fmt.Fprintln(w, "Tally Ts: \t", log.TallyTs, "\t")
@@ -424,11 +424,10 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Fprintln(w, "Votes Against: \t", log.VotesAgainst, "\t")
 		fmt.Fprintln(w, "Votes Invalid: \t", log.VotesInvalid, "\t")
 		fmt.Fprintln(w, "Pairs: \t", psr.Pair, "\t")
-		fmt.Fprintln(w, "QueryID: \t", log.QueryID, "\t")
 		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(log.DataTime.Unix()))+" "+log.DataTime.Format(logging.DefaultTimeFormat), "\t")
-		fmt.Fprintln(w, "Disputer: \t", log.Disputer.Hex(), "\t")
+		fmt.Fprintln(w, "Disputer: \t", log.Initiator.Hex(), "\t")
 		fmt.Fprintln(w, "Reporter: \t", log.Reporter.Hex(), "\t")
-		fmt.Fprintln(w, "Disputed    Id: \t", query.ID, "\t")
+		fmt.Fprintln(w, "Disputed    Id: \t", log.QueryID, "\t")
 		fmt.Fprintln(w, "Disputed  Time: \t", log.DataTime, "\t")
 		fmt.Fprintln(w, "Disputed   Val: \t", fmt.Sprintf("%.6f", log.DataVal), "\t")
 		fmt.Fprintln(w, "Suggested  Val: \t", fmt.Sprintf("%.6f", suggested/psr_tellor.DefaultGranularity), "\t")

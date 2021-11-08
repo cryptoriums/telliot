@@ -5,12 +5,13 @@ package gas_usage
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 )
 
 type GasUsageQuerier interface {
-	Query(ctx context.Context, account *ethereum.Account, params ...interface{}) (uint64, error)
+	Query(ctx context.Context, account *ethereum.Account, queryID [32]byte, val []byte, nonce *big.Int, queryData []byte) (uint64, error)
 	Name() string
 }
 
@@ -29,6 +30,6 @@ func (self *Default) Name() string {
 	return "default"
 }
 
-func (self *Default) Query(ctx context.Context, _ *ethereum.Account, params ...interface{}) (uint64, error) {
-	return 2_100_000, nil
+func (self *Default) Query(ctx context.Context, _ *ethereum.Account, _ [32]byte, _ []byte, _ *big.Int, _ []byte) (uint64, error) {
+	return 300_000, nil
 }

@@ -55,7 +55,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		return errors.Wrap(err, "getting psr")
 	}
 
-	val, err := self.GetValueFromDB(ctx, logger, cfg, aggr, *psr_tellor.NewQuery(self.DataID))
+	val, err := self.GetValueFromDB(ctx, logger, cfg, aggr, psr_tellor.IntToQueryID(self.DataID))
 	if err != nil {
 		level.Error(logger).Log("msg", "couldn't get values from the DB so will proceed with manual submit", "err", err)
 		val = GetValueFromInput(logger, psr)
@@ -88,7 +88,10 @@ func (self *SubmitCmd) Submit(
 	if err != nil {
 		return errors.Wrap(err, "get psr")
 	}
-	nonce, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx}, psr.QueryID)
+
+	queryID := psr_tellor.IntToQueryID(id)
+
+	nonce, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx}, queryID)
 	if err != nil {
 		return errors.Wrap(err, "get current DATA ids")
 	}
@@ -105,11 +108,6 @@ func (self *SubmitCmd) Submit(
 		"val", fmt.Sprintf("%+v", val),
 	)
 
-	qBytes, err := psr_tellor.NewQuery(id).Bytes()
-	if err != nil {
-		return errors.Wrap(err, "getting query bytes")
-	}
-
 	var tx *types.Transaction
 	if cli.Contract != "" && self.CustomSubmit {
 		// TODO re-implement if needed.
@@ -118,7 +116,7 @@ func (self *SubmitCmd) Submit(
 		// 	return err
 		// }
 	} else {
-		tx, err = contract.SubmitValue(opts, psr.QueryID, math_t.FloatToBigInt(val).Bytes(), nonce, qBytes)
+		tx, err = contract.SubmitValue(opts, queryID, math_t.FloatToBigInt(val).Bytes(), nonce, psr.Query.Bytes())
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}
@@ -177,13 +175,13 @@ func (self *SubmitCmd) GetValueFromDB(
 	logger log.Logger,
 	cfg *config.Config,
 	aggregator *aggregator.Aggregator,
-	query psr_tellor.Query,
+	queryID [32]byte,
 ) (float64, error) {
 	psr := psr_tellor.New(logger, cfg.PsrTellor, aggregator)
 
-	val, err := psr.GetValue(query, time.Now())
+	val, err := psr.GetValue(queryID, time.Now())
 	if err != nil {
-		return 0, errors.Wrapf(err, "getting value for query:%v", query)
+		return 0, errors.Wrapf(err, "getting value for queryID:%v", queryID)
 	}
 
 	return val, nil

@@ -130,10 +130,10 @@ func Data(
 		"tsToTime": func(ts int64) string {
 			return time.Unix(ts, 0).UTC().Format("15:04")
 		},
-		"psrDetails": func(query []byte) string {
-			psr, err := psr_tellor.PsrByQueryBytes(query)
-			if err != nil {
-				return fmt.Sprintf("unable to get psr for query:%v err:%v", query, err)
+		"psrDetails": func(queryID [32]byte) string {
+			psr, ok := psr_tellor.Psrs[queryID]
+			if !ok {
+				return fmt.Sprintf("unable to get psr for queryID:%v ", queryID)
 			}
 
 			inactive := ""
@@ -283,7 +283,7 @@ func Data(
 			</tr>
 			<tr>
 				<td>
-					{{ psrDetails $dv}}
+					{{ psrDetails $submit.QueryId}}
 				</td>
 				<td style="text-align:right">{{ formatVal . }}</td>
 				<td style="text-align:right">{{ slice ( $submit.Reporter).Hex 0 8 }}</td>
@@ -463,13 +463,13 @@ func PSRs(
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var vals []val
-		for query, psrI := range psr_tellor.Psrs {
+		for queryID, psrI := range psr_tellor.Psrs {
 			if psrI.Inactive {
 				continue
 			}
-			v, err := psr.GetValue(query, time.Now())
+			v, err := psr.GetValue(queryID, time.Now())
 			val := val{
-				ID:    query.ID,
+				ID:    psrI.Query.ID,
 				Name:  psrI.Pair + "-" + psrI.Aggr,
 				Value: v / psr_tellor.DefaultGranularity,
 			}
