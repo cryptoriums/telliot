@@ -30,7 +30,7 @@ import (
 const (
 	MasterAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
 	MasterAddressRinkeby     = "0x5373Fc8Cf8E1dfa91796f9c308A0756EE5b9ABC0"
-	MasterAddressGoerli      = "0xbcDf5f004f3d84baf351a526eBa032290E88dEF3"
+	MasterAddressGoerli      = "0xdabEAadC377866bDB8F6983867224b0541362612"
 	MasterAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	MasterAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
@@ -52,14 +52,15 @@ const (
 	MethodNameNewVote     = "proposeVote"
 	MethodNameExecuteVote = "executeVote"
 
-	EventNameNewSubmit   = "NewReport"
-	EventNameNewTip      = "TipAdded"
-	EventNameNewDispute  = "NewDispute"
-	EventNameTransfer    = "Transfer"
-	EventNameNewVote     = "NewVote"
-	EventNameVoted       = "Voted"
-	EventNameTallyVote   = "VoteTallied"
-	EventNameExecuteVote = "VoteExecuted"
+	EventNameNewSubmit       = "NewReport"
+	EventNameNewTip          = "TipAdded"
+	EventNameNewDispute      = "NewDispute"
+	EventNameTransfer        = "Transfer"
+	EventNameNewVote         = "NewVote"
+	EventNameVoted           = "Voted"
+	EventNameTallyVote       = "VoteTallied"
+	EventNameExecuteVote     = "VoteExecuted"
+	EventNameContractUpgrade = "NewContractAddress"
 
 	DefaultVotingDuration          = 7 * 24 * time.Hour // The default voting period.
 	DefaultVoteExecuteWaitDuration = 24 * time.Hour     // The default wait period for executing the dispute and collecing the dispute fee.
@@ -86,6 +87,8 @@ type TellorMasterCaller interface {
 	DepositStake(opts *bind.TransactOpts) (*types.Transaction, error)
 	GetStakerInfo(opts *bind.CallOpts, _staker common.Address) (*big.Int, *big.Int, error)
 	WithdrawStake(opts *bind.TransactOpts) (*types.Transaction, error)
+
+	ChangeOracleContract(opts *bind.TransactOpts, _newOracle common.Address) (*types.Transaction, error)
 }
 
 type TellorOracleCaller interface {

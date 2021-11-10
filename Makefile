@@ -71,11 +71,11 @@ generate-bindings: generate-bindings-tellor
 .PHONY: generate-bindings-tellor
 generate-bindings-tellor: $(CONTRAGET)
 # Download from the controller address which contains all functions, but will call the master contract with this interface.
-	@$(CONTRAGET) --addr=0xA267C217B29Bb6E9bfF2474A394b685c86B802bF --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellorX_master
+	@$(CONTRAGET) --addr=0x4d2d814F41cc4ec4bD380C9177B9aC2e95065ADa --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellorX_master
 	@sleep 6
-	@$(CONTRAGET) --addr=0x52183334f2eB33136fb37E566bea693EF8Ab1586 --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellorX_oracle
+	@$(CONTRAGET) --addr=0x08e16657081EF24B7c8528B4b1361Df25b4F91ad --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellorX_oracle
 	@sleep 6
-	@$(CONTRAGET) --addr=0xDE5E8Be58c9E8f1494D8062B54B9cbe8a9Bd910b --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellorX_governance
+	@$(CONTRAGET) --addr=0x2F0a2f72bF286856830D6FF3017F1926334f74fB --download-dst=tmp --pkg-dst=pkg/contracts --network=goerli --name=tellorX_governance
 
 .PHONY: generate-testdata
 generate-testdata:
