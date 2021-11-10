@@ -145,7 +145,7 @@ Commands:
   dispute new --data-id=INT-64 --timestamp=INT-64 <account>
     start a new dispute
 
-  dispute vote --dispute-id=INT-64 --support --invalid <account>
+  dispute vote --dispute-id=INT-64 <account>
     vote on a open dispute
 
   dispute list
@@ -157,7 +157,7 @@ Commands:
   dispute tally-list
     list tally for disputes
 
-  dispute unlock-fee
+  dispute vote-execute
     after tallying the votes this command transfers the fee to the reporter or
     reported based on the voting
 
@@ -248,34 +248,10 @@ Flags:
 
 ```
 
-* `dispute unlock-fee`
-
-```
-Usage: telliot dispute unlock-fee
-
-after tallying the votes this command transfers the fee to the reporter or
-reported based on the voting
-
-Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --config-strict-parsing    whether to return an error when the config
-                                 contains unknown fields
-      --contract=STRING          hex address of the contract to interract with
-
-      --no-checks                whether to run some additional checks like
-                                 balance, did vote etc. Useful to disable when
-                                 running against a test contract
-      --gas-price=FLOAT-64       gas max fee to use when running the command
-      --dispute-id=INT-64        the dispute id
-      --all
-
-```
-
 * `dispute vote`
 
 ```
-Usage: telliot dispute vote --dispute-id=INT-64 --support --invalid <account>
+Usage: telliot dispute vote --dispute-id=INT-64 <account>
 
 vote on a open dispute
 
@@ -296,6 +272,30 @@ Flags:
                                  running against a test contract
       --support                  true or false
       --invalid                  true or false
+
+```
+
+* `dispute vote-execute`
+
+```
+Usage: telliot dispute vote-execute
+
+after tallying the votes this command transfers the fee to the reporter or
+reported based on the voting
+
+Flags:
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
+
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
+      --gas-price=FLOAT-64       gas max fee to use when running the command
+      --dispute-id=INT-64        the dispute id
+      --all
 
 ```
 
@@ -564,7 +564,7 @@ Flags:
 	},
 	"PsrTellor": {
 		"MinConfidenceDefault": "Required:false, Default:80",
-		"MinConfidencePerSymbol": "Required:false, Default:map[41:100]"
+		"MinConfidencePerSymbol": "Required:false, Default:map[USPCE:100]"
 	},
 	"TrackerBlocks": {
 		"LogLevel": "Required:false, Default:"
@@ -607,7 +607,7 @@ Here are the config defaults in json format:
 	"PsrTellor": {
 		"MinConfidenceDefault": 80,
 		"MinConfidencePerSymbol": {
-			"41": 100
+			"USPCE": 100
 		}
 	},
 	"TrackerBlocks": {
@@ -635,7 +635,7 @@ Note the default level is "INFO", so to turn down the number of logs, enter "WAR
 
 DEBUG - logs everything in INFO and additional developer logs
 
-INFO - logs most information about an operation
+INFO - logs most information about the reporting operation
 
 WARN - logs all warnings and errors
 

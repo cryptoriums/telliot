@@ -28,6 +28,7 @@ import (
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/web/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
@@ -130,6 +131,9 @@ func Data(
 		"tsToTime": func(ts int64) string {
 			return time.Unix(ts, 0).UTC().Format("15:04")
 		},
+		"bytesToHash": func(val [32]byte) string {
+			return common.BytesToHash(val[:]).String()
+		},
 		"psrDetails": func(queryID [32]byte) string {
 			psr, ok := psr_tellor.Psrs[queryID]
 			if !ok {
@@ -170,7 +174,7 @@ func Data(
 					http.Error(w, fmt.Sprintf("creating a dispute:%v", err), http.StatusInternalServerError)
 					return
 				}
-				postResult = `created new dispute<br/><a href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
+				postResult = `created new dispute: <a href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/` + tx.Hash().String() + `">` + tx.Hash().String() + `</a><br/><br/>`
 			case "changeStatus":
 				componentor.ChangeStatus()
 			}
@@ -198,12 +202,13 @@ func Data(
 			return
 		}
 
+		// Reverse the order to shows the more recent first.
 		sort.Slice(submits[:], func(i, j int) bool {
 			return submits[i].Time.Int64() > submits[j].Time.Int64()
 		})
 
 		postForm := ``
-		if postResult == "" {
+		if values.Get("ts") != "" && postResult == "" {
 			postForm, err = prepareDisputeForm(ctx, logger, client, master, values)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("prepare post form:%v", err), http.StatusInternalServerError)
@@ -253,9 +258,12 @@ func Data(
 					margin: 0;
 					min-width: 30em;
 				}
+				input[type=text] {
+					min-width: 70%;
+				}
 				input:read-only {
 					background-color: grey;
-				  }
+				}
 			</style>
 		</head>
 		<body>
@@ -278,26 +286,26 @@ func Data(
 		</form>
 		<table>
 		{{range $index, $submit := .}}
-			<tr>
-				<td colspan="100%"><b>Mins:{{  timeSince $submit.Time.Int64 }} Time:{{ tsToTime $submit.Time.Int64 }} Timestamp:{{ $submit.Time.String}}</b> Tx:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/{{ $submit.TxHash.Hex }}">{{ $submit.TxHash.Hex }}</a> </td>
-			</tr>
-			<tr>
-				<td>
-					{{ psrDetails $submit.QueryId}}
-				</td>
-				<td style="text-align:right">{{ formatVal . }}</td>
+			<tr {{if $submit.Disputed}}style="color:red"{{end}}>
+				<td>{{if $submit.Disputed}}DISPUTED - {{end}}<b>Mins:{{  timeSince $submit.Time.Int64 }}</b></td>
+				<td>Time:{{ tsToTime $submit.Time.Int64 }}</td>
+				<td><b>Ts:{{ $submit.Time.String}}</b></td>
+				<td>{{ psrDetails $submit.QueryId}}</td>
+				<td style="text-align:right">{{ applyGranularity $submit.Value }}</td>
 				<td style="text-align:right">{{ slice ( $submit.Reporter).Hex 0 8 }}</td>
 				<td>
-					<form id="data">
-						<input type="hidden" id="queryID" name="queryID" value="{{$submit.QueryId}}" >
-						<input type="hidden" id="ts" name="ts"  value="{{$submit.Time.String}}" >
-						<input type="hidden" id="look-back" name="look-back"  value="` + strconv.Itoa(int(lookBack.Hours())) + `h" >
-						<input type="submit" value="Dispute">
-					</form>
+					Tx:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/{{ $submit.Raw.TxHash.Hex }}">{{ slice ($submit.Raw.TxHash).Hex 0 8 }}</a>
 				</td>
-			</tr>
-			<tr>
-				<td colspan="100%"><br/></td>
+				<td>
+					{{if  not $submit.Disputed}}
+						<form id="data">
+							<input type="hidden" id="queryID" name="queryID" value="{{ bytesToHash $submit.QueryId }}" >
+							<input type="hidden" id="ts" name="ts"  value="{{$submit.Time.String}}" >
+							<input type="hidden" id="look-back" name="look-back"  value="` + strconv.Itoa(int(lookBack.Hours())) + `h" >
+							<input type="submit" value="Dispute">
+						</form>
+					{{end}}
+				</td>
 			</tr>
 		{{end}}
 		</table>
@@ -405,16 +413,16 @@ func createDispute(
 	if err != nil {
 		return nil, errors.Wrap(err, "getting account from selection")
 	}
-	_queryID := []byte(r.PostForm.Get("queryID"))
 
+	_queryID := r.PostForm.Get("queryID")
 	var queryID [32]byte
-	copy(queryID[:], _queryID)
+	copy(queryID[:], common.HexToHash(_queryID).Bytes())
 	ts, err := strconv.ParseInt(r.PostForm.Get("ts"), 0, 64)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing the ts value")
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, 10, contracts.NewDisputeGasLimit)
+	opts, err := ethereum.PrepareTx(ctx, client, account, 10, contracts.DisputeNewGasLimit)
 	if err != nil {
 		return nil, errors.Wrap(err, "preparing dispute TX")
 	}
@@ -455,7 +463,7 @@ func PSRs(
 	t := template.New("template")
 
 	type val struct {
-		ID    int64
+		ID    string
 		Name  string
 		Value float64
 		Error string
@@ -469,7 +477,7 @@ func PSRs(
 			}
 			v, err := psr.GetValue(queryID, time.Now())
 			val := val{
-				ID:    psrI.Query.ID,
+				ID:    common.Bytes2Hex(queryID[:]),
 				Name:  psrI.Pair + "-" + psrI.Aggr,
 				Value: v / psr_tellor.DefaultGranularity,
 			}

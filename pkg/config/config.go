@@ -59,8 +59,8 @@ var DefaultConfig = Config{
 	},
 	PsrTellor: psr_tellor.Config{
 		MinConfidenceDefault: 80,
-		MinConfidencePerSymbol: map[int64]float64{
-			41: 100,
+		MinConfidencePerSymbol: map[string]float64{
+			"USPCE": 100,
 		},
 	},
 	TrackerIndex: index.Config{
@@ -88,10 +88,14 @@ func LoadConfig(ctx context.Context, logger log.Logger, path string, strictParsi
 }
 
 func Validate(cfg *Config) error {
-	for id := range cfg.PsrTellor.MinConfidencePerSymbol {
-		if _, err := psr_tellor.PsrByID(id); err != nil {
-			return errors.Wrapf(err, "confidence level for invalid PSR id:%v", id)
+MainLoop:
+	for pair := range cfg.PsrTellor.MinConfidencePerSymbol {
+		for _, psr := range psr_tellor.Psrs {
+			if pair == psr.Pair {
+				continue MainLoop
+			}
 		}
+		return errors.Errorf("confidence level for invalid psr pair:%v", pair)
 	}
 	return nil
 }

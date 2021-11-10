@@ -14,6 +14,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	math_t "github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -50,11 +51,12 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Fprintf(w, "ts: %v \tmins: %v \tReporter: %v \tID%v:%v \tName %v:%v \tVal: %.6f \t \n",
+		fmt.Fprintf(w, "ts: %v \tmins: %v \tReporter: %v \tID:  %v%v \tName %v:%v \tVal: %.6f \t \n",
 			submit.Time,
 			int(time.Since(time.Unix(submit.Time.Int64(), 0)).Minutes()),
 			submit.Reporter.Hex()[:8],
-			submit.QueryId, inactive,
+			inactive,
+			common.BytesToHash(submit.QueryId[:]),
 			psr.Pair, psr.Aggr,
 			math_t.BigIntToFloat(big.NewInt(0).SetBytes(submit.Value))/tellor.DefaultGranularity,
 		)

@@ -7,13 +7,14 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"math"
-	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -23,8 +24,8 @@ type PsrID struct {
 	Pair            string
 	Aggr            string
 	ConfidenceQuery string
-	Query           *Query
 	Inactive        bool
+	MinTipAmmount   float64
 }
 
 const (
@@ -65,17 +66,16 @@ func PsrByID(id int64) (PsrID, error) {
 	return psr, nil
 }
 
-func NewQuery(id int64) *Query {
-	return &Query{Type: "LegacyRequest", ID: id}
-}
-
-func BytesToQuery(val []byte) *Query {
-	return NewQuery(big.NewInt(0).SetBytes(val).Int64())
+func NewQueryData(id int64) []byte {
+	if id > 100 {
+		panic("invalid query id and can't create query data from it")
+	}
+	return (&Query{Type: "LegacyRequest", ID: id}).Bytes()
 }
 
 var Psrs = map[[32]byte]PsrID{
-	IntToQueryID(1): {Pair: "ETH/USD", Aggr: Median, Query: NewQuery(1)},
-	IntToQueryID(2): {Pair: "BTC/USD", Aggr: Median, Query: NewQuery(2)},
+	IntToQueryID(1): {Pair: "ETH/USD", Aggr: Median},
+	IntToQueryID(2): {Pair: "BTC/USD", Aggr: Median},
 	IntToQueryID(3): {Inactive: true, Pair: "BNB/USD", Aggr: Median},
 	IntToQueryID(4): {Inactive: true, Pair: "BTC/USD", Aggr: TimeWeightedAvg24h},
 	IntToQueryID(5): {Inactive: true, Pair: "ETH/BTC", Aggr: Median},
@@ -85,7 +85,7 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(9): {Inactive: true, Pair: "ETH/USD", Aggr: MedianEOD},
 	// // For more details see https://docs.google.com/document/d/1RFCApk1PznMhSRVhiyFl_vBDPA4mP2n1dTmfqjvuTNw/edit
 	// // For now this uses third party APIs and don't do local aggregation.
-	IntToQueryID(10): {Pair: "AMPL/USD/VWAP", Aggr: Median, Query: NewQuery(10)},
+	IntToQueryID(10): {Pair: "AMPL/USD/VWAP", Aggr: Median, MinTipAmmount: 0.2},
 	IntToQueryID(11): {Inactive: true, Pair: "ZEC/ETH", Aggr: Median},
 	IntToQueryID(12): {Inactive: true, Pair: "TRX/ETH", Aggr: Median},
 	IntToQueryID(13): {Inactive: true, Pair: "XRP/USD", Aggr: Median},
@@ -106,7 +106,7 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(28): {Inactive: true, Pair: "ZRX/BNB", Aggr: Median},
 	IntToQueryID(29): {Inactive: true, Pair: "ZEC/USD", Aggr: Median},
 	IntToQueryID(30): {Inactive: true, Pair: "XAU/USD", Aggr: Median},
-	IntToQueryID(31): {Pair: "MATIC/USD", Aggr: Median, Query: NewQuery(31)},
+	IntToQueryID(31): {Pair: "MATIC/USD", Aggr: Median},
 	IntToQueryID(32): {Inactive: true, Pair: "BAT/USD", Aggr: Median},
 	IntToQueryID(33): {Inactive: true, Pair: "ALGO/USD", Aggr: Median},
 	IntToQueryID(34): {Inactive: true, Pair: "ZRX/USD", Aggr: Median},
@@ -117,7 +117,7 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(39): {Inactive: true, Pair: "DAI/USD", Aggr: Median},
 	IntToQueryID(40): {Inactive: true, Pair: "STEEM/BTC", Aggr: Median},
 	// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
-	IntToQueryID(41): {Pair: "USPCE", Aggr: Median, Query: NewQuery(41)},
+	IntToQueryID(41): {Pair: "USPCE", Aggr: Median, MinTipAmmount: 0.2},
 	IntToQueryID(42): {Inactive: true, Pair: "BTC/USD", Aggr: MedianEOD},
 	IntToQueryID(43): {Inactive: true, Pair: "TRB/ETH", Aggr: Median},
 	IntToQueryID(44): {Inactive: true, Pair: "BTC/USD", Aggr: TimeWeightedAvg1h},
@@ -126,7 +126,7 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(47): {Inactive: true, Pair: "BSV/USD", Aggr: Median},
 	IntToQueryID(48): {Inactive: true, Pair: "MAKER/USD", Aggr: Median},
 	IntToQueryID(49): {Inactive: true, Pair: "BCH/USD", Aggr: TimeWeightedAvg24h},
-	IntToQueryID(50): {Pair: "TRB/USD", Aggr: Median, Query: NewQuery(50)},
+	IntToQueryID(50): {Pair: "TRB/USD", Aggr: Median},
 	IntToQueryID(51): {Inactive: true, Pair: "XMR/USD", Aggr: Median},
 	IntToQueryID(52): {Inactive: true, Pair: "XFT/USD", Aggr: Median},
 	IntToQueryID(53): {Inactive: true, Pair: "BTCDOMINANCE", Aggr: Median},
@@ -135,8 +135,8 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(56): {Inactive: true, Pair: "VIXEOD", Aggr: Median},
 	IntToQueryID(57): {Inactive: true, Pair: "DEFITVL", Aggr: Median},
 	IntToQueryID(58): {Inactive: true, Pair: "DEFIMCAP", Aggr: Mean},
-	IntToQueryID(59): {Pair: "ETH/JPY", Aggr: Median, Query: NewQuery(59)},
-	IntToQueryID(60): {Inactive: true, Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, Query: NewQuery(60), ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[` + Week.String() + `]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset ` + Week.String() + `)`},
+	IntToQueryID(59): {Pair: "ETH/JPY", Aggr: Median},
+	IntToQueryID(60): {Inactive: true, Pair: blocks.MetricSymbolBlockGasPriceAvg, Aggr: TimeWeightedAvg7Days, ConfidenceQuery: `sum(count_over_time(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockGasPriceAvg + `"}[` + Week.String() + `]))/ sum(` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} - ` + index.MetricIndexValue + `{symbol="` + blocks.MetricSymbolBlockNum + `"} offset ` + Week.String() + `)`},
 }
 
 func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr {
@@ -149,7 +149,7 @@ func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr 
 
 type Config struct {
 	MinConfidenceDefault   float64
-	MinConfidencePerSymbol map[int64]float64
+	MinConfidencePerSymbol map[string]float64
 }
 
 type Psr struct {
@@ -158,8 +158,8 @@ type Psr struct {
 	cfg        Config
 }
 
-func (self *Psr) ConfidenceThreshold(id int64) float64 {
-	return self.cfg.MinConfidencePerSymbol[id]
+func (self *Psr) ConfidenceThreshold(pair string) float64 {
+	return self.cfg.MinConfidencePerSymbol[pair]
 }
 
 func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (float64, error) {
@@ -200,12 +200,12 @@ func (self *Psr) getValue(psr PsrID, ts time.Time) (float64, error) {
 		return 0, err
 	}
 
-	if confS, ok := self.cfg.MinConfidencePerSymbol[psr.Query.ID]; ok {
+	if confS, ok := self.cfg.MinConfidencePerSymbol[psr.Pair]; ok {
 		if conf < confS {
-			return 0, errors.Errorf("not enough confidence based on the aggregator calculations - query:%v, value:%v, conf:%v,symbol confidence threshold:%v", psr.Query.String(), val, conf, self.cfg.MinConfidencePerSymbol[psr.Query.ID])
+			return 0, errors.Errorf("not enough confidence based on the aggregator calculations - query:%v, value:%v, conf:%v,symbol confidence threshold:%v", psr.Pair, val, conf, self.cfg.MinConfidencePerSymbol[psr.Pair])
 		}
 	} else if conf < self.cfg.MinConfidenceDefault {
-		return 0, errors.Errorf("not enough confidence based on the aggregator calculations - query:%v, value:%v, conf:%v,default confidence threshold:%v", psr.Query.ID, val, conf, self.cfg.MinConfidenceDefault)
+		return 0, errors.Errorf("not enough confidence based on the aggregator calculations - query:%v, value:%v, conf:%v,default confidence threshold:%v", psr.Pair, val, conf, self.cfg.MinConfidenceDefault)
 	}
 
 	return val, err
@@ -226,5 +226,9 @@ func IntToQueryID(i int64) [32]byte {
 		return a
 	}
 
-	return ethereum_t.Keccak256(string(NewQuery(i).Bytes()))
+	return ethereum_t.Keccak256(string(NewQueryData(i)))
+}
+
+func QueryIDToInt(i [32]byte) (int64, error) {
+	return strconv.ParseInt(common.BytesToHash(i[:]).String()[2:], 16, 64)
 }

@@ -127,7 +127,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("canceled")
 	}
 
-	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.NewDisputeGasLimit)
+	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.DisputeNewGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -147,11 +147,14 @@ type VoteCmd struct {
 	GasAccount
 	DispID
 	NoChks
-	Support bool `required:"" help:"true or false"`
-	Invalid bool `required:"" help:"true or false"`
+	Support bool `help:"true or false"`
+	Invalid bool `help:"true or false"`
 }
 
 func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+	if !self.Support && !self.Invalid {
+		return errors.New("need to either support or invalid for a vote")
+	}
 	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
@@ -162,7 +165,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return err
 	}
 
-	dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), govern)
+	dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), govern)
 	if err != nil {
 		return errors.Wrap(err, "getting dispute details")
 	}
@@ -218,7 +221,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		if self.DisputeID == 0 {
 			return errors.New("dispute ID is empty")
 		}
-		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), govern)
+		dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), govern)
 		if err != nil {
 			return errors.Wrap(err, "get dispute info")
 		}
@@ -241,7 +244,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.TallyGasLimit)
+		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.VoteTallyGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -268,7 +271,7 @@ func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 
 	logs, err := contracts.GetTallyLogs(ctx, client, govern, self.LookBack)
 	if err != nil {
-		return errors.Wrap(err, "getting latest disputes")
+		return errors.Wrap(err, "GetTallyLogs")
 	}
 
 	for _, log := range logs {
@@ -285,14 +288,14 @@ func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	return nil
 }
 
-type UnlockFeeCmd struct {
+type VoteExecuteCmd struct {
 	NoChks
 	Gas
 	DispIDOptional
 	All bool
 }
 
-func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+func (self *VoteExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
@@ -315,7 +318,7 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 		if self.DisputeID == 0 {
 			return errors.New("dispute ID is empty")
 		}
-		dispute, err := contracts.GetDisputeInfo(ctx, logger, big.NewInt(self.DisputeID), govern)
+		dispute, err := contracts.GetDisputeInfo(ctx, big.NewInt(self.DisputeID), govern)
 		if err != nil {
 			return errors.Wrap(err, "get dispute info")
 		}
@@ -340,17 +343,17 @@ func (self *UnlockFeeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 			continue
 		}
 
-		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.UnlockFeeGasLimit)
+		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.VoteExecuteGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
 
 		tx, err := govern.ExecuteVote(opts, big.NewInt(dispute.ID))
 		if err != nil {
-			return errors.Wrapf(err, "run unlock fee")
+			return errors.Wrapf(err, "run vote execute fee")
 		}
 
-		level.Info(logger).Log("msg", "unlock fee submitted", "id", dispute.ID, "tx", tx.Hash().Hex())
+		level.Info(logger).Log("msg", "vote execute submitted", "id", dispute.ID, "tx", tx.Hash().Hex())
 	}
 
 	return nil
@@ -387,7 +390,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 	logs, err := contracts.GetDisputeLogs(ctx, logger, client, govern, self.LookBack)
 	if err != nil {
-		return errors.Wrap(err, "getting latest disputes")
+		return errors.Wrap(err, "GetDisputeLogs")
 	}
 
 	level.Info(logger).Log("msg", "disputes count", "lookBackPeriod", self.LookBack, "count", len(logs))

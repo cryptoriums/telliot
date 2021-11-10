@@ -29,33 +29,40 @@ import (
 
 const (
 	MasterAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	MasterAddressRinkeby     = "0xe2cF2EE37425D13fb051A17410C2F3626334C07c"
-	MasterAddressGoerli      = "0xe5e09e1C64Eab3cA8bCAD722b0966B69931879ae"
+	MasterAddressRinkeby     = "0x5373Fc8Cf8E1dfa91796f9c308A0756EE5b9ABC0"
+	MasterAddressGoerli      = "0xbcDf5f004f3d84baf351a526eBa032290E88dEF3"
 	MasterAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	MasterAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
-	WithdrawStakeGasLimit          = 50_000
-	RequestStakingWithdrawGasLimit = 100_000
-	TallyGasLimit                  = 150_000
-	DepositStakeGasLimit           = 160_000
-	UnlockFeeGasLimit              = 300_000
-	VoteGasUSage                   = 200_000
-	NewDisputeGasLimit             = 700_000
-	SubmitGasLimit                 = 3_000_000
+	// All of these are 50% more than the actual usage.
+	SubmitGasLimit = 400_000
 
-	MethodNameSubmit     = "submitValue"
-	MethodNameNewDispute = "beginDispute"
+	StakeRequestWithdrawGasLimit = 100_000
+	StakeWithdrawGasLimit        = 50_000
+	StakeDepositGasLimit         = 150_000
+	DisputeNewGasLimit           = 1_000_000
+	VoteGasUSage                 = 200_000
+	VoteTallyGasLimit            = 100_000
+	VoteExecuteGasLimit          = 220_000
 
-	EventNameNewSubmit  = "NewReport"
-	EventNameNewTip     = "TipAdded"
-	EventNameNewDispute = "NewDispute"
-	EventNameTransfer   = "Transfer"
-	EventNameNewVote    = "NewVote"
-	EventNameVoted      = "Voted"
-	EventNameVoteTally  = "VoteTallied"
+	MethodNameSubmit      = "submitValue"
+	MethodNameNewDispute  = "beginDispute"
+	MethodNameTallyVote   = "tallyVotes"
+	MethodNameVote        = "vote"
+	MethodNameNewVote     = "proposeVote"
+	MethodNameExecuteVote = "executeVote"
 
-	DefaultDisputeVotingDuration        = 7 * 24 * time.Hour // The default voting period.
-	DefaultDisputeUnlockFeeWaitDuration = 24 * time.Hour     // The default wait period for executing the dispute and collecing the dispute fee.
+	EventNameNewSubmit   = "NewReport"
+	EventNameNewTip      = "TipAdded"
+	EventNameNewDispute  = "NewDispute"
+	EventNameTransfer    = "Transfer"
+	EventNameNewVote     = "NewVote"
+	EventNameVoted       = "Voted"
+	EventNameTallyVote   = "VoteTallied"
+	EventNameExecuteVote = "VoteExecuted"
+
+	DefaultVotingDuration          = 7 * 24 * time.Hour // The default voting period.
+	DefaultVoteExecuteWaitDuration = 24 * time.Hour     // The default wait period for executing the dispute and collecing the dispute fee.
 )
 
 type ContractCaller interface {
@@ -93,6 +100,8 @@ type TellorOracleCaller interface {
 	GetReporterByTimestamp(opts *bind.CallOpts, _queryId [32]byte, _timestamp *big.Int) (common.Address, error)
 	GetValueByTimestamp(opts *bind.CallOpts, _queryId [32]byte, _timestamp *big.Int) ([]byte, error)
 	ReportingLock(opts *bind.CallOpts) (*big.Int, error)
+	TipsInContract(opts *bind.CallOpts) (*big.Int, error)
+	Tips(opts *bind.CallOpts, arg0 [32]byte) (*big.Int, error)
 }
 
 const (
@@ -113,9 +122,10 @@ type TellorGovernCaller interface {
 	DidVote(opts *bind.CallOpts, _disputeId *big.Int, _address common.Address) (bool, error)
 	Vote(opts *bind.TransactOpts, _disputeId *big.Int, _supports bool, _invalidQuery bool) (*types.Transaction, error)
 	DisputeFee(opts *bind.CallOpts) (*big.Int, error)
+	VoteCount(opts *bind.CallOpts) (*big.Int, error) // TODO remove once the NewVote event includes the vote ID.
 
-	DisputeVotingDuration() time.Duration
-	DisputeUnlockFeeWaitDuration() time.Duration
+	VotingDuration() time.Duration
+	VoteExecuteWaitDuration() time.Duration
 }
 
 type RewardQuerier interface {
@@ -124,13 +134,13 @@ type RewardQuerier interface {
 }
 
 var DefaultParams = Params{
-	DisputeVotingDuration:        DefaultDisputeVotingDuration,
-	DisputeUnlockFeeWaitDuration: DefaultDisputeUnlockFeeWaitDuration,
+	VotingDuration:          DefaultVotingDuration,
+	VoteExecuteWaitDuration: DefaultVoteExecuteWaitDuration,
 }
 
 type Params struct {
-	DisputeVotingDuration        time.Duration
-	DisputeUnlockFeeWaitDuration time.Duration
+	VotingDuration          time.Duration
+	VoteExecuteWaitDuration time.Duration
 }
 
 type TellorMaster struct {
@@ -198,12 +208,12 @@ func (self *TellorGovern) AbiRaw() string {
 	return self.abiRaw
 }
 
-func (self *TellorGovern) DisputeVotingDuration() time.Duration {
-	return self.params.DisputeVotingDuration
+func (self *TellorGovern) VotingDuration() time.Duration {
+	return self.params.VotingDuration
 }
 
-func (self *TellorGovern) DisputeUnlockFeeWaitDuration() time.Duration {
-	return self.params.DisputeUnlockFeeWaitDuration
+func (self *TellorGovern) VoteExecuteWaitDuration() time.Duration {
+	return self.params.VoteExecuteWaitDuration
 }
 
 func NewContracts(
@@ -239,23 +249,23 @@ func newContractsWithAddr(
 	client ethereum_t.EthClient,
 	params Params,
 ) (TellorMasterCaller, TellorOracleCaller, TellorGovernCaller, error) {
-	if params.DisputeVotingDuration == 0 {
-		return nil, nil, nil, errors.New("DisputeVotingDuration should not be zero")
+	if params.VotingDuration == 0 {
+		return nil, nil, nil, errors.New("VotingDuration should not be zero")
 	}
-	if params.DisputeUnlockFeeWaitDuration == 0 {
-		return nil, nil, nil, errors.New("DisputeUnlockFeeWaitDuration should not be zero")
+	if params.VoteExecuteWaitDuration == 0 {
+		return nil, nil, nil, errors.New("VoteExecuteWaitDuration should not be zero")
 	}
 	master, err := tellorX_master.NewController(addrMaster, client)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	addrOracle, err := master.GetAddressVars(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256("_ORACLE_CONTRACT"))
+	addrOracle, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256("_ORACLE_CONTRACT"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getting contract address")
 	}
 	if addrOracle == common.BytesToAddress([]byte("")) {
-		return nil, nil, nil, errors.Wrap(err, "no address for the contract")
+		return nil, nil, nil, errors.New("no address for the oracle contract")
 	}
 
 	oracle, err := tellorX_oracle.NewOracle(addrOracle, client)
@@ -263,12 +273,12 @@ func newContractsWithAddr(
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	addrGovern, err := master.GetAddressVars(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256("_GOVERNANCE_CONTRACT"))
+	addrGovern, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256("_GOVERNANCE_CONTRACT"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getting contract address")
 	}
 	if addrGovern == common.BytesToAddress([]byte("")) {
-		return nil, nil, nil, errors.Wrap(err, "no address for the contract")
+		return nil, nil, nil, errors.Wrap(err, "no address for the govern contract")
 	}
 	govern, err := tellorX_governance.NewGovernance(addrGovern, client)
 	if err != nil {
@@ -340,6 +350,7 @@ func GetMasterAddress(netID int64) (common.Address, error) {
 type VoteLog struct {
 	ID              int64
 	Executed        bool
+	IsDispute       bool
 	ExecuteTimeLock time.Time
 	TallyTs         int64
 	ResultID        int64
@@ -398,7 +409,7 @@ func GetDisputeLogs(
 			return nil, errors.Wrap(err, "unpack event from logs")
 		}
 
-		logUnpacked, err := GetDisputeInfo(ctx, logger, log.DisputeId, contract)
+		logUnpacked, err := GetDisputeInfo(ctx, log.DisputeId, contract)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting dispute details")
 		}
@@ -428,7 +439,7 @@ func GetTallyLogs(
 		FromBlock: startBlock,
 		ToBlock:   nil,
 		Addresses: []common.Address{contract.Addr()},
-		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameVoteTally].ID}},
+		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameTallyVote].ID}},
 	}
 
 	logs, err := client.FilterLogs(ctx, query)
@@ -439,7 +450,7 @@ func GetTallyLogs(
 	var unpackedLogs []*tellorX_governance.GovernanceVoteTallied
 	for _, logRaw := range logs {
 		log := &tellorX_governance.GovernanceVoteTallied{}
-		err := contract.UnpackLog(log, "DisputeVoteTallied", logRaw)
+		err := contract.UnpackLog(log, "VoteTallied", logRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "unpack event from logs")
 		}
@@ -450,7 +461,7 @@ func GetTallyLogs(
 	return unpackedLogs, err
 }
 
-func GetDisputeInfo(ctx context.Context, logger log.Logger, disputeID *big.Int, contract TellorGovernCaller) (*DisputeLog, error) {
+func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract TellorGovernCaller) (*DisputeLog, error) {
 
 	queryID, timestamp, val, reporter, err := contract.GetDisputeInfo(&bind.CallOpts{Context: ctx}, disputeID)
 	if err != nil {
@@ -504,9 +515,11 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 	}
 
 	return &VoteLog{
-		TallyTs:         int64(math_t.BigIntToFloat(voteVars[4])),
+		ID:              voteID.Int64(),
+		TallyTs:         voteVars[4].Int64(),
 		Executed:        statusVars[0],
-		ExecuteTimeLock: time.Unix(voteVars[4].Int64(), 0).Add(contract.DisputeUnlockFeeWaitDuration() * time.Duration(math_t.BigIntToFloat(voteVars[0]))),
+		IsDispute:       statusVars[1],
+		ExecuteTimeLock: time.Unix(voteVars[4].Int64(), 0).Add(contract.VoteExecuteWaitDuration() * time.Duration(math_t.BigIntToFloat(voteVars[0]))),
 		ResultID:        resultID,
 		ResultName:      resultName,
 		Initiator:       addrVars[1],
@@ -515,18 +528,23 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 		VotesSupport:    math_t.BigIntToFloat(voteVars[5]),
 		VotesAgainst:    math_t.BigIntToFloat(voteVars[6]),
 		VotesInvalid:    math_t.BigIntToFloat(voteVars[7]),
-		VoteEnds:        time.Unix(voteVars[1].Int64(), 0).Add(contract.DisputeVotingDuration()),
+		VoteEnds:        time.Unix(voteVars[1].Int64(), 0).Add(contract.VotingDuration()),
 		Fee:             math_t.BigIntToFloatDiv(voteVars[3], params.Ether),
 	}, nil
+}
+
+type Report struct {
+	tellorX_oracle.OracleNewReport
+	Disputed bool
 }
 
 func GetSubmitLogs(
 	ctx context.Context,
 	client ethereum_t.EthClient,
-	contract TellorOracleCaller,
+	oracle TellorOracleCaller,
 	from int64,
 	lookBackDuration time.Duration,
-) ([]tellorX_oracle.OracleNewReport, error) {
+) ([]Report, error) {
 	headerNow, err := client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "get latest eth block header")
@@ -547,8 +565,8 @@ func GetSubmitLogs(
 	query := ethereum.FilterQuery{
 		FromBlock: startBlock,
 		ToBlock:   big.NewInt(endBlock),
-		Addresses: []common.Address{contract.Addr()},
-		Topics:    [][]common.Hash{{contract.Abi().Events[EventNameNewSubmit].ID}},
+		Addresses: []common.Address{oracle.Addr()},
+		Topics:    [][]common.Hash{{oracle.Abi().Events[EventNameNewSubmit].ID}},
 	}
 
 	events, err := client.FilterLogs(ctx, query)
@@ -556,17 +574,26 @@ func GetSubmitLogs(
 		return nil, errors.Wrap(err, "get events")
 	}
 
-	var reports []tellorX_oracle.OracleNewReport
+	var reports []Report
 	for _, eventRaw := range events {
 		eventNewReport := &tellorX_oracle.OracleNewReport{}
-		err := contract.UnpackLog(eventNewReport, EventNameNewSubmit, eventRaw)
+		err := oracle.UnpackLog(eventNewReport, EventNameNewSubmit, eventRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "unpack event from logs")
 		}
 
 		eventNewReport.Raw = eventRaw
 
-		reports = append(reports, *eventNewReport)
+		val, err := oracle.GetValueByTimestamp(&bind.CallOpts{Context: ctx}, eventNewReport.QueryId, eventNewReport.Time)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting the val to dispute")
+		}
+		disputed := false
+		if len(val) == 0 {
+			disputed = true
+		}
+
+		reports = append(reports, Report{Disputed: disputed, OracleNewReport: *eventNewReport})
 	}
 
 	return reports, err

@@ -84,11 +84,6 @@ func (self *SubmitCmd) Submit(
 	id int64,
 	val float64,
 ) error {
-	psr, err := psr_tellor.PsrByID(id)
-	if err != nil {
-		return errors.Wrap(err, "get psr")
-	}
-
 	queryID := psr_tellor.IntToQueryID(id)
 
 	nonce, err := contract.GetTimestampCountById(&bind.CallOpts{Context: ctx}, queryID)
@@ -116,7 +111,7 @@ func (self *SubmitCmd) Submit(
 		// 	return err
 		// }
 	} else {
-		tx, err = contract.SubmitValue(opts, queryID, math_t.FloatToBigInt(val).Bytes(), nonce, psr.Query.Bytes())
+		tx, err = contract.SubmitValue(opts, queryID, math_t.FloatToBigInt(val).Bytes(), nonce, psr_tellor.NewQueryData(self.DataID))
 		if err != nil {
 			return errors.Wrap(err, "creting TX")
 		}

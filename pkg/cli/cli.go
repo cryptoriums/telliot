@@ -43,11 +43,11 @@ var CLIDefault = CLI{
 		Status:   StatusCmd{},
 	},
 	Dispute: disputeCmd{
-		New:       NewDisputeCmd{},
-		Vote:      VoteCmd{},
-		List:      ListCmd{},
-		Tally:     TallyCmd{},
-		UnlockFee: UnlockFeeCmd{},
+		New:         NewDisputeCmd{},
+		Vote:        VoteCmd{},
+		List:        ListCmd{},
+		Tally:       TallyCmd{},
+		VoteExecute: VoteExecuteCmd{},
 	},
 	Encrypt: EncryptCmd{},
 	Decrypt: DecryptCmd{},
@@ -78,12 +78,12 @@ type CLI struct {
 }
 
 type disputeCmd struct {
-	New       NewDisputeCmd `cmd:"" help:"start a new dispute"`
-	Vote      VoteCmd       `cmd:"" help:"vote on a open dispute"`
-	List      ListCmd       `cmd:"" help:"list open disputes"`
-	Tally     TallyCmd      `cmd:"" help:"tally votes for a dispute ID, need to run unlock fee after that"`
-	TallyList TallyListCmd  `cmd:"" help:"list tally for disputes"`
-	UnlockFee UnlockFeeCmd  `cmd:"" help:"after tallying the votes this command transfers the fee to the reporter or reported based on the voting"`
+	New         NewDisputeCmd  `cmd:"" help:"start a new dispute"`
+	Vote        VoteCmd        `cmd:"" help:"vote on a open dispute"`
+	List        ListCmd        `cmd:"" help:"list open disputes"`
+	Tally       TallyCmd       `cmd:"" help:"tally votes for a dispute ID, need to run unlock fee after that"`
+	TallyList   TallyListCmd   `cmd:"" help:"list tally for disputes"`
+	VoteExecute VoteExecuteCmd `cmd:"" help:"after tallying the votes this command transfers the fee to the reporter or reported based on the voting"`
 }
 
 type stakeCmd struct {
