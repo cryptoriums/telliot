@@ -37,13 +37,6 @@ func Test_ExpandTimeVars(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		var n time.Time
-		var err error
-		now = func() time.Time {
-			n, err = time.Parse("2006-01-02 15:04:05 +0000 UTC", tc.input)
-			testutil.Ok(t, err)
-			return n
-		}
 
 		ts := EOD()
 		testutil.Equals(t, tc.expectedEOD, time.Unix(int64(ts), 0).UTC().String())
