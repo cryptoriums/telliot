@@ -18,6 +18,8 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type PsrID struct {
@@ -39,6 +41,8 @@ const (
 	TimeWeightedAvg24h   = "TWAP 24h"
 	Week                 = 168 * time.Hour
 	TimeWeightedAvg7Days = "TWAP 1w"
+
+	MetricErrCount = "errors_total"
 )
 
 type Query struct {
@@ -144,6 +148,12 @@ func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr 
 		logger:     log.With(logger, "component", ComponentName),
 		aggregator: aggregator,
 		cfg:        cfg,
+		errCount: promauto.NewCounter(prometheus.CounterOpts{
+			Namespace: "telliot",
+			Subsystem: ComponentName,
+			Name:      MetricErrCount,
+			Help:      "Critical errors in the component",
+		}),
 	}
 }
 
@@ -156,13 +166,19 @@ type Psr struct {
 	logger     log.Logger
 	aggregator *aggregator.Aggregator
 	cfg        Config
+	errCount   prometheus.Counter
 }
 
 func (self *Psr) ConfidenceThreshold(pair string) float64 {
 	return self.cfg.MinConfidencePerSymbol[pair]
 }
 
-func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (float64, error) {
+func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (val float64, err error) {
+	defer func() {
+		if err != nil {
+			self.errCount.Inc()
+		}
+	}()
 	psr, ok := Psrs[queryID]
 	if !ok {
 		return 0, errors.Errorf("invalid queryID:%v", queryID)
@@ -172,7 +188,7 @@ func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (float64, error) {
 		level.Info(self.logger).Log("msg", "adding 0 for inactive PSR", "queryID", queryID)
 		return 0, nil
 	}
-	val, err := self.getValue(psr, ts)
+	val, err = self.getValue(psr, ts)
 	return math.Round(val * DefaultGranularity), err
 }
 
