@@ -3,7 +3,6 @@ package contracts
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math"
 	"math/big"
 	"strings"
@@ -497,7 +496,6 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 
 	executed := statusVars[0]
 
-	fmt.Println("result", result)
 	var resultName string
 	var resultID int64
 	if !executed {

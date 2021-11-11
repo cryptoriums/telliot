@@ -31,10 +31,7 @@ func TestConfig(t *testing.T) {
 	cleanup := createEnvFile(t)
 	defer t.Cleanup(cleanup)
 
-	cfg, err := OpenTestConfig("../..")
+	_, err := OpenTestConfig("../..")
 	testutil.Ok(t, err)
-
-	//Asserting Default Values
-	testutil.Assert(t, cfg.TransactorTellor.GasMaxTipGwei > 0, "GasMax should have value")
 
 }
