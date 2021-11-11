@@ -50,8 +50,14 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			inactive = "(in)"
 		}
 
+		disputed := ""
+		if submit.Disputed {
+			disputed = "disputed >>> "
+		}
+
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Fprintf(w, "ts: %v \tmins: %v \tReporter: %v \tID:  %v%v \tName %v:%v \tVal: %.6f \t \n",
+		fmt.Fprintf(w, "%vts: %v \tmins: %v \tReporter: %v \tID:  %v%v \tName %v:%v \tVal: %.6f \t \n",
+			disputed,
 			submit.Time,
 			int(time.Since(time.Unix(submit.Time.Int64(), 0)).Minutes()),
 			submit.Reporter.Hex()[:8],

@@ -23,6 +23,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/prompt"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -137,7 +138,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.Wrap(err, "send dispute txn")
 	}
 	level.Info(logger).Log("msg", "dispute tx created",
-		"queryID", queryID,
+		"queryID", common.Bytes2Hex(queryID[:]),
 		"ts", self.Timestamp,
 		"tx", tx.Hash())
 	return nil
@@ -148,14 +149,15 @@ type VoteCmd struct {
 	DispID
 	NoChks
 	Support bool `help:"true or false"`
+	Against bool `help:"true or false"`
 	Invalid bool `help:"true or false"`
 }
 
 func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	if !self.Support && !self.Invalid {
-		return errors.New("need to either support or invalid for a vote")
+	if !self.Support && !self.Against && !self.Invalid {
+		return errors.New("need to either support, against or invalid for a vote")
 	}
-	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -179,8 +181,15 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			return errors.Wrapf(err, "check if you've already voted")
 		}
 		if voted {
-			level.Info(logger).Log("msg", "you have already voted on this dispute")
-			return nil
+			return errors.New("you have already voted on this dispute")
+		}
+
+		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		if err != nil {
+			return errors.Wrap(err, "getting reporter status")
+		}
+		if status.Int64() == contracts.StatusOnDispute {
+			return errors.New("address is in dispute so can't vote")
 		}
 	}
 
@@ -193,7 +202,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		return errors.Wrapf(err, "submit vote transaction")
 	}
 
-	level.Info(logger).Log("msg", "vote submitted", "disputeID", self.DisputeID, "supports", self.Support, "tx", tx.Hash())
+	level.Info(logger).Log("msg", "vote submitted", "disputeID", self.DisputeID, "invalid", self.Invalid, "against", self.Against, "supports", self.Support, "tx", tx.Hash())
 	return nil
 }
 
@@ -288,14 +297,14 @@ func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	return nil
 }
 
-type VoteExecuteCmd struct {
+type ExecuteCmd struct {
 	NoChks
 	Gas
 	DispIDOptional
 	All bool
 }
 
-func (self *VoteExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+func (self *ExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
@@ -404,7 +413,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 		psr, ok := psr_tellor.Psrs[log.QueryID]
 		if !ok {
-			level.Error(logger).Log("msg", "getting psr", "queryID", log.QueryID, "err", err)
+			level.Error(logger).Log("msg", "getting psr", "queryID", common.Bytes2Hex(log.QueryID[:]), "err", err)
 			continue
 		}
 		var suggested float64
@@ -419,7 +428,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Println()
 		fmt.Fprintln(w, "ID: \t", log.ID, "\t")
 		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
-		fmt.Fprintln(w, "Result: \t", log.ResultName, "\t")
+		fmt.Fprintln(w, "Status: \t", log.ResultName, "\t")
 		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
 		fmt.Fprintln(w, "Vote Ends: \t", -time.Since(log.VoteEnds), "\t")
 		fmt.Fprintln(w, "Tally Ts: \t", log.TallyTs, "\t")

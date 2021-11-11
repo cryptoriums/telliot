@@ -3,6 +3,7 @@ package contracts
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math"
 	"math/big"
 	"strings"
@@ -30,7 +31,7 @@ import (
 const (
 	MasterAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
 	MasterAddressRinkeby     = "0x5373Fc8Cf8E1dfa91796f9c308A0756EE5b9ABC0"
-	MasterAddressGoerli      = "0xdabEAadC377866bDB8F6983867224b0541362612"
+	MasterAddressGoerli      = "0x52464E4B1C9157fE551AE6e432321630DE20d772"
 	MasterAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	MasterAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
@@ -112,6 +113,8 @@ const (
 	VoteStatusRejected = 0
 	VoteStatusPassed   = 1
 	VoteStatusInvalid  = 2
+
+	VoteIDLabel = "id"
 )
 
 type TellorGovernCaller interface {
@@ -492,11 +495,12 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 		return nil, errors.Wrap(err, "get vote details")
 	}
 
-	execute := statusVars[0]
+	executed := statusVars[0]
 
+	fmt.Println("result", result)
 	var resultName string
 	var resultID int64
-	if execute {
+	if !executed {
 		resultName = "open"
 		resultID = VoteStatusOpen
 	} else {
@@ -520,7 +524,7 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 	return &VoteLog{
 		ID:              voteID.Int64(),
 		TallyTs:         voteVars[4].Int64(),
-		Executed:        statusVars[0],
+		Executed:        executed,
 		IsDispute:       statusVars[1],
 		ExecuteTimeLock: time.Unix(voteVars[4].Int64(), 0).Add(contract.VoteExecuteWaitDuration() * time.Duration(math_t.BigIntToFloat(voteVars[0]))),
 		ResultID:        resultID,
@@ -528,9 +532,9 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 		Initiator:       addrVars[1],
 		VoteFunc:        voteFunc,
 		VoteRound:       int64(math_t.BigIntToFloat(voteVars[0])),
-		VotesSupport:    math_t.BigIntToFloat(voteVars[5]),
-		VotesAgainst:    math_t.BigIntToFloat(voteVars[6]),
-		VotesInvalid:    math_t.BigIntToFloat(voteVars[7]),
+		VotesSupport:    math_t.BigIntToFloatDiv(voteVars[5], params.Ether),
+		VotesAgainst:    math_t.BigIntToFloatDiv(voteVars[6], params.Ether),
+		VotesInvalid:    math_t.BigIntToFloatDiv(voteVars[7], params.Ether),
 		VoteEnds:        time.Unix(voteVars[1].Int64(), 0).Add(contract.VotingDuration()),
 		Fee:             math_t.BigIntToFloatDiv(voteVars[3], params.Ether),
 	}, nil
@@ -670,6 +674,8 @@ func CreateTx(
 	)
 }
 
+var StatusOnDispute = int64(3)
+
 func ReporterStatusName(statusID int64) string {
 	// From https://github.com/tellor-io/tellorX/blob/f63b260375cf119b2c7c0fd920f0ce9441ca06e8/contracts/tellor3/TellorStorage.sol#L28
 	switch statusID {
@@ -679,7 +685,7 @@ func ReporterStatusName(statusID int64) string {
 		return "Staked"
 	case 2:
 		return "LockedForWithdraw"
-	case 3:
+	case StatusOnDispute:
 		return "OnDispute"
 	case 4:
 		return "ReadyForUnlocking"

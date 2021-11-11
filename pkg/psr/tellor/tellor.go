@@ -185,7 +185,7 @@ func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (val float64, err erro
 	}
 
 	if psr.Inactive {
-		level.Info(self.logger).Log("msg", "adding 0 for inactive PSR", "queryID", queryID)
+		level.Info(self.logger).Log("msg", "adding 0 for inactive PSR", "queryID", common.Bytes2Hex(queryID[:]))
 		return 0, nil
 	}
 	val, err = self.getValue(psr, ts)
