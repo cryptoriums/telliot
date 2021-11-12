@@ -116,7 +116,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 		level.Info(logger).Log("msg", "disputed reporter status", "addr", reporter.Hex()[:8], "status", contracts.ReporterStatusName(status.Int64()))
 		if status.Int64() != 1 {
-			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status. Press Y to continue despite its status:", false)
+			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status: "+contracts.ReporterStatusName(status.Int64())+". Press Y to continue despite its status:", false)
 			if err == nil && strings.ToLower(promptResp) != "y" {
 				return errors.New("canceled")
 			}
@@ -397,53 +397,53 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 
 	psrT := psr_tellor.New(logger, cfg.PsrTellor, aggregator)
 
-	logs, err := contracts.GetDisputeLogs(ctx, logger, client, govern, self.LookBack)
+	disputes, err := contracts.GetDisputeLogs(ctx, logger, client, govern, self.LookBack)
 	if err != nil {
 		return errors.Wrap(err, "GetDisputeLogs")
 	}
 
-	level.Info(logger).Log("msg", "disputes count", "lookBackPeriod", self.LookBack, "count", len(logs))
+	level.Info(logger).Log("msg", "disputes count", "lookBackPeriod", self.LookBack, "count", len(disputes))
 
-	for _, log := range logs {
-		if !self.ShowClosed && log.Executed {
+	for _, dispute := range disputes {
+		if !self.ShowClosed && dispute.StatusID != contracts.VoteStatusOpen && dispute.StatusID != contracts.VoteStatusTallied {
 			continue
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
 
-		psr, ok := psr_tellor.Psrs[log.QueryID]
+		psr, ok := psr_tellor.Psrs[dispute.QueryID]
 		if !ok {
-			level.Error(logger).Log("msg", "getting psr", "queryID", common.Bytes2Hex(log.QueryID[:]), "err", err)
+			level.Error(logger).Log("msg", "getting psr", "queryID", common.Bytes2Hex(dispute.QueryID[:]), "err", err)
 			continue
 		}
 		var suggested float64
 		if cfg.Db.RemoteHost != "" {
-			suggested, err = psrT.GetValue(log.QueryID, log.DataTime)
+			suggested, err = psrT.GetValue(dispute.QueryID, dispute.DataTime)
 			if err != nil {
-				level.Error(logger).Log("msg", "look up recommended value", "id", log.ID, "err", err)
+				level.Error(logger).Log("msg", "look up recommended value", "id", dispute.ID, "err", err)
 			}
 		}
 
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Println()
-		fmt.Fprintln(w, "ID: \t", log.ID, "\t")
-		fmt.Fprintln(w, "Executed: \t", log.Executed, "\t")
-		fmt.Fprintln(w, "Status: \t", log.ResultName, "\t")
-		fmt.Fprintln(w, "Fee: \t", log.Fee, "\t")
-		fmt.Fprintln(w, "Vote Ends: \t", -time.Since(log.VoteEnds), "\t")
-		fmt.Fprintln(w, "Tally Ts: \t", log.TallyTs, "\t")
-		fmt.Fprintln(w, "Votes Support: \t", log.VotesSupport, "\t")
-		fmt.Fprintln(w, "Votes Against: \t", log.VotesAgainst, "\t")
-		fmt.Fprintln(w, "Votes Invalid: \t", log.VotesInvalid, "\t")
+		fmt.Fprintln(w, "ID: \t", dispute.ID, "\t")
+		fmt.Fprintln(w, "Executed: \t", dispute.Executed, "\t")
+		fmt.Fprintln(w, "Status: \t", dispute.StatusName, "\t")
+		fmt.Fprintln(w, "Fee: \t", dispute.Fee, "\t")
+		fmt.Fprintln(w, "Vote Ends: \t", -time.Since(dispute.VoteEnds), "\t")
+		fmt.Fprintln(w, "Tally Ts: \t", dispute.TallyTs, "\t")
+		fmt.Fprintln(w, "Votes Support: \t", dispute.VotesSupport, "\t")
+		fmt.Fprintln(w, "Votes Against: \t", dispute.VotesAgainst, "\t")
+		fmt.Fprintln(w, "Votes Invalid: \t", dispute.VotesInvalid, "\t")
 		fmt.Fprintln(w, "Pairs: \t", psr.Pair, "\t")
-		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(log.DataTime.Unix()))+" "+log.DataTime.Format(logging.DefaultTimeFormat), "\t")
-		fmt.Fprintln(w, "Disputer: \t", log.Initiator.Hex(), "\t")
-		fmt.Fprintln(w, "Reporter: \t", log.Reporter.Hex(), "\t")
-		fmt.Fprintln(w, "Disputed    Id: \t", log.QueryID, "\t")
-		fmt.Fprintln(w, "Disputed  Time: \t", log.DataTime, "\t")
-		fmt.Fprintln(w, "Disputed   Val: \t", fmt.Sprintf("%.6f", log.DataVal), "\t")
+		fmt.Fprintln(w, "Ts: \t", strconv.Itoa(int(dispute.DataTime.Unix()))+" "+dispute.DataTime.Format(logging.DefaultTimeFormat), "\t")
+		fmt.Fprintln(w, "Disputer: \t", dispute.Initiator.Hex(), "\t")
+		fmt.Fprintln(w, "Reporter: \t", dispute.Reporter.Hex(), "\t")
+		fmt.Fprintln(w, "Disputed    Id: \t", dispute.QueryID, "\t")
+		fmt.Fprintln(w, "Disputed  Time: \t", dispute.DataTime, "\t")
+		fmt.Fprintln(w, "Disputed   Val: \t", fmt.Sprintf("%.6f", dispute.DataVal), "\t")
 		fmt.Fprintln(w, "Suggested  Val: \t", fmt.Sprintf("%.6f", suggested/psr_tellor.DefaultGranularity), "\t")
-		fmt.Fprintln(w, "TxHash: \t", log.TxHash.Hex(), "\t")
+		fmt.Fprintln(w, "TxHash: \t", dispute.TxHash.Hex(), "\t")
 		w.Flush()
 
 		//lint:ignore faillint looks cleaner with print instead of logs

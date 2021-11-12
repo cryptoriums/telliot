@@ -108,10 +108,11 @@ type TellorOracleCaller interface {
 }
 
 const (
-	VoteStatusOpen     = -1
-	VoteStatusRejected = 0
-	VoteStatusPassed   = 1
-	VoteStatusInvalid  = 2
+	VoteStatusOpen = iota - 1
+	VoteStatusRejected
+	VoteStatusPassed
+	VoteStatusInvalid
+	VoteStatusTallied
 
 	VoteIDLabel = "id"
 )
@@ -358,8 +359,8 @@ type VoteLog struct {
 	IsDispute       bool
 	ExecuteTimeLock time.Time
 	TallyTs         int64
-	ResultID        int64
-	ResultName      string
+	StatusID        int64
+	StatusName      string
 	Initiator       common.Address
 	VoteRound       int64
 	VotesSupport    float64
@@ -496,22 +497,27 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 
 	executed := statusVars[0]
 
-	var resultName string
-	var resultID int64
-	if !executed {
-		resultName = "open"
-		resultID = VoteStatusOpen
-	} else {
-		switch result {
+	var statusName string
+	var statusID int64
+	if voteVars[4].Int64() != 0 {
+		statusName = "tallied"
+		statusID = VoteStatusTallied
+	} else if !executed {
+		statusName = "open"
+		statusID = VoteStatusOpen
+	}
+
+	if executed {
+		switch int(result) {
 		case VoteStatusPassed:
-			resultName = "passed"
-			resultID = VoteStatusPassed
+			statusName = "passed"
+			statusID = VoteStatusPassed
 		case VoteStatusRejected:
-			resultName = "rejected"
-			resultID = VoteStatusRejected
+			statusName = "rejected"
+			statusID = VoteStatusRejected
 		case VoteStatusInvalid:
-			resultName = "invalid"
-			resultID = VoteStatusInvalid
+			statusName = "invalid"
+			statusID = VoteStatusInvalid
 		}
 	}
 
@@ -525,8 +531,8 @@ func GetVoteInfo(ctx context.Context, voteID *big.Int, contract TellorGovernCall
 		Executed:        executed,
 		IsDispute:       statusVars[1],
 		ExecuteTimeLock: time.Unix(voteVars[4].Int64(), 0).Add(contract.VoteExecuteWaitDuration() * time.Duration(math_t.BigIntToFloat(voteVars[0]))),
-		ResultID:        resultID,
-		ResultName:      resultName,
+		StatusID:        statusID,
+		StatusName:      statusName,
 		Initiator:       addrVars[1],
 		VoteFunc:        voteFunc,
 		VoteRound:       int64(math_t.BigIntToFloat(voteVars[0])),
