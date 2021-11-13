@@ -1,4 +1,5 @@
-FROM golang:buster AS builder
+# When this issue is fixed can upgrade to latest https://github.com/golang/go/issues/49366
+FROM golang:1.17.2-buster AS builder
 WORKDIR /go/src
 RUN apt-get update
 COPY ./ .
