@@ -50,7 +50,7 @@ type NewDisputeCmd struct {
 }
 
 func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, oracle, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, oracle, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("timestamp can't be in the future")
 	}
 
-	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -157,12 +157,12 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	if !self.Support && !self.Against && !self.Invalid {
 		return errors.New("need to either support, against or invalid for a vote")
 	}
-	_, client, master, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ type TallyCmd struct {
 }
 
 func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		disputes = append(disputes, dispute)
 	}
 
-	accounts, err := ethereum_t.GetAccounts(logger)
+	accounts, err := ethereum_t.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -305,12 +305,12 @@ type ExecuteCmd struct {
 }
 
 func (self *ExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, _, _, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	accounts, err := ethereum_t.GetAccounts(logger)
+	accounts, err := ethereum_t.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
 		return err
 	}

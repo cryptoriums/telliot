@@ -88,13 +88,14 @@ func New(
 	logger log.Logger,
 	cfg Config,
 	db *tsdb.DB,
+	envVars map[string]string,
 ) (*TrackerIndex, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "apply filter logger")
 	}
 
-	dataSources, err := createDataSources(logger, ctx, cfg)
+	dataSources, err := createDataSources(logger, ctx, cfg, envVars)
 	if err != nil {
 		return nil, errors.Wrap(err, "create data sources")
 	}
@@ -121,7 +122,7 @@ func New(
 	}, nil
 }
 
-func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[string][]DataSource, error) {
+func createDataSources(logger log.Logger, ctx context.Context, cfg Config, envVars map[string]string) (map[string][]DataSource, error) {
 	// Load index file.
 	indexes := make(map[string]Apis)
 	{
@@ -168,10 +169,11 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 			// Fail early when the url has env that is not set.
 			url := helpers.ExpandTimeVars(endpoint.URL)
 			os.Expand(url, func(key string) string {
-				if os.Getenv(key) == "" {
+				v, ok := envVars[key]
+				if !ok {
 					err = errors.Errorf("missing required env variable in index url:%v", key)
 				}
-				return os.Getenv(key)
+				return v
 			})
 			if err != nil {
 				return nil, err
@@ -184,21 +186,21 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config) (map[
 				}
 			case httpSource:
 				{
-					source = NewJSONapi(api.Interval.Duration, endpoint.URL, NewParser(endpoint))
+					source = NewJSONapi(api.Interval.Duration, endpoint.URL, NewParser(endpoint), envVars)
 					if strings.Contains(strings.ToLower(symbol), "volume") {
-						source = NewJSONapiVolume(api.Interval.Duration, endpoint.URL, NewParser(endpoint))
+						source = NewJSONapiVolume(api.Interval.Duration, endpoint.URL, NewParser(endpoint), envVars)
 					}
 				}
 			case bravenewcoin:
 				{
-					source, err = NewBravenewcoin(api.Interval.Duration, endpoint.URL, NewParser(endpoint))
+					source, err = NewBravenewcoin(api.Interval.Duration, endpoint.URL, NewParser(endpoint), envVars)
 					if err != nil {
 						return nil, errors.Wrap(err, "creating Bravenewcoin source")
 					}
 				}
 			case ethereumSource:
 				{
-					client, err := ethereum.NewClient(ctx, logger)
+					client, err := ethereum.NewClient(ctx, logger, envVars)
 					if err != nil {
 						return nil, errors.Wrap(err, "creating ethereum client")
 					}
@@ -452,24 +454,26 @@ func (self *Manual) Source() string {
 // This is to avoid double counting volumes for the same time period.
 // Another way is to skip adding the data, but this messes up the confidence calculations
 // which counts total added data points.
-func NewJSONapiVolume(interval time.Duration, url string, parser Parser) *JSONapiVolume {
+func NewJSONapiVolume(interval time.Duration, url string, parser Parser, envVars map[string]string) *JSONapiVolume {
 	return &JSONapiVolume{
-		JSONapi: NewJSONapi(interval, url, parser),
+		JSONapi: NewJSONapi(interval, url, parser, envVars),
 	}
 }
 
 type URLEnvExpander struct {
-	url string
+	url     string
+	envVars map[string]string
 }
 
 func (self *URLEnvExpander) UrlExpanded() (string, error) {
 	var err error
 	url := helpers.ExpandTimeVars(self.url)
 	url = os.Expand(url, func(key string) string {
-		if os.Getenv(key) == "" {
+		v, ok := self.envVars[key]
+		if !ok {
 			err = errors.Errorf("missing required env variable in index url:%v", key)
 		}
-		return os.Getenv(key)
+		return v
 	})
 	if err != nil {
 		return "", err
@@ -514,17 +518,17 @@ func (self *JSONapiVolume) Get(ctx context.Context) (float64, float64, error) {
 
 }
 
-func NewJSONapi(interval time.Duration, url string, parser Parser) *JSONapi {
+func NewJSONapi(interval time.Duration, url string, parser Parser, envVars map[string]string) *JSONapi {
 	return &JSONapi{
 		interval:    interval,
 		Parser:      parser,
-		URLExpander: &URLEnvExpander{url: url},
+		URLExpander: &URLEnvExpander{url: url, envVars: envVars},
 	}
 }
 
-func NewBravenewcoin(interval time.Duration, urlString string, parser Parser) (*Bravenewcoin, error) {
+func NewBravenewcoin(interval time.Duration, urlString string, parser Parser, envVars map[string]string) (*Bravenewcoin, error) {
 	return &Bravenewcoin{
-		JSONapi: NewJSONapi(interval, urlString, parser),
+		JSONapi: NewJSONapi(interval, urlString, parser, envVars),
 	}, nil
 }
 

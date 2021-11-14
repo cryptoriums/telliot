@@ -156,6 +156,7 @@ func Data(
 		u, _ := url.Parse(r.RequestURI)
 		values := u.Query()
 
+		var envVars map[string]string
 		postResult := ""
 		if r.Method == "POST" {
 			err := r.ParseForm()
@@ -163,13 +164,14 @@ func Data(
 				http.Error(w, fmt.Sprintf("parsing form data:%v", err), http.StatusInternalServerError)
 				return
 			}
-			if err := checkPass(client, envFilePath, r.PostForm.Get("pass")); err != nil {
+			envVars, err = loadEnvVars(client, envFilePath, r.PostForm.Get("pass"))
+			if err != nil {
 				http.Error(w, fmt.Sprintf("checking  password:%v", err), http.StatusInternalServerError)
 				return
 			}
 			switch r.PostForm.Get("action") {
 			case "dispute":
-				tx, err := createDispute(ctx, logger, r, client, govern)
+				tx, err := createDispute(ctx, logger, r, client, govern, envVars)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("creating a dispute:%v", err), http.StatusInternalServerError)
 					return
@@ -209,7 +211,7 @@ func Data(
 
 		postForm := ``
 		if values.Get("ts") != "" && postResult == "" {
-			postForm, err = prepareDisputeForm(ctx, logger, client, master, values)
+			postForm, err = prepareDisputeForm(ctx, logger, client, master, values, envVars)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("prepare post form:%v", err), http.StatusInternalServerError)
 				return
@@ -341,9 +343,10 @@ func prepareDisputeForm(
 	client ethereum.EthClient,
 	master contracts.TellorMasterCaller,
 	values url.Values,
+	envVars map[string]string,
 ) (string, error) {
 	accOpts := ""
-	accounts, err := ethereum.GetAccounts(logger)
+	accounts, err := ethereum.GetAccounts(logger, envVars)
 	if err != nil {
 		return "", errors.Wrap(err, "getting accounts")
 	}
@@ -405,11 +408,12 @@ func createDispute(
 	r *http.Request,
 	client ethereum.EthClient,
 	contract contracts.TellorGovernCaller,
+	envVars map[string]string,
 ) (*types.Transaction, error) {
 
 	ctx, cncl := context.WithTimeout(ctx, 20*time.Second)
 	defer cncl()
-	account, err := ethereum.GetAccountByPubAddress(logger, r.PostForm.Get("account"))
+	account, err := ethereum.GetAccountByPubAddress(logger, r.PostForm.Get("account"), envVars)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting account from selection")
 	}
@@ -433,26 +437,22 @@ func createDispute(
 	return tx, nil
 }
 
-func checkPass(client ethereum.EthClient, envFilePath string, pass string) error {
-	env, err := ioutil.ReadFile(envFilePath)
+func loadEnvVars(client ethereum.EthClient, envFilePath string, pass string) (map[string]string, error) {
+	envFileData, err := ioutil.ReadFile(envFilePath)
 	if err != nil {
-		return errors.Wrap(err, "reading env file")
+		return nil, errors.Wrapf(err, "opening the env file:%v", envFilePath)
 	}
 
-	if !util.IsText(env) {
-		_, err = private_file.Decrypt(env, pass)
-		if err != nil {
-			return errors.New("incorrect password")
-		}
+	if util.IsText(envFileData) && (client.NetworkID() != 4 && client.NetworkID() != 5) {
+		return nil, errors.Errorf("env file is not encrypted. this is not allowed on the current network:%v", client.NetworkID())
 	} else {
-		switch client.NetworkID() {
-		case 4:
-		case 5:
-		default:
-			return errors.New("file is not encrypted - action is forbidden via the web with unencrypted env file for the current network")
+		envFileData, err = private_file.Decrypt(envFileData, pass)
+		if err != nil {
+			return nil, errors.New("incorrect password")
 		}
 	}
-	return nil
+
+	return private_file.SetEnvVars(envFileData)
 }
 
 func PSRs(

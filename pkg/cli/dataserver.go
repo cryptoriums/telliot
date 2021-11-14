@@ -57,7 +57,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			}
 		}()
 
-		trackerIndex, err := index.New(ctx, logger, cfg.TrackerIndex, tsDB)
+		trackerIndex, err := index.New(ctx, logger, cfg.TrackerIndex, tsDB, cfg.EnvVars)
 		if err != nil {
 			return errors.Wrap(err, "creating component:"+index.ComponentName)
 		}

@@ -4,14 +4,11 @@
 package config
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/cryptoriums/telliot/pkg/aggregator"
@@ -24,7 +21,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/web"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"golang.org/x/tools/godoc/util"
 )
@@ -44,6 +40,10 @@ type Config struct {
 	Db            db.Config
 	// EnvFile location that include all private details like private key etc.
 	EnvFile string `json:"envFile"`
+	// Is is set by expanding the os env vars.
+	// Not using os.SetEnv so that it doesn't expose those to someone that has access to the machine.
+	// If using os.SetEnv for the private key anyone can see it that has access to the machine.
+	EnvVars map[string]string
 }
 
 var DefaultConfig = Config{
@@ -114,23 +114,11 @@ func Parse(logger log.Logger, path string, strictParsing bool) (*Config, error) 
 }
 
 func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
-	_env, err := os.Open(cfg.EnvFile)
-	if err != nil {
-		// When running inside k8s the .env file is converted into secrets
-		// so the .env file in this case doesn't exist.
-		if os.IsNotExist(err) {
-			level.Warn(logger).Log("msg", ".env file doesn't exist so using the existing env variables", "path", cfg.EnvFile)
-			return nil
-		}
-		return errors.Wrapf(err, "opening the env file:%v", cfg.EnvFile)
-	}
-
-	env, err := ioutil.ReadAll(_env)
+	envFileData, err := os.ReadFile(cfg.EnvFile)
 	if err != nil {
 		return errors.Wrapf(err, "reading the env file:%v", cfg.EnvFile)
 	}
-
-	if !util.IsText(env) {
+	if !util.IsText(envFileData) {
 		level.Info(logger).Log("msg", "env file is encrypted", "path", cfg.EnvFile)
 		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 			transacting := `<span style="color:grey">disabled</span>`
@@ -139,36 +127,19 @@ func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
 			}
 
 			level.Info(logger).Log("msg", "running inside k8s so will wait for web password decrypt input")
-			env = private_file.DecryptWithWebPassword(ctx, logger, "<h2>Transacting is:"+transacting+"</h2>", env, cfg.Web.ListenHost, cfg.Web.ListenPort)
+			envFileData = private_file.DecryptWithWebPassword(ctx, logger, "<h2>Transacting is:"+transacting+"</h2>", envFileData, cfg.Web.ListenHost, cfg.Web.ListenPort)
 		} else {
-			env, err = private_file.DecryptWithPasswordLoop(env)
+			envFileData, err = private_file.DecryptWithPasswordLoop(envFileData)
 			if err != nil {
 				return errors.Wrap(err, "decrypt input file")
 			}
 		}
 	}
 
-	rr := bytes.NewReader(env)
-	envMap, err := godotenv.Parse(rr)
-	if err != nil {
-		return errors.Wrapf(err, "parsing the env file:%v", cfg.EnvFile)
-	}
+	v, err := private_file.SetEnvVars(envFileData)
+	cfg.EnvVars = v
 
-	// Copied from the godotenv source code.
-	currentEnv := map[string]bool{}
-	rawEnv := os.Environ()
-	for _, rawEnvLine := range rawEnv {
-		key := strings.Split(rawEnvLine, "=")[0]
-		currentEnv[key] = true
-	}
-
-	for key, value := range envMap {
-		if !currentEnv[key] {
-			os.Setenv(key, value)
-		}
-	}
-
-	return nil
+	return err
 }
 
 func DeеpCopy(logger log.Logger, path string, cfg, cfgDefault interface{}, strictParsing bool) (interface{}, error) {

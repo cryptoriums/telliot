@@ -25,12 +25,12 @@ type DepositCmd struct {
 }
 
 func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -87,12 +87,12 @@ type WithdrawCmd struct {
 }
 
 func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -126,12 +126,12 @@ type RequestCmd struct {
 }
 
 func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
 
-	account, err := ethereum.GetAccountByPubAddress(logger, self.Account)
+	account, err := ethereum.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}

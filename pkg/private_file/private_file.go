@@ -4,6 +4,7 @@
 package private_file
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -16,10 +17,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/cryptoriums/telliot/pkg/prompt"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"golang.org/x/tools/godoc/util"
 )
@@ -210,4 +213,25 @@ func EncryptWithPasswordLoop(inFile string, outFile string) error {
 		}
 		return nil
 	}
+}
+
+func SetEnvVars(envFileContent []byte) (map[string]string, error) {
+	finalEnvVars := make(map[string]string)
+	rawEnv := os.Environ()
+	for _, rawEnvLine := range rawEnv {
+		vars := strings.Split(rawEnvLine, "=")
+		finalEnvVars[vars[0]] = vars[1]
+	}
+
+	rr := bytes.NewReader(envFileContent)
+	envMap, err := godotenv.Parse(rr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parsing the file content")
+	}
+
+	// Env vars from the file take precedent and overwrite existing env vars.
+	for k, v := range envMap {
+		finalEnvVars[k] = v
+	}
+	return finalEnvVars, nil
 }

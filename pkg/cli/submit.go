@@ -66,7 +66,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		return errors.New("canceled")
 	}
 
-	account, err := self.SelectAccount(logger)
+	account, err := self.SelectAccount(logger, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (self *SubmitCmd) Submit(
 		"msg", "submitting",
 		"account", account.Address.Hex()[:8],
 		"id", fmt.Sprintf("%+v", id),
-		"val", fmt.Sprintf("%+v", val),
+		"val", fmt.Sprintf("%.0f", val),
 	)
 
 	var tx *types.Transaction
@@ -123,17 +123,17 @@ func (self *SubmitCmd) Submit(
 	return nil
 }
 
-func (self *SubmitCmd) SelectAccount(logger log.Logger) (*ethereum.Account, error) {
+func (self *SubmitCmd) SelectAccount(logger log.Logger, envVars map[string]string) (*ethereum.Account, error) {
 	var accounts []*ethereum.Account
 	var err error
 	if self.Account != "" {
-		acc, err := ethereum.GetAccountByPubAddress(logger, self.Account)
+		acc, err := ethereum.GetAccountByPubAddress(logger, self.Account, envVars)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting accounts")
 		}
 		accounts = append(accounts, acc)
 	} else {
-		accounts, err = ethereum.GetAccounts(logger)
+		accounts, err = ethereum.GetAccounts(logger, envVars)
 		if err != nil {
 			return nil, errors.Wrap(err, "getting accounts")
 		}

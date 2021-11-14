@@ -43,7 +43,7 @@ func (self *tokenCmd) Validate() error {
 type TransferCmd tokenCmd
 
 func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 			math.BigIntToFloatDiv(amount, params.Ether))
 	}
 
-	acc, err := ethereum.GetAccountByPubAddress(logger, self.From)
+	acc, err := ethereum.GetAccountByPubAddress(logger, self.From, cfg.EnvVars)
 	if err != nil {
 		return errors.Wrap(err, "getting auth account")
 	}
@@ -93,7 +93,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 type ApproveCmd tokenCmd
 
 func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		)
 	}
 
-	acc, err := ethereum.GetAccountByPubAddress(logger, self.From)
+	acc, err := ethereum.GetAccountByPubAddress(logger, self.From, cfg.EnvVars)
 	if err != nil {
 		return errors.Wrap(err, "getting auth account")
 	}

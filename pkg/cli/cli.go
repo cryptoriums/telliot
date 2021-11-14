@@ -170,11 +170,11 @@ type AccountsCmd struct {
 }
 
 func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
-	accounts, err := ethereum.GetAccounts(logger)
+	accounts, err := ethereum.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")
 	}
@@ -225,7 +225,7 @@ func ConfigClientContract(
 		return nil, nil, nil, nil, nil, err
 	}
 
-	client, err := ethereum.NewClient(ctx, logger)
+	client, err := ethereum.NewClient(ctx, logger, cfg.EnvVars)
 	if err != nil {
 		return nil, nil, nil, nil, nil, errors.Wrap(err, "creating ethereum client")
 	}

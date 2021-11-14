@@ -8,7 +8,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -180,8 +179,8 @@ func (a *Account) GetPrivateKey() *ecdsa.PrivateKey {
 	return a.PrivateKey
 }
 
-func GetAccountByPubAddress(logger log.Logger, pubAddr string) (*Account, error) {
-	accounts, err := GetAccounts(logger)
+func GetAccountByPubAddress(logger log.Logger, pubAddr string, envVars map[string]string) (*Account, error) {
+	accounts, err := GetAccounts(logger, envVars)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting accounts")
 	}
@@ -196,8 +195,11 @@ func GetAccountByPubAddress(logger log.Logger, pubAddr string) (*Account, error)
 
 // GetAccounts returns a slice of Account from private keys in
 // PrivateKeysEnvName environment variable.
-func GetAccounts(logger log.Logger) ([]*Account, error) {
-	_privateKeys := os.Getenv(PrivateKeysEnvName)
+func GetAccounts(logger log.Logger, envVars map[string]string) ([]*Account, error) {
+	_privateKeys, ok := envVars[PrivateKeysEnvName]
+	if !ok {
+		return nil, errors.New("private key env var is missing")
+	}
 	privateKeys := strings.Split(_privateKeys, ",")
 
 	// Create an Account instance per private keys.
@@ -221,8 +223,11 @@ func GetAccounts(logger log.Logger) ([]*Account, error) {
 	return accounts, nil
 }
 
-func NewClient(ctx context.Context, logger log.Logger) (EthClient, error) {
-	nodeURL := os.Getenv(NodeURLEnvName)
+func NewClient(ctx context.Context, logger log.Logger, envVars map[string]string) (EthClient, error) {
+	nodeURL, ok := envVars[NodeURLEnvName]
+	if !ok {
+		return nil, errors.Errorf("missing NodeURLEnvNam:%v", NodeURLEnvName)
+	}
 	nodes := strings.Split(nodeURL, ",")
 	if len(nodes) == 0 {
 		return nil, errors.New("the env file doesn't contain any node urls")
