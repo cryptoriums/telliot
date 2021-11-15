@@ -65,7 +65,7 @@ func New(
 		ctx,
 		logger,
 		client,
-		ethereum_t.ReorgEventWait,
+		ethereum_t.ReorgEventWaitFast,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating head tracker")
