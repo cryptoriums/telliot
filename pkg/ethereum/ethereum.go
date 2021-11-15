@@ -45,7 +45,8 @@ const (
 	BlockTime          = float64(15)
 	BlocksPerSecond    = float64(1 / BlockTime)
 	BlocksPerMinute    = float64(60 / BlockTime)
-	ReorgEventWait     = time.Minute
+	ReorgEventWaitSafe = time.Minute
+	ReorgEventWaitFast = 30 * time.Second
 )
 
 var ethAddressRE *regexp.Regexp = regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
