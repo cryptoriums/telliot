@@ -7,7 +7,6 @@ import (
 	"context"
 	"math"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -140,13 +139,15 @@ func (self *TrackerEvents) Start() error {
 		case <-self.ctx.Done():
 			return nil
 		case event := <-src:
+			hash := hashFromLog(event)
+
 			if event.Removed {
-				self.cancelPending(hashFromLog(event))
-				level.Debug(self.logger).Log("msg", "canceling event due to reorg", "hash", hashFromLog(event))
+				self.cancelPending(hash)
+				level.Debug(self.logger).Log("msg", "canceling event due to reorg", "hash", hash)
 				continue
 			}
 			ctx, cncl := context.WithCancel(self.ctx)
-			self.addPending(hashFromLog(event), cncl)
+			self.addPending(hash, cncl)
 
 			go func(ctxReorg context.Context, event types.Log) {
 				waitReorg := time.NewTicker(self.reorgWaitPeriod)
@@ -155,17 +156,17 @@ func (self *TrackerEvents) Start() error {
 				select {
 				case <-waitReorg.C:
 					// With short reorg wait it is possible to try and send the same TX twice so this check mitigates that.
-					_, err := self.cacheSentTXs.Get(hashFromLog(event))
+					_, err := self.cacheSentTXs.Get(hash)
 					if err != gcache.KeyNotFoundError {
-						level.Info(self.logger).Log("msg", "skipping event that has already been sent", "id", hashFromLog(event))
+						level.Info(self.logger).Log("msg", "skipping event that has already been sent", "id", hash)
 						return
 					}
-					if err := self.cacheSentTXs.Set(hashFromLog(event), true); err != nil {
+					if err := self.cacheSentTXs.Set(hash, true); err != nil {
 						level.Error(self.logger).Log("msg", "adding tx event cache", "err", err)
 					}
 
-					self.cancelPending(hashFromLog(event)) // Cleanup the ctx.
-					level.Debug(self.logger).Log("msg", "sending event", "hash", hashFromLog(event))
+					self.cancelPending(hash) // Cleanup the ctx.
+					level.Debug(self.logger).Log("msg", "sending event", "hash", hash)
 					select {
 					case self.dstChan <- event:
 						return
@@ -173,7 +174,7 @@ func (self *TrackerEvents) Start() error {
 						return
 					}
 				case <-ctxReorg.Done():
-					level.Debug(self.logger).Log("msg", "canceled due to reorg", "hash", hashFromLog(event))
+					level.Debug(self.logger).Log("msg", "canceled due to reorg", "hash", hash)
 					return
 				}
 
@@ -216,7 +217,12 @@ func (self *TrackerEvents) waitSubscribe() (chan types.Log, event.Subscription) 
 }
 
 func hashFromLog(log types.Log) string {
-	return log.TxHash.Hex() + "-indexInTheBlock:" + strconv.Itoa(int(log.Index))
+	// Using the topics data will cause a race when more than one TX include a log with the same topics, but it is highly unlikely.
+	topicStr := ""
+	for _, topic := range log.Topics {
+		topicStr += topic.Hex() + ","
+	}
+	return log.TxHash.Hex() + "-topics:" + topicStr
 }
 
 func (self *TrackerEvents) addPending(hash string, ctx context.CancelFunc) {
