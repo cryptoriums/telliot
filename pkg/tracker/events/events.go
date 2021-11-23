@@ -149,7 +149,7 @@ func (self *TrackerEvents) Start() error {
 			ctx, cncl := context.WithCancel(self.ctx)
 			self.addPending(hash, cncl)
 
-			go func(ctxReorg context.Context, event types.Log) {
+			go func(ctxReorg context.Context, event types.Log, hash string) {
 				waitReorg := time.NewTicker(self.reorgWaitPeriod)
 				defer waitReorg.Stop()
 
@@ -178,7 +178,7 @@ func (self *TrackerEvents) Start() error {
 					return
 				}
 
-			}(ctx, event)
+			}(ctx, event, hash)
 		case err := <-subs.Err():
 			level.Error(self.logger).Log("msg", "subscription failed will try to resubscribe", "err", err)
 			src, subs = self.waitSubscribe()
