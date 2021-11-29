@@ -10,7 +10,7 @@ package index
 // 	"testing"
 
 // 	eth_common "github.com/ethereum/go-ethereum/common"
-// 	"github.com/cryptoriums/telliot/pkg/ethereum"
+// 	"github.com/cryptoriums/packages/ethereum"
 // 	"github.com/cryptoriums/packages/testutil"
 // )
 

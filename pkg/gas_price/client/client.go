@@ -6,8 +6,8 @@ package client
 import (
 	"context"
 
+	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/gas_price"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"

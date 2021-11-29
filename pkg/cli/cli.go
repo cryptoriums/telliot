@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"

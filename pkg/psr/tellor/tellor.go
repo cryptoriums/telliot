@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	ethereum_t "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
-	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/ethereum/go-ethereum/common"

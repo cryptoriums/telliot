@@ -17,12 +17,12 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/logging"
 	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/packages/private_file"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
@@ -426,7 +426,7 @@ func createDispute(
 		return nil, errors.Wrap(err, "parsing the ts value")
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, 10, contracts.DisputeNewGasLimit)
+	opts, err := ethereum.PrepareTxOpts(ctx, client, account, 10, contracts.DisputeNewGasLimit)
 	if err != nil {
 		return nil, errors.Wrap(err, "preparing dispute TX")
 	}

@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	ethereum_t "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/packages/math"
 	math_t "github.com/cryptoriums/packages/math"
@@ -20,7 +21,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
-	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -128,7 +128,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("canceled")
 	}
 
-	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.DisputeNewGasLimit)
+	opts, err := ethereum_t.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.DisputeNewGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -193,7 +193,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	}
 
-	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
+	opts, err := ethereum_t.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -253,7 +253,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.VoteTallyGasLimit)
+		opts, err := ethereum_t.PrepareTxOpts(ctx, client, accounts[0], self.GasPrice, contracts.VoteTallyGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -352,7 +352,7 @@ func (self *ExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 			continue
 		}
 
-		opts, err := ethereum_t.PrepareTx(ctx, client, accounts[0], self.GasPrice, contracts.VoteExecuteGasLimit)
+		opts, err := ethereum_t.PrepareTxOpts(ctx, client, accounts[0], self.GasPrice, contracts.VoteExecuteGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}

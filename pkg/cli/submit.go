@@ -13,14 +13,14 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cryptoriums/packages/ethereum"
+	ethereum_t "github.com/cryptoriums/packages/ethereum"
 	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/packages/prompt"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
-	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -91,7 +91,7 @@ func (self *SubmitCmd) Submit(
 		return errors.Wrap(err, "get current DATA ids")
 	}
 
-	opts, err := ethereum_t.PrepareTx(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
+	opts, err := ethereum_t.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}

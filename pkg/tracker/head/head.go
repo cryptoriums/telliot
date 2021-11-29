@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
+	ethereum_t "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/logging"
-	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

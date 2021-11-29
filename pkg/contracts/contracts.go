@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	ethereum_t "github.com/cryptoriums/packages/ethereum"
 	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_governance"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
-	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -29,7 +29,7 @@ import (
 
 const (
 	MasterAddress            = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
-	MasterAddressRinkeby     = "0x5373Fc8Cf8E1dfa91796f9c308A0756EE5b9ABC0"
+	MasterAddressRinkeby     = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0"
 	MasterAddressGoerli      = "0x52464E4B1C9157fE551AE6e432321630DE20d772"
 	MasterAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	MasterAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
@@ -675,6 +675,7 @@ func CreateTx(
 		client.NetworkID(),
 		gasLimit,
 		gasMaxFee,
+		0,
 	)
 }
 

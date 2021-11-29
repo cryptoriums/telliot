@@ -6,9 +6,9 @@ package cli
 import (
 	"context"
 
+	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
@@ -70,7 +70,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	if err != nil {
 		return errors.Wrap(err, "getting auth account")
 	}
-	opts, err := ethereum.PrepareTx(ctx, client, acc, self.GasPrice, 200_000)
+	opts, err := ethereum.PrepareTxOpts(ctx, client, acc, self.GasPrice, 200_000)
 	if err != nil {
 		return errors.Wrap(err, "preparing ethereum transaction")
 	}
@@ -121,7 +121,7 @@ func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return errors.Wrap(err, "getting auth account")
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, acc, self.GasPrice, 100_000)
+	opts, err := ethereum.PrepareTxOpts(ctx, client, acc, self.GasPrice, 100_000)
 	if err != nil {
 		return errors.Wrap(err, "preparing ethereum transaction")
 	}

@@ -7,7 +7,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/cryptoriums/telliot/pkg/ethereum"
+	"github.com/cryptoriums/packages/ethereum"
 )
 
 type GasUsageQuerier interface {

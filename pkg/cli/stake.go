@@ -8,9 +8,9 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts"
-	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
@@ -69,7 +69,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		}
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasPrice, contracts.StakeDepositGasLimit)
+	opts, err := ethereum.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.StakeDepositGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -107,7 +107,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return nil
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasPrice, contracts.StakeWithdrawGasLimit)
+	opts, err := ethereum.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.StakeWithdrawGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
@@ -145,7 +145,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return nil
 	}
 
-	opts, err := ethereum.PrepareTx(ctx, client, account, self.GasPrice, contracts.StakeRequestWithdrawGasLimit)
+	opts, err := ethereum.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.StakeRequestWithdrawGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "prepare ethereum transaction")
 	}
