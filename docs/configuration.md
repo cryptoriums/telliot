@@ -157,9 +157,33 @@ Commands:
   dispute tally-list
     list tally for disputes
 
-  dispute vote-execute
+  dispute execute
     after tallying the votes this command transfers the fee to the reporter or
     reported based on the voting
+
+```
+
+* `dispute execute`
+
+```
+Usage: telliot dispute execute
+
+after tallying the votes this command transfers the fee to the reporter or
+reported based on the voting
+
+Flags:
+  -h, --help                     Show context-sensitive help.
+      --config=STRING            path to config file
+      --config-strict-parsing    whether to return an error when the config
+                                 contains unknown fields
+      --contract=STRING          hex address of the contract to interract with
+
+      --no-checks                whether to run some additional checks like
+                                 balance, did vote etc. Useful to disable when
+                                 running against a test contract
+      --gas-price=FLOAT-64       gas max fee to use when running the command
+      --dispute-id=INT-64        the dispute id
+      --all
 
 ```
 
@@ -271,31 +295,8 @@ Flags:
                                  balance, did vote etc. Useful to disable when
                                  running against a test contract
       --support                  true or false
+      --against                  true or false
       --invalid                  true or false
-
-```
-
-* `dispute vote-execute`
-
-```
-Usage: telliot dispute vote-execute
-
-after tallying the votes this command transfers the fee to the reporter or
-reported based on the voting
-
-Flags:
-  -h, --help                     Show context-sensitive help.
-      --config=STRING            path to config file
-      --config-strict-parsing    whether to return an error when the config
-                                 contains unknown fields
-      --contract=STRING          hex address of the contract to interract with
-
-      --no-checks                whether to run some additional checks like
-                                 balance, did vote etc. Useful to disable when
-                                 running against a test contract
-      --gas-price=FLOAT-64       gas max fee to use when running the command
-      --dispute-id=INT-64        the dispute id
-      --all
 
 ```
 
@@ -562,6 +563,7 @@ Flags:
 			"Duration": "Required:false, Default:1440h0m0s"
 		}
 	},
+	"EnvVars": "Required:false, Default:map[]",
 	"PsrTellor": {
 		"MinConfidenceDefault": "Required:false, Default:80",
 		"MinConfidencePerSymbol": "Required:false, Default:map[USPCE:100]"
@@ -604,6 +606,7 @@ Here are the config defaults in json format:
 		"RemoteTimeout": "5s",
 		"Retention": "1440h0m0s"
 	},
+	"EnvVars": null,
 	"PsrTellor": {
 		"MinConfidenceDefault": 80,
 		"MinConfidencePerSymbol": {
