@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"math"
 	"math/big"
 	"strings"
@@ -19,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
@@ -629,54 +627,6 @@ func LastSubmit(ctx context.Context, contract TellorOracleCaller, reporter commo
 	}
 
 	return sinceLastSubmit, &tm, nil
-}
-
-func CreateTx(
-	ctx context.Context,
-	prvKey *ecdsa.PrivateKey,
-	to common.Address,
-	client ethereum_t.EthClient,
-	abis string,
-	overwritePending bool,
-	gasLimit uint64,
-	gasMaxFee float64,
-	methodName string,
-	args []interface{},
-) (*types.Transaction, string, error) {
-	var nonce uint64
-	var err error
-	if overwritePending {
-		nonce, err = client.NonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey), nil)
-		if err != nil {
-			return nil, "", errors.Wrap(err, "getting last nonce")
-		}
-	} else {
-		nonce, err = client.PendingNonceAt(ctx, crypto.PubkeyToAddress(prvKey.PublicKey))
-		if err != nil {
-			return nil, "", errors.Wrap(err, "getting pending nonce")
-		}
-	}
-
-	abiP, err := abi.JSON(strings.NewReader(abis))
-	if err != nil {
-		return nil, "", errors.Wrap(err, "read contract ABI")
-	}
-
-	data, err := abiP.Pack(methodName, args...)
-	if err != nil {
-		return nil, "", errors.Wrap(err, "packing ABI")
-	}
-
-	return ethereum_t.NewSignedTX(
-		to,
-		data,
-		nonce,
-		prvKey,
-		client.NetworkID(),
-		gasLimit,
-		gasMaxFee,
-		0,
-	)
 }
 
 var StatusOnDispute = int64(3)
