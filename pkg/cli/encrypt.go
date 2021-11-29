@@ -6,7 +6,7 @@ package cli
 import (
 	"context"
 
-	"github.com/cryptoriums/telliot/pkg/private_file"
+	"github.com/cryptoriums/packages/private_file"
 	"github.com/go-kit/log"
 )
 

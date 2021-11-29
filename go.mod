@@ -5,14 +5,13 @@ go 1.17
 require (
 	github.com/alecthomas/kong v0.2.18-0.20210621110843-8b2821cc246b
 	github.com/bluele/gcache v0.0.3-0.20210610150759-ecee3be431d1
-	github.com/cryptoriums/packages v0.0.0-20211129102211-916b33276955
+	github.com/cryptoriums/packages v0.0.0-20211129121255-a2ab069228a3
 	github.com/ethereum/go-ethereum v1.10.13
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/log v0.2.0
 	github.com/google/go-github/v35 v35.3.1-0.20210613000602-77dd0eb64ad2
 	github.com/itchyny/gojq v0.12.5
-	github.com/joho/godotenv v1.4.0
 	github.com/json-iterator/go v1.1.12
 	github.com/oklog/run v1.1.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
@@ -51,6 +50,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/itchyny/timefmt-go v0.1.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect

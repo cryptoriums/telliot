@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cryptoriums/telliot/pkg/private_file"
-	"github.com/cryptoriums/telliot/pkg/prompt"
+	"github.com/cryptoriums/packages/private_file"
+	"github.com/cryptoriums/packages/prompt"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 )

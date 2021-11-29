@@ -9,9 +9,9 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
+	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/telliot/pkg/cli"
 	"github.com/cryptoriums/telliot/pkg/github"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/posener/complete"

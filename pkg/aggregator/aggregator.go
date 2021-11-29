@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"

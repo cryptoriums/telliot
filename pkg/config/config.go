@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cryptoriums/packages/private_file"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/cryptoriums/telliot/pkg/private_file"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"

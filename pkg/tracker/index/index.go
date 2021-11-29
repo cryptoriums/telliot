@@ -19,10 +19,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/cryptoriums/telliot/pkg/logging"
 	"github.com/cryptoriums/telliot/pkg/web/helpers"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
