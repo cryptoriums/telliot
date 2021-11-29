@@ -11,7 +11,7 @@ import (
 )
 
 type GasUsageQuerier interface {
-	Query(ctx context.Context, account *ethereum.Account, queryID [32]byte, val []byte, nonce *big.Int, queryData []byte) (uint64, error)
+	Query(ctx context.Context, account *ethereum.Account, queryID [32]byte, val []byte, nonce *big.Int, queryData []byte) (float64, error)
 	Name() string
 }
 
@@ -30,6 +30,6 @@ func (self *Default) Name() string {
 	return "default"
 }
 
-func (self *Default) Query(ctx context.Context, _ *ethereum.Account, _ [32]byte, _ []byte, _ *big.Int, _ []byte) (uint64, error) {
+func (self *Default) Query(ctx context.Context, _ *ethereum.Account, _ [32]byte, _ []byte, _ *big.Int, _ []byte) (float64, error) {
 	return 300_000, nil
 }
