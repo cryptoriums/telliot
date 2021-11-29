@@ -11,8 +11,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts"
-	math_t "github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-kit/log"

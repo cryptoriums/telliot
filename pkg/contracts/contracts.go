@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_governance"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
 	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
-	math_t "github.com/cryptoriums/telliot/pkg/math"
 	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"

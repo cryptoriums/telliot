@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cryptoriums/telliot/pkg/testutil"
+	"github.com/cryptoriums/packages/testutil"
 )
 
 func createEnvFile(t *testing.T) func() {

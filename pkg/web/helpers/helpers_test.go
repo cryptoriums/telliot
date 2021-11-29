@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptoriums/telliot/pkg/testutil"
+	"github.com/cryptoriums/packages/testutil"
 )
 
 func Test_ExpandTimeVars(t *testing.T) {

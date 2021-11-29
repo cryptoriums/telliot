@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	math_t "github.com/cryptoriums/telliot/pkg/math"
+	math_t "github.com/cryptoriums/packages/math"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

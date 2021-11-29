@@ -17,12 +17,12 @@ import (
 	"text/template"
 	"time"
 
+	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/cryptoriums/telliot/pkg/format"
 	"github.com/cryptoriums/telliot/pkg/logging"
-	math_t "github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/private_file"
 	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"

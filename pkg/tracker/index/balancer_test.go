@@ -11,7 +11,7 @@ package index
 
 // 	eth_common "github.com/ethereum/go-ethereum/common"
 // 	"github.com/cryptoriums/telliot/pkg/ethereum"
-// 	"github.com/cryptoriums/telliot/pkg/testutil"
+// 	"github.com/cryptoriums/packages/testutil"
 // )
 
 // func TestBalancerPrice(t *testing.T) {

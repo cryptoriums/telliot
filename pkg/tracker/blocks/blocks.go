@@ -12,8 +12,8 @@ import (
 	ethereum_t "github.com/cryptoriums/telliot/pkg/ethereum"
 	"github.com/ethereum/go-ethereum"
 
+	"github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/logging"
-	"github.com/cryptoriums/telliot/pkg/math"
 	"github.com/cryptoriums/telliot/pkg/tracker/head"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/ethereum/go-ethereum/core/types"
