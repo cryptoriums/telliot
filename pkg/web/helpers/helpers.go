@@ -57,7 +57,11 @@ func ExpandTimeVars(url string) string {
 	eod := format.EOD()
 	bod := format.BOD()
 
+<<<<<<< HEAD
 	// Longer string substitution need to happensfirst.
+=======
+	// Need to be first so that the longer string substitution happens first.
+>>>>>>> master
 	url = strings.Replace(url, "$YEAR", strconv.Itoa(time.Now().Year()), -1)
 	url = strings.Replace(url, "$EODM", strconv.Itoa(int(eod*1000)), -1)
 	url = strings.Replace(url, "$BODM", strconv.Itoa(int(bod*1000)), -1)
