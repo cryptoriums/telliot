@@ -117,6 +117,7 @@ func Data(
 	ctx context.Context,
 	logger log.Logger,
 	componentor Componentor,
+	accounts []*ethereum.Account,
 	client ethereum.EthClient,
 	master contracts.TellorMasterCaller,
 	oracle contracts.TellorOracleCaller,
@@ -124,9 +125,22 @@ func Data(
 	envFilePath string,
 ) http.HandlerFunc {
 	var err error
+	accountsMap := make(map[common.Address]struct{})
+
+	for _, account := range accounts {
+		accountsMap[account.Address] = struct{}{}
+	}
+
 	t := template.New("template").Funcs(template.FuncMap{
 		"timeSince": func(ts int64) int {
 			return int(time.Since(time.Unix(ts, 0)).Minutes())
+		},
+		"reporterFormat": func(addr common.Address) string {
+			addrS := addr.Hex()[:8]
+			if _, ok := accountsMap[addr]; ok {
+				addrS = "*" + addrS
+			}
+			return addrS
 		},
 		"tsToTime": func(ts int64) string {
 			return time.Unix(ts, 0).UTC().Format("15:04")
@@ -294,7 +308,8 @@ func Data(
 				<td><b>Ts:{{ $submit.Time.String}}</b></td>
 				<td>{{ psrDetails $submit.QueryId}}</td>
 				<td style="text-align:right">{{ applyGranularity $submit.Value }}</td>
-				<td style="text-align:right">{{ slice ( $submit.Reporter).Hex 0 8 }}</td>
+				<td>
+					Reporter:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/address/{{ $submit.Reporter }}">{{ reporterFormat $submit.Reporter }}</td>
 				<td>
 					Tx:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/tx/{{ $submit.Raw.TxHash.Hex }}">{{ slice ($submit.Raw.TxHash).Hex 0 8 }}</a>
 				</td>
