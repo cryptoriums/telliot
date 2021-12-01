@@ -78,7 +78,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return errors.Wrap(err, "contract failed")
 	}
-	level.Info(logger).Log("msg", "stake depositied", "tx", tx.Hash())
+	level.Info(logger).Log("msg", "stake depositied tx created", "hash", tx.Hash())
 	return nil
 }
 

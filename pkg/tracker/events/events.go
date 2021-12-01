@@ -158,7 +158,7 @@ func (self *TrackerEvents) Start() error {
 					// With short reorg wait it is possible to try and send the same TX twice so this check mitigates that.
 					_, err := self.cacheSentTXs.Get(hash)
 					if err != gcache.KeyNotFoundError {
-						level.Info(self.logger).Log("msg", "skipping event that has already been sent", "id", hash)
+						level.Debug(self.logger).Log("msg", "skipping event that has already been sent", "id", hash)
 						return
 					}
 					if err := self.cacheSentTXs.Set(hash, true); err != nil {
