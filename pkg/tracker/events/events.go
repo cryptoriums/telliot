@@ -139,7 +139,7 @@ func (self *TrackerEvents) Start() error {
 		case <-self.ctx.Done():
 			return nil
 		case event := <-src:
-			hash := hashFromLog(event)
+			hash := ethereum_t.HashFromLog(event)
 
 			if event.Removed {
 				self.cancelPending(hash)
@@ -214,15 +214,6 @@ func (self *TrackerEvents) waitSubscribe() (chan types.Log, event.Subscription) 
 		level.Info(self.logger).Log("msg", "subscription created", "eventName", self.eventName)
 		return src, subs
 	}
-}
-
-func hashFromLog(log types.Log) string {
-	// Using the topics data will cause a race when more than one TX include a log with the same topics, but it is highly unlikely.
-	topicStr := ""
-	for _, topic := range log.Topics {
-		topicStr += topic.Hex() + ","
-	}
-	return log.TxHash.Hex() + "-topics:" + topicStr
 }
 
 func (self *TrackerEvents) addPending(hash string, ctx context.CancelFunc) {
