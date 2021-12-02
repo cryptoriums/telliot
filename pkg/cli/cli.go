@@ -5,6 +5,9 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"text/tabwriter"
 	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
@@ -170,7 +173,7 @@ type AccountsCmd struct {
 }
 
 func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, oracle, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
@@ -179,30 +182,54 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return errors.Wrap(err, "getting accounts")
 	}
 
+	PrintAccounts(ctx, logger, accounts, client, master, oracle)
+
+	return nil
+}
+func PrintAccounts(
+	ctx context.Context,
+	logger log.Logger,
+	accounts []*ethereum.Account,
+	client ethereum.EthClient,
+	master contracts.TellorMasterCaller,
+	oracle contracts.TellorOracleCaller,
+) {
+	//lint:ignore faillint looks cleaner with print instead of logs
+	fmt.Println("")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, account := range accounts {
+		logger := log.With(logger, "acc", account.Address.Hex())
+
 		ethBalance, err := client.BalanceAt(ctx, account.Address, nil)
 		if err != nil {
-			return errors.Wrap(err, "get eth balance")
+			level.Error(logger).Log("msg", "get eth balance")
 		}
 		trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
-			return errors.Wrapf(err, "getting trb balance")
+			level.Error(logger).Log("msg", "get TRB balance")
+		}
+
+		timeSincelastSubmit, _, err := contracts.LastSubmit(ctx, oracle, account.Address)
+		if err != nil {
+			level.Error(logger).Log("msg", "checking last submit time", "err", err)
 		}
 
 		status, startTime, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
-			return errors.Wrapf(err, "getting stake status")
+			level.Error(logger).Log("msg", "getting stake status", "err", err)
 		}
-		level.Info(logger).Log("msg", "account",
-			"address", account.Address.Hex(),
-			"trb", math.BigIntToFloatDiv(trbBalance, params.Ether),
-			"eth", math.BigIntToFloatDiv(ethBalance, params.Ether),
-			"stakeStatus", contracts.ReporterStatusName(status.Int64()),
-			"stakedSince", time.Since(time.Unix(startTime.Int64(), 0)),
+
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tsinceLastsubmit:%v \tstakeStatus:%v \tstakedSince:%v \n",
+			account.Address.Hex()[:10],
+			math.BigIntToFloatDiv(trbBalance, params.Ether),
+			math.BigIntToFloatDiv(ethBalance, params.Ether),
+			timeSincelastSubmit,
+			contracts.ReporterStatusName(status.Int64()),
+			time.Since(time.Unix(startTime.Int64(), 0)),
 		)
 	}
-
-	return nil
+	w.Flush()
 }
 
 func ConfigClientContract(

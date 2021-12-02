@@ -40,7 +40,12 @@ type SubmitCmd struct {
 }
 
 func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	cfg, client, _, oracle, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	cfg, client, master, oracle, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	if err != nil {
+		return err
+	}
+
+	account, err := self.SelectAccount(ctx, logger, client, master, oracle, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -64,11 +69,6 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	shouldContinue := FinalPrompt(ctx, logger, oracle, self.SkipConfirm, self.GasPrice, psr, val)
 	if !shouldContinue {
 		return errors.New("canceled")
-	}
-
-	account, err := self.SelectAccount(logger, cfg.EnvVars)
-	if err != nil {
-		return err
 	}
 
 	return self.Submit(cli, ctx, logger, account, client, oracle, self.DataID, val)
@@ -123,7 +123,14 @@ func (self *SubmitCmd) Submit(
 	return nil
 }
 
-func (self *SubmitCmd) SelectAccount(logger log.Logger, envVars map[string]string) (*ethereum.Account, error) {
+func (self *SubmitCmd) SelectAccount(
+	ctx context.Context,
+	logger log.Logger,
+	client ethereum.EthClient,
+	master contracts.TellorMasterCaller,
+	oracle contracts.TellorOracleCaller,
+	envVars map[string]string,
+) (*ethereum.Account, error) {
 	var accounts []*ethereum.Account
 	var err error
 	if self.Account != "" {
@@ -140,7 +147,26 @@ func (self *SubmitCmd) SelectAccount(logger log.Logger, envVars map[string]strin
 	}
 
 	if len(accounts) > 1 {
-		level.Warn(logger).Log("msg", "multiple accounts loaded, but will use the first one on the list", "address", accounts[0].Address)
+		// Print the accounts details and prompt for a selection.
+		PrintAccounts(ctx, logger, accounts, client, master, oracle)
+		_accIndex, err := prompt.Prompt("select an account from 1 to "+strconv.Itoa(len(accounts))+":", false)
+		if err != nil {
+			return nil, errors.Wrap(err, "selecting an accounts")
+		}
+		accIndex, err := strconv.Atoi(_accIndex)
+		if err != nil {
+			return nil, errors.Wrap(err, "parsing account index selection")
+		}
+
+		accIndex-- // So the the selection starts from one
+		if accIndex < 0 || accIndex > len(accounts) {
+			return nil, errors.New("account selection not in range")
+		}
+
+		acc := accounts[accIndex]
+		level.Info(logger).Log("msg", "selected account", "addr", acc.Address.Hex()[:8])
+		return acc, nil
+
 	}
 	return accounts[0], nil
 }
