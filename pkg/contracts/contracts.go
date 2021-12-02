@@ -12,7 +12,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_governance"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
-	psr "github.com/cryptoriums/telliot/pkg/psr/tellor"
+	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -477,10 +477,15 @@ func GetDisputeInfo(ctx context.Context, disputeID *big.Int, contract TellorGove
 		return nil, errors.Wrap(err, "get vote details")
 	}
 
+	psr, ok := psr_tellor.Psrs[queryID]
+	if !ok {
+		return nil, errors.Errorf("unable to get psr details for query ID:%v", queryID)
+	}
+
 	return &DisputeLog{
 		QueryID:  queryID,
 		DataTime: time.Unix(timestamp.Int64(), 0),
-		DataVal:  math_t.BigIntToFloatDiv(big.NewInt(0).SetBytes(val), psr.DefaultGranularity),
+		DataVal:  math_t.BigIntToFloatDiv(big.NewInt(0).SetBytes(val), psr.Granularity),
 		Reporter: reporter,
 		VoteLog:  *voteInfo,
 	}, nil

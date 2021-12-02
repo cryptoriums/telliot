@@ -194,8 +194,7 @@ func PrintAccounts(
 	master contracts.TellorMasterCaller,
 	oracle contracts.TellorOracleCaller,
 ) {
-	//lint:ignore faillint looks cleaner with print instead of logs
-	fmt.Println("")
+	level.Info(logger).Log("msg", "Getting all account details please standby....")
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, account := range accounts {
 		logger := log.With(logger, "acc", account.Address.Hex())

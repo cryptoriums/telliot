@@ -64,7 +64,7 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			inactive,
 			common.BytesToHash(submit.QueryId[:]),
 			psr.Pair, psr.Aggr,
-			math_t.BigIntToFloat(big.NewInt(0).SetBytes(submit.Value))/tellor.DefaultGranularity,
+			math_t.BigIntToFloat(big.NewInt(0).SetBytes(submit.Value))/psr.Granularity,
 		)
 	}
 	w.Flush()

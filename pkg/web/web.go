@@ -24,7 +24,6 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/cryptoriums/telliot/pkg/psr/tellor"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/web/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -138,7 +137,7 @@ func Data(
 		"reporterFormat": func(addr common.Address) string {
 			addrS := addr.Hex()[:8]
 			if _, ok := accountsMap[addr]; ok {
-				addrS = "*" + addrS
+				addrS += "*"
 			}
 			return addrS
 		},
@@ -161,8 +160,13 @@ func Data(
 			return strings.Replace(psr.Pair+"_"+psr.Aggr, " ", "_", -1) + inactive
 		},
 
-		"applyGranularity": func(val []byte) string {
-			return fmt.Sprintf("%.6f", math_t.BigIntToFloat(big.NewInt(0).SetBytes(val))/tellor.DefaultGranularity)
+		"applyGranularity": func(val []byte, queryID [32]byte) string {
+			psr, ok := psr_tellor.Psrs[queryID]
+			if !ok {
+				return fmt.Sprintf("unable to get psr for queryID:%v ", queryID)
+			}
+
+			return fmt.Sprintf("%.6f", math_t.BigIntToFloat(big.NewInt(0).SetBytes(val))/psr.Granularity)
 		},
 	})
 
@@ -307,7 +311,7 @@ func Data(
 				<td>Time:{{ tsToTime $submit.Time.Int64 }}</td>
 				<td><b>Ts:{{ $submit.Time.String}}</b></td>
 				<td>{{ psrDetails $submit.QueryId}}</td>
-				<td style="text-align:right">{{ applyGranularity $submit.Value }}</td>
+				<td style="text-align:right">{{ applyGranularity $submit.Value $submit.QueryId}}</td>
 				<td>
 					Reporter:<a  href="` + ethereum.GetEtherscanURL(client.NetworkID()) + `/address/{{ $submit.Reporter }}">{{ reporterFormat $submit.Reporter }}</td>
 				<td>
@@ -494,7 +498,7 @@ func PSRs(
 			val := val{
 				ID:    common.Bytes2Hex(queryID[:]),
 				Name:  psrI.Pair + "-" + psrI.Aggr,
-				Value: v / psr_tellor.DefaultGranularity,
+				Value: v / psrI.Granularity,
 			}
 			if err != nil {
 				val.Error = err.Error()

@@ -187,7 +187,7 @@ func GetValueFromInput(logger log.Logger, psr psr_tellor.PsrID) float64 {
 			fmt.Println(err)
 			continue
 		}
-		return val * float64(psr_tellor.DefaultGranularity)
+		return val * float64(psr.Granularity)
 	}
 }
 
@@ -254,11 +254,11 @@ func FinalPrompt(
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Printf(">>>>>>>> GasPrice:%v LastSubmit:%v \n", gasMaxFee, time.Since(time.Unix(timeOfLastNewValue.Int64(), 0)))
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(psr_tellor.DefaultGranularity))
+	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(int(psr.Granularity)))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "Psr:\t"+PSRDetails(psr)+"\t")
-	fmt.Fprintln(w, "Val:\t"+fmt.Sprintf("%g", float64(val)/float64(psr_tellor.DefaultGranularity))+"\t")
+	fmt.Fprintln(w, "Val:\t"+fmt.Sprintf("%g", float64(val)/psr.Granularity)+"\t")
 	w.Flush()
 
 	if skipConfirm {

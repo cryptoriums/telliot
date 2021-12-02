@@ -442,7 +442,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		fmt.Fprintln(w, "Disputed    Id: \t", dispute.QueryID, "\t")
 		fmt.Fprintln(w, "Disputed  Time: \t", dispute.DataTime, "\t")
 		fmt.Fprintln(w, "Disputed   Val: \t", fmt.Sprintf("%.6f", dispute.DataVal), "\t")
-		fmt.Fprintln(w, "Suggested  Val: \t", fmt.Sprintf("%.6f", suggested/psr_tellor.DefaultGranularity), "\t")
+		fmt.Fprintln(w, "Suggested  Val: \t", fmt.Sprintf("%.6f", suggested/psr.Granularity), "\t")
 		fmt.Fprintln(w, "TxHash: \t", dispute.TxHash.Hex(), "\t")
 		w.Flush()
 
