@@ -89,7 +89,7 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(9): {Inactive: true, Pair: "ETH/USD", Aggr: MedianEOD},
 	// // For more details see https://docs.google.com/document/d/1RFCApk1PznMhSRVhiyFl_vBDPA4mP2n1dTmfqjvuTNw/edit
 	// // For now this uses third party APIs and don't do local aggregation.
-	IntToQueryID(10): {Pair: "AMPL/USD/VWAP", Aggr: Median, MinTipAmmount: 0.2},
+	IntToQueryID(10): {Pair: "AMPL/USD/VWAP", Aggr: Median, MinTipAmmount: 1},
 	IntToQueryID(11): {Inactive: true, Pair: "ZEC/ETH", Aggr: Median},
 	IntToQueryID(12): {Inactive: true, Pair: "TRX/ETH", Aggr: Median},
 	IntToQueryID(13): {Inactive: true, Pair: "XRP/USD", Aggr: Median},
@@ -121,7 +121,7 @@ var Psrs = map[[32]byte]PsrID{
 	IntToQueryID(39): {Inactive: true, Pair: "DAI/USD", Aggr: Median},
 	IntToQueryID(40): {Inactive: true, Pair: "STEEM/BTC", Aggr: Median},
 	// It is three month average for US PCE (monthly levels): https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
-	IntToQueryID(41): {Pair: "USPCE", Aggr: Median, MinTipAmmount: 0.2},
+	IntToQueryID(41): {Pair: "USPCE", Aggr: Median, MinTipAmmount: 1},
 	IntToQueryID(42): {Inactive: true, Pair: "BTC/USD", Aggr: MedianEOD},
 	IntToQueryID(43): {Inactive: true, Pair: "TRB/ETH", Aggr: Median},
 	IntToQueryID(44): {Inactive: true, Pair: "BTC/USD", Aggr: TimeWeightedAvg1h},
