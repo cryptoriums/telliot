@@ -137,7 +137,7 @@ func Data(
 		"reporterFormat": func(addr common.Address) string {
 			addrS := addr.Hex()[:8]
 			if _, ok := accountsMap[addr]; ok {
-				addrS += "*"
+				addrS = "<b>" + addrS + "</b>"
 			}
 			return addrS
 		},
