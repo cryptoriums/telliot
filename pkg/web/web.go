@@ -229,11 +229,7 @@ func Data(
 
 		postForm := ``
 		if values.Get("ts") != "" && postResult == "" {
-			postForm, err = prepareDisputeForm(ctx, logger, client, master, values, envVars)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("prepare post form:%v", err), http.StatusInternalServerError)
-				return
-			}
+			postForm = prepareDisputeForm(ctx, logger, client, master, values, accounts)
 		}
 
 		netWarning := ""
@@ -362,16 +358,11 @@ func prepareDisputeForm(
 	client ethereum.EthClient,
 	master contracts.TellorMasterCaller,
 	values url.Values,
-	envVars map[string]string,
-) (string, error) {
+	accounts []*ethereum.Account,
+) string {
 	accOpts := ""
-	accounts, err := ethereum.GetAccounts(logger, envVars)
-	if err != nil {
-		return "", errors.Wrap(err, "getting accounts")
-	}
 	for _, account := range accounts {
 		metaData := ""
-
 		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
 			level.Error(logger).Log("msg", "get stake status", "addr", account.Address.Hex()[:8], "err", err)
@@ -418,7 +409,7 @@ func prepareDisputeForm(
 		postForm = `missing timestamp`
 	}
 
-	return postForm, nil
+	return postForm
 }
 
 func createDispute(
@@ -462,8 +453,10 @@ func loadEnvVars(client ethereum.EthClient, envFilePath string, pass string) (ma
 		return nil, errors.Wrapf(err, "opening the env file:%v", envFilePath)
 	}
 
-	if util.IsText(envFileData) && (client.NetworkID() != 4 && client.NetworkID() != 5) {
-		return nil, errors.Errorf("env file is not encrypted. this is not allowed on the current network:%v", client.NetworkID())
+	if util.IsText(envFileData) {
+		if client.NetworkID() != 4 && client.NetworkID() != 5 {
+			return nil, errors.Errorf("env file is not encrypted. this is not allowed on the current network:%v", client.NetworkID())
+		}
 	} else {
 		envFileData, err = private_file.Decrypt(envFileData, pass)
 		if err != nil {
