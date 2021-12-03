@@ -31,7 +31,6 @@ const VersionMessage = `
 `
 
 var CLIDefault = CLI{
-
 	Dataserver: DataserverCmd{},
 
 	Transfer: TransferCmd{},
@@ -39,13 +38,13 @@ var CLIDefault = CLI{
 	Accounts: AccountsCmd{},
 	Data:     DataCmd{},
 	Balance:  BalanceCmd{},
-	Stake: stakeCmd{
+	Stake: StakeCmd{
 		Deposit:  DepositCmd{},
 		Request:  RequestCmd{},
 		Withdraw: WithdrawCmd{},
 		Status:   StatusCmd{},
 	},
-	Dispute: disputeCmd{
+	Dispute: DisputeCmd{
 		New:     NewDisputeCmd{},
 		Vote:    VoteCmd{},
 		List:    ListCmd{},
@@ -70,17 +69,17 @@ type CLI struct {
 	Accounts AccountsCmd `cmd:"" help:"Show accounts"`
 	Data     DataCmd     `cmd:"" help:"Retrieve data from the contract"`
 	Balance  BalanceCmd  `cmd:"" help:"Check the balance of an address"`
-	Stake    stakeCmd    `cmd:"" help:"Perform one of the stake operations"`
-	Dispute  disputeCmd  `cmd:"" help:"Perform commands related to disputes"`
+	Stake    StakeCmd    `cmd:"" help:"Perform one of the stake operations"`
+	Dispute  DisputeCmd  `cmd:"" help:"Perform commands related to disputes"`
 	Encrypt  EncryptCmd  `cmd:"" help:"Encrypts a file to be securely stored on disk and later used only with a password prompt"`
 	Decrypt  DecryptCmd  `cmd:"" help:"Decrypts an ecrypted file and write the decrytped version to disk"`
-	Events   eventsCmd   `cmd:"" help:"Subscribe to watch logs from the network."`
+	Events   EventsCmd   `cmd:"" help:"Subscribe to watch logs from the network."`
 	Version  VersionCmd  `cmd:"" help:"Show the CLI version information"`
 
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"install shell completions"`
 }
 
-type disputeCmd struct {
+type DisputeCmd struct {
 	New       NewDisputeCmd `cmd:"" help:"start a new dispute"`
 	Vote      VoteCmd       `cmd:"" help:"vote on a open dispute"`
 	List      ListCmd       `cmd:"" help:"list open disputes"`
@@ -89,7 +88,7 @@ type disputeCmd struct {
 	Execute   ExecuteCmd    `cmd:"" help:"after tallying the votes this command transfers the fee to the reporter or reported based on the voting"`
 }
 
-type stakeCmd struct {
+type StakeCmd struct {
 	Deposit  DepositCmd  `cmd:"" help:"deposit a stake"`
 	Request  RequestCmd  `cmd:"" help:"request to withdraw stake"`
 	Withdraw WithdrawCmd `cmd:"" help:"withdraw stake"`

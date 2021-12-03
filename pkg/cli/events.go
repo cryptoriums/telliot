@@ -20,14 +20,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-type eventsCmd struct {
+type EventsCmd struct {
 	LookBack     time.Duration `help:"how far to look for the initiali qyery"`
 	Event        string        `required:"" enum:"NonceSubmitted,NewTellorAddress,Transfer" help:"the name of the log to watch"`
 	ContractName string        `required:"" enum:"master,oracle,govern" help:"the name of the contract to watch"`
 	ReorgWait    time.Duration `default:"3s" help:"how long to wait for removed logs from reorg events"`
 }
 
-func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
+func (self *EventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
 	_, client, master, oracle, govern, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (self *eventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	return nil
 }
 
-func (self *eventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Log) error {
+func (self *EventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Log) error {
 	switch eventName := self.Event; eventName {
 	case contracts.EventNameNewSubmit:
 		log := &tellorX_oracle.OracleNewReport{}
