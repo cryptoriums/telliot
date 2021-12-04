@@ -66,7 +66,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		val = GetValueFromInput(logger, psr)
 	}
 
-	shouldContinue := FinalPrompt(ctx, logger, oracle, self.SkipConfirm, self.GasPrice, psr, val)
+	shouldContinue, val := FinalPrompt(ctx, logger, oracle, self.SkipConfirm, self.GasPrice, psr, val)
 	if !shouldContinue {
 		return errors.New("canceled")
 	}
@@ -147,6 +147,9 @@ func (self *SubmitCmd) SelectAccount(
 	}
 
 	if len(accounts) > 1 {
+		if self.SkipConfirm {
+			return accounts[0], nil
+		}
 		// Print the accounts details and prompt for a selection.
 		PrintAccounts(ctx, logger, accounts, client, master, oracle)
 		_accIndex, err := prompt.Prompt("select an account from 1 to "+strconv.Itoa(len(accounts))+":", false)
@@ -244,7 +247,7 @@ func FinalPrompt(
 	gasMaxFee float64,
 	psr psr_tellor.PsrID,
 	val float64,
-) bool {
+) (bool, float64) {
 	timeOfLastNewValue, err := contract.TimeOfLastNewValue(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		timeOfLastNewValue = big.NewInt(0)
@@ -254,27 +257,27 @@ func FinalPrompt(
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Printf(">>>>>>>> GasPrice:%v LastSubmit:%v \n", gasMaxFee, time.Since(time.Unix(timeOfLastNewValue.Int64(), 0)))
 	//lint:ignore faillint for prompts can't use logs.
-	fmt.Println("Here are the final values before applying the default granularity of :" + strconv.Itoa(int(psr.Granularity)))
+	fmt.Println("Here are the final values before applying the granularity of :" + strconv.Itoa(int(psr.Granularity)))
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "Psr:\t"+PSRDetails(psr)+"\t")
 	fmt.Fprintln(w, "Val:\t"+fmt.Sprintf("%g", float64(val)/psr.Granularity)+"\t")
 	w.Flush()
 
 	if skipConfirm {
-		return true
+		return true, val
 	}
 
 	promptResp, err := prompt.Prompt("Press Y to continue with the submit:", false)
 	if err == nil && strings.ToLower(promptResp) == "y" {
-		return true
+		return true, val
 	}
 	promptResp, err = prompt.Prompt("Press Y if you want to enter values manually?:", false)
 	if err == nil && strings.ToLower(promptResp) == "y" {
 		val = GetValueFromInput(logger, psr)
 		return FinalPrompt(ctx, logger, contract, skipConfirm, gasMaxFee, psr, val)
 	}
-	return false
+	return false, val
 }
 
 func PSRDetails(psr psr_tellor.PsrID) string {
