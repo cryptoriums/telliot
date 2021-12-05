@@ -145,16 +145,22 @@ var Psrs = map[[32]byte]PsrID{
 }
 
 func New(logger log.Logger, cfg Config, aggregator *aggregator.Aggregator) *Psr {
+	ec := promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "telliot",
+		Subsystem: ComponentName,
+		Name:      MetricErrCount,
+		Help:      "Critical errors in the component",
+	},
+		[]string{"queryID"},
+	)
+	for qID := range Psrs {
+		ec.WithLabelValues(common.Bytes2Hex(qID[:])).Add(0)
+	}
 	return &Psr{
 		logger:     log.With(logger, "component", ComponentName),
 		aggregator: aggregator,
 		cfg:        cfg,
-		errCount: promauto.NewCounter(prometheus.CounterOpts{
-			Namespace: "telliot",
-			Subsystem: ComponentName,
-			Name:      MetricErrCount,
-			Help:      "Critical errors in the component",
-		}),
+		errCount:   ec,
 	}
 }
 
@@ -167,7 +173,7 @@ type Psr struct {
 	logger     log.Logger
 	aggregator *aggregator.Aggregator
 	cfg        Config
-	errCount   prometheus.Counter
+	errCount   *prometheus.CounterVec
 }
 
 func (self *Psr) ConfidenceThreshold(pair string) float64 {
@@ -177,7 +183,7 @@ func (self *Psr) ConfidenceThreshold(pair string) float64 {
 func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (val float64, err error) {
 	defer func() {
 		if err != nil {
-			self.errCount.Inc()
+			self.errCount.WithLabelValues(common.Bytes2Hex(queryID[:])).Inc()
 		}
 	}()
 	psr, ok := Psrs[queryID]
