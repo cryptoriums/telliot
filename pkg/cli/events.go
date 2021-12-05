@@ -22,7 +22,7 @@ import (
 
 type EventsCmd struct {
 	LookBack     time.Duration `help:"how far to look for the initiali qyery"`
-	Event        string        `required:"" enum:"NonceSubmitted,NewTellorAddress,Transfer" help:"the name of the log to watch"`
+	Name         string        `required:"" help:"the name of the log to watch"`
 	ContractName string        `required:"" enum:"master,oracle,govern" help:"the name of the contract to watch"`
 	ReorgWait    time.Duration `default:"3s" help:"how long to wait for removed logs from reorg events"`
 }
@@ -54,7 +54,7 @@ func (self *EventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		client,
 		contract,
 		self.LookBack,
-		self.Event,
+		self.Name,
 		self.ReorgWait,
 	)
 	if err != nil {
@@ -107,7 +107,7 @@ func (self *EventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 }
 
 func (self *EventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Log) error {
-	switch eventName := self.Event; eventName {
+	switch eventName := self.Name; eventName {
 	case contracts.EventNameNewSubmit:
 		log := &tellorX_oracle.OracleNewReport{}
 		err := contract.UnpackLog(log, eventName, logRaw)
@@ -116,7 +116,16 @@ func (self *EventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Lo
 		}
 		log.Raw = logRaw
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Printf("%+v \n", log)
+		fmt.Printf("Hash:%v, %+v \n", logRaw.TxHash, log)
+	case contracts.EventNameNewTip:
+		log := &tellorX_oracle.OracleTipAdded{}
+		err := contract.UnpackLog(log, eventName, logRaw)
+		if err != nil {
+			return errors.Wrap(err, "unpack event from logs")
+		}
+		log.Raw = logRaw
+		//lint:ignore faillint looks cleaner with print instead of logs
+		fmt.Printf("Hash:%v, %+v \n", logRaw.TxHash, log)
 	case contracts.EventNameTransfer:
 		log := &tellorX_master.ControllerTransfer{}
 		err := contract.UnpackLog(log, eventName, logRaw)
@@ -125,7 +134,7 @@ func (self *EventsCmd) unpack(contract contracts.ContractCaller, logRaw types.Lo
 		}
 		log.Raw = logRaw
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Printf("%+v \n", log)
+		fmt.Printf("Hash:%v, %+v \n", logRaw.TxHash, log)
 	default:
 		return errors.Errorf("unsuporter log name:%v", eventName)
 	}
