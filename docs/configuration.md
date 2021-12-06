@@ -323,7 +323,7 @@ Flags:
 * `events`
 
 ```
-Usage: telliot events --event=STRING --contract-name=STRING
+Usage: telliot events --name=STRING --contract-name=STRING
 
 Subscribe to watch logs from the network.
 
@@ -335,7 +335,7 @@ Flags:
       --contract=STRING          hex address of the contract to interract with
 
       --look-back=DURATION       how far to look for the initiali qyery
-      --event=STRING             the name of the log to watch
+      --name=STRING              the name of the log to watch
       --contract-name=STRING     the name of the contract to watch
       --reorg-wait=3s            how long to wait for removed logs from reorg
                                  events
