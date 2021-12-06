@@ -44,6 +44,7 @@ func (self *SubmitCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	account, err := self.SelectAccount(ctx, logger, client, master, oracle, cfg.EnvVars)
 	if err != nil {

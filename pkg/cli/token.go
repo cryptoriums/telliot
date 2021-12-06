@@ -47,6 +47,7 @@ func (self *TransferCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	from := common.HexToAddress(self.From)
 
@@ -97,6 +98,7 @@ func (self *ApproveCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	from := common.HexToAddress(self.From)
 
@@ -146,6 +148,7 @@ func (self *BalanceCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	addr := common.HexToAddress(self.Account)
 

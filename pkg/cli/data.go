@@ -30,6 +30,7 @@ func (self *DataCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	level.Info(logger).Log("msg", "params", "from", self.From, "lookBack", self.LookBack)
 

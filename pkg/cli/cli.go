@@ -176,6 +176,8 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	if err != nil {
 		return err
 	}
+	defer client.Close()
+
 	accounts, err := ethereum.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
 		return errors.Wrap(err, "getting accounts")

@@ -74,6 +74,7 @@ func (self *DataserverCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		if err != nil {
 			return err
 		}
+		defer client.Close()
 
 		trackerBlocks, err := blocks.New(ctx, logger, cfg.TrackerBlocks, tsDB, client)
 		if err != nil {

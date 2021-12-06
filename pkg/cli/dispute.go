@@ -54,6 +54,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	if self.Timestamp == 0 {
 		return errors.New("timestamp can't be zero")
@@ -161,6 +162,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
@@ -217,6 +219,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	var disputes []*contracts.DisputeLog
 
@@ -277,6 +280,7 @@ func (self *TallyListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) 
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	logs, err := contracts.GetTallyLogs(ctx, client, govern, self.LookBack)
 	if err != nil {
@@ -309,6 +313,7 @@ func (self *ExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	accounts, err := ethereum_t.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
@@ -378,6 +383,7 @@ func (self *ListCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	// Open the TSDB database.
 	var querable storage.SampleAndChunkQueryable

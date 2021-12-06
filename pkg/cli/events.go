@@ -32,6 +32,7 @@ func (self *EventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	ctx, cncl := context.WithCancel(ctx)
 	defer cncl()

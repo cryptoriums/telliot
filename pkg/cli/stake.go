@@ -29,6 +29,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	account, err := ethereum.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
@@ -91,6 +92,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	account, err := ethereum.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
@@ -130,6 +132,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	account, err := ethereum.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
@@ -165,10 +168,11 @@ type StatusCmd struct {
 }
 
 func (self *StatusCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error {
-	_, _, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
+	_, client, master, _, _, err := ConfigClientContract(ctx, logger, cli.Config, cli.ConfigStrictParsing, cli.Contract, contracts.DefaultParams)
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 
 	addr := common.HexToAddress(self.Account)
 
