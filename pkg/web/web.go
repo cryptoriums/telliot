@@ -477,6 +477,7 @@ func PSRs(
 	type val struct {
 		ID    string
 		Name  string
+		Data  string
 		Value float64
 		Error string
 	}
@@ -496,6 +497,12 @@ func PSRs(
 			if err != nil {
 				val.Error = err.Error()
 			}
+			id, err := psr_tellor.QueryIDToInt(queryID)
+			if err != nil {
+				val.Error = err.Error()
+			}
+			val.Data = common.Bytes2Hex(psr_tellor.NewQueryData(id))
+
 			vals = append(vals, val)
 		}
 
@@ -523,9 +530,13 @@ func PSRs(
 		<body>
 
 		<table>
+			<tr>
+				<td>QueryID</td><td>QueryData</td><td>Pair Name</td><td>Value</td><td></td>
+			</tr>
 		{{range $index, $val := .}}
 			<tr>
 			<td>{{ $val.ID }}</td>
+			<td>{{ $val.Data }}</td>
 			<td>{{ $val.Name }}</td>
 			<td>{{ $val.Value }}</td>
 				<td>{{ $val.Error }}</td>

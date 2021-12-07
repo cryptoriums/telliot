@@ -47,8 +47,8 @@ const (
 )
 
 type Query struct {
-	Type string
-	ID   int64 `json:"legacy_id,omitempty"`
+	Type string `json:"type,omitempty"`
+	ID   int64  `json:"legacy_id,omitempty"`
 }
 
 func (self *Query) Bytes() []byte {
