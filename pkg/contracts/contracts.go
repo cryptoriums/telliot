@@ -32,9 +32,11 @@ const (
 	MasterAddressGoerliProxy = "0x84Ec18B070D84e347eE6B7D5fA2d9fcFfbf759bA" // Proxy contract for testing.
 	MasterAddressHardhat     = "0x8920050E1126125a27A4EaC5122AD3586c056E51"
 
-	// All of these are 50% more than the actual usage.
-	SubmitGasLimit = 400_000
+	// 100% more than the actual gas usage, because the other reporters use this value and might be important when frontrunning.
+	// Miners might select TX order by multiplying the gas price by the gas usage.
+	SubmitGasLimit = 500_000
 
+	// All of these are 50% more than the actual usage.
 	StakeRequestWithdrawGasLimit = 100_000
 	StakeWithdrawGasLimit        = 50_000
 	StakeDepositGasLimit         = 150_000
