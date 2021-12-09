@@ -375,6 +375,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/creack/pty v1.1.11/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cryptoriums/packages v0.0.0-20211206120159-51334c060b24 h1:kliVEmqZdBWosLz7f7vxoDWTpePDMyiN+c9sK9Ep/K4=
 github.com/cryptoriums/packages v0.0.0-20211206120159-51334c060b24/go.mod h1:JE9hNJRQuLsJQZ+vFI1qZPxLFZeQ+vso8w9yQu+n/gg=
+github.com/cryptoriums/packages v0.0.0-20211209080654-3c016b6d2b0e h1:Lmr5G+NaJHMrGxMXgtjGh/311Nwl+vDLUWsbAg9vWwc=
+github.com/cryptoriums/packages v0.0.0-20211209080654-3c016b6d2b0e/go.mod h1:CSi7I7yGItQ2t/1q3fVVAgtVDTufVS9C2j+VIpP8ikA=
 github.com/cyberdelia/templates v0.0.0-20141128023046-ca7fffd4298c/go.mod h1:GyV+0YP4qX0UQ7r2MoYZ+AvYDp12OF5yg4q8rGnyNh4=
 github.com/cyphar/filepath-securejoin v0.2.2/go.mod h1:FpkQEhXnPnOthhzymB7CGsFk2G9VLXONKD9G7QGMM+4=
 github.com/d2g/dhcp4 v0.0.0-20170904100407-a1d1b6c41b1c/go.mod h1:Ct2BUK8SB0YC1SMSibvLzxjeJLnrYEVLULFNiHY9YfQ=

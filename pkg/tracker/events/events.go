@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluele/gcache"
 	ethereum_t "github.com/cryptoriums/packages/ethereum"
+	"github.com/cryptoriums/packages/events"
 	"github.com/cryptoriums/packages/logging"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -139,7 +140,7 @@ func (self *TrackerEvents) Start() error {
 		case <-self.ctx.Done():
 			return nil
 		case event := <-src:
-			hash := ethereum_t.HashFromLog(event)
+			hash := events.HashFromLog(event)
 
 			if event.Removed {
 				self.cancelPending(hash)

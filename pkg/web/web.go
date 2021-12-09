@@ -303,9 +303,9 @@ func Data(
 		<table>
 		{{range $index, $submit := .}}
 			<tr {{if $submit.Disputed}}style="color:red"{{end}}>
-				<td>{{if $submit.Disputed}}DISPUTED - {{end}}<b>Mins:{{  timeSince $submit.Time.Int64 }}</b></td>
+				<td>{{if $submit.Disputed}}DISPUTED - {{end}}Mins:{{  timeSince $submit.Time.Int64 }}</td>
 				<td>Time:{{ tsToTime $submit.Time.Int64 }}</td>
-				<td><b>Ts:{{ $submit.Time.String}}</b></td>
+				<td>Ts:{{ $submit.Time.String}}</td>
 				<td>{{ psrDetails $submit.QueryId}}</td>
 				<td style="text-align:right">{{ applyGranularity $submit.Value $submit.QueryId}}</td>
 				<td>
