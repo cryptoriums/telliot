@@ -141,6 +141,7 @@ func (self *TrackerEvents) Start() error {
 			return nil
 		case event := <-src:
 			hash := events.HashFromLog(event)
+			level.Debug(self.logger).Log("msg", "new event received", "hash", hash)
 
 			if event.Removed {
 				self.cancelPending(hash)

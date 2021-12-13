@@ -339,6 +339,22 @@ func newContractsWithAddr(
 		}, nil
 }
 
+func NewTellorOracle(
+	boundtOracle *bind.BoundContract,
+	abiOracle abi.ABI,
+	abiRaw string,
+	address common.Address,
+	oracle *tellorX_oracle.Oracle,
+) *TellorOracle {
+	return &TellorOracle{
+		BoundContract: boundtOracle,
+		abi:           abiOracle,
+		abiRaw:        tellorX_oracle.OracleABI,
+		address:       address,
+		Oracle:        oracle,
+	}
+}
+
 func GetMasterAddress(netID int64) (common.Address, error) {
 	switch netID {
 	case 1:
