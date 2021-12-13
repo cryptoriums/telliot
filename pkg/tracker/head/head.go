@@ -116,7 +116,7 @@ func (self *TrackerHead) Start() error {
 				self.mtx.Lock()
 				defer self.mtx.Unlock()
 
-				ctx, cncl := context.WithTimeout(self.ctx, time.Minute)
+				ctx, cncl := context.WithTimeout(self.ctx, 2*time.Minute)
 				defer cncl()
 
 				// Duplicate event numbers will still return the same block when using this query.
