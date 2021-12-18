@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
-	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
@@ -195,7 +194,7 @@ func PrintAccounts(
 	master contracts.TellorMasterCaller,
 	oracle contracts.TellorOracleCaller,
 ) {
-	level.Info(logger).Log("msg", "Getting all account details please standby....")
+	level.Info(logger).Log("msg", "getting all account details so take a chill pill and wait....")
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, account := range accounts {
 		logger := log.With(logger, "acc", account.Address.Hex())
@@ -214,19 +213,18 @@ func PrintAccounts(
 			level.Error(logger).Log("msg", "checking last submit time", "err", err)
 		}
 
-		status, startTime, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
 		if err != nil {
 			level.Error(logger).Log("msg", "getting stake status", "err", err)
 		}
 
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tsinceLastsubmit:%v \tstakeStatus:%v \tstakedSince:%v \n",
+		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tsinceLastsubmit:%v \tstakeStatus:%v \n",
 			account.Address.Hex()[:10],
 			math.BigIntToFloatDiv(trbBalance, params.Ether),
 			math.BigIntToFloatDiv(ethBalance, params.Ether),
 			timeSincelastSubmit,
 			contracts.ReporterStatusName(status.Int64()),
-			time.Since(time.Unix(startTime.Int64(), 0)),
 		)
 	}
 	w.Flush()
