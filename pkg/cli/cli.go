@@ -6,8 +6,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
+	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
@@ -186,6 +189,15 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 
 	return nil
 }
+
+type accountWithDetails struct {
+	common.Address
+	StakedStatus       string
+	BalanceTRB         float64
+	BalanceETH         float64
+	TimeTillNextSubmit time.Duration
+}
+
 func PrintAccounts(
 	ctx context.Context,
 	logger log.Logger,
@@ -195,7 +207,16 @@ func PrintAccounts(
 	oracle contracts.TellorOracleCaller,
 ) {
 	level.Info(logger).Log("msg", "getting all account details so take a chill pill and wait....")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+	_minSubmitPeriod, err := oracle.ReportingLock(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		level.Error(logger).Log("msg", "couln't get reporting lock so will use a default", "err", err)
+		_minSubmitPeriod = big.NewInt(int64((12 * time.Hour).Seconds()))
+	}
+	minSubmitPeriod := time.Duration(_minSubmitPeriod.Int64()) * time.Second
+
+	var accountsAll []accountWithDetails
+
 	for _, account := range accounts {
 		logger := log.With(logger, "acc", account.Address.Hex())
 
@@ -218,13 +239,29 @@ func PrintAccounts(
 			level.Error(logger).Log("msg", "getting stake status", "err", err)
 		}
 
+		accountsAll = append(accountsAll, accountWithDetails{
+			Address:            account.Address,
+			BalanceTRB:         math.BigIntToFloatDiv(trbBalance, params.Ether),
+			BalanceETH:         math.BigIntToFloatDiv(ethBalance, params.Ether),
+			TimeTillNextSubmit: -time.Since(time.Now().Add(minSubmitPeriod - timeSincelastSubmit)),
+			StakedStatus:       contracts.ReporterStatusName(status.Int64()),
+		})
+	}
+
+	sort.Slice(accountsAll, func(i, j int) bool {
+		return accountsAll[i].TimeTillNextSubmit < accountsAll[j].TimeTillNextSubmit
+	})
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+	for _, account := range accountsAll {
 		//lint:ignore faillint looks cleaner with print instead of logs
-		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tsinceLastsubmit:%v \tstakeStatus:%v \n",
+		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tnextSubmit:%v \tstakeStatus:%v \n",
 			account.Address.Hex()[:10],
-			math.BigIntToFloatDiv(trbBalance, params.Ether),
-			math.BigIntToFloatDiv(ethBalance, params.Ether),
-			timeSincelastSubmit,
-			contracts.ReporterStatusName(status.Int64()),
+			account.BalanceTRB,
+			account.BalanceETH,
+			account.TimeTillNextSubmit,
+			account.StakedStatus,
 		)
 	}
 	w.Flush()
