@@ -257,7 +257,7 @@ func PrintAccounts(
 	for _, account := range accountsAll {
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tnextSubmit:%v \tstakeStatus:%v \n",
-			account.Address.Hex()[:10],
+			account.Address.Hex(),
 			account.BalanceTRB,
 			account.BalanceETH,
 			account.TimeTillNextSubmit,

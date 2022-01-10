@@ -135,10 +135,32 @@ func (self *TrackerEvents) Start() error {
 		}
 	}()
 
+	ctx, cncl := context.WithCancel(self.ctx)
+	go self.listen(ctx, src)
+
 	for {
 		select {
 		case <-self.ctx.Done():
+			cncl()
 			return nil
+		case err := <-subs.Err():
+			level.Error(self.logger).Log("msg", "subscription failed will try to resubscribe", "err", err)
+			src, subs = self.waitSubscribe()
+			cncl()
+			ctx, cncl = context.WithCancel(self.ctx)
+			go self.listen(ctx, src)
+		}
+	}
+}
+
+func (self *TrackerEvents) listen(ctx context.Context, src chan types.Log) {
+	level.Info(self.logger).Log("msg", "starting new subs listener")
+
+	for {
+		select {
+		case <-ctx.Done():
+			level.Info(self.logger).Log("msg", "subscription listener canceled")
+			return
 		case event := <-src:
 			hash := events.HashFromLog(event)
 			level.Debug(self.logger).Log("msg", "new event received", "hash", hash)
@@ -181,9 +203,6 @@ func (self *TrackerEvents) Start() error {
 				}
 
 			}(ctx, event, hash)
-		case err := <-subs.Err():
-			level.Error(self.logger).Log("msg", "subscription failed will try to resubscribe", "err", err)
-			src, subs = self.waitSubscribe()
 		}
 	}
 }
@@ -218,10 +237,10 @@ func (self *TrackerEvents) waitSubscribe() (chan types.Log, event.Subscription) 
 	}
 }
 
-func (self *TrackerEvents) addPending(hash string, ctx context.CancelFunc) {
+func (self *TrackerEvents) addPending(hash string, cncl context.CancelFunc) {
 	self.mtx.Lock()
 	defer self.mtx.Unlock()
-	self.reorgWaitPending[hash] = ctx
+	self.reorgWaitPending[hash] = cncl
 }
 
 func (self *TrackerEvents) cancelPending(hash string) {
