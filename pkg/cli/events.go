@@ -53,9 +53,11 @@ func (self *EventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		logger,
 		events.Config{LogLevel: "debug"},
 		client,
-		contract,
+		contract.Addr(),
+		0,
+		0,
 		self.LookBack,
-		self.Name,
+		[][]interface{}{{master.Abi().Events[self.Name].ID}},
 		self.ReorgWait,
 	)
 	if err != nil {

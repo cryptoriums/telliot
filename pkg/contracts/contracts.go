@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -72,7 +71,6 @@ type ContractCaller interface {
 	Abi() abi.ABI
 	AbiRaw() string
 	UnpackLog(out interface{}, event string, log types.Log) error
-	WatchLogs(opts *bind.WatchOpts, name string, query ...[]interface{}) (chan types.Log, event.Subscription, error)
 }
 
 type TellorMasterCaller interface {
