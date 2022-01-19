@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cryptoriums/packages/tracker/events"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
-	"github.com/cryptoriums/telliot/pkg/tracker/events"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"

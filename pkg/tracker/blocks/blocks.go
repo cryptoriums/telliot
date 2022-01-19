@@ -14,7 +14,7 @@ import (
 
 	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/packages/math"
-	"github.com/cryptoriums/telliot/pkg/tracker/head"
+	"github.com/cryptoriums/packages/tracker/head"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"

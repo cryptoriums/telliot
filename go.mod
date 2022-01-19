@@ -4,8 +4,7 @@ go 1.17
 
 require (
 	github.com/alecthomas/kong v0.2.18-0.20210621110843-8b2821cc246b
-	github.com/bluele/gcache v0.0.3-0.20210610150759-ecee3be431d1
-	github.com/cryptoriums/packages v0.0.0-20211209080654-3c016b6d2b0e
+	github.com/cryptoriums/packages v0.0.0-20220119122133-9f2ea3d350dc
 	github.com/ethereum/go-ethereum v1.10.13
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/structtag v1.2.0
@@ -31,6 +30,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20210912230133-d1bdfacee922 // indirect
 	github.com/aws/aws-sdk-go v1.40.37 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bluele/gcache v0.0.3-0.20210610150759-ecee3be431d1 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
