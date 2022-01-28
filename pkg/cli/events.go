@@ -13,6 +13,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_oracle"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -53,8 +54,7 @@ func (self *EventsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) err
 		logger,
 		events.Config{LogLevel: "debug"},
 		client,
-		contract.Addr(),
-		0,
+		[]common.Address{contract.Addr()},
 		0,
 		self.LookBack,
 		[][]interface{}{{master.Abi().Events[self.Name].ID}},
