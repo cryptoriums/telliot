@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	ethereum_t "github.com/cryptoriums/packages/ethereum"
+	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/ethereum/go-ethereum"
 
@@ -65,7 +65,7 @@ func New(
 		ctx,
 		logger,
 		client,
-		ethereum_t.ReorgEventWaitFast,
+		ethereum_p.ReorgEventWaitFast,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating head tracker")

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	ethereum_t "github.com/cryptoriums/packages/ethereum"
+	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
@@ -250,7 +250,7 @@ func IntToQueryID(i int64) [32]byte {
 		return a
 	}
 
-	return ethereum_t.Keccak256(string(NewQueryData(i)))
+	return ethereum_p.Keccak256(string(NewQueryData(i)))
 }
 
 func QueryIDToInt(i [32]byte) (int64, error) {

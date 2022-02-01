@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
-	ethereum_t "github.com/cryptoriums/packages/ethereum"
+	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/packages/prompt"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
@@ -92,7 +92,7 @@ func (self *SubmitCmd) Submit(
 		return errors.Wrap(err, "get current DATA ids")
 	}
 
-	opts, err := ethereum_t.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
+	opts, err := ethereum_p.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}

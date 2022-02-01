@@ -13,7 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	ethereum_t "github.com/cryptoriums/packages/ethereum"
+	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/packages/math"
 	math_t "github.com/cryptoriums/packages/math"
@@ -65,7 +65,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("timestamp can't be in the future")
 	}
 
-	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
+	account, err := ethereum_p.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		return errors.New("canceled")
 	}
 
-	opts, err := ethereum_t.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.DisputeNewGasLimit)
+	opts, err := ethereum_p.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.DisputeNewGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -164,7 +164,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	}
 	defer client.Close()
 
-	account, err := ethereum_t.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
+	account, err := ethereum_p.GetAccountByPubAddress(logger, self.Account, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 		}
 	}
 
-	opts, err := ethereum_t.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
+	opts, err := ethereum_p.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.VoteGasUSage)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
@@ -240,7 +240,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 		disputes = append(disputes, dispute)
 	}
 
-	accounts, err := ethereum_t.GetAccounts(logger, cfg.EnvVars)
+	accounts, err := ethereum_p.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func (self *TallyCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) erro
 			continue
 		}
 
-		opts, err := ethereum_t.PrepareTxOpts(ctx, client, accounts[0], self.GasPrice, contracts.VoteTallyGasLimit)
+		opts, err := ethereum_p.PrepareTxOpts(ctx, client, accounts[0], self.GasPrice, contracts.VoteTallyGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}
@@ -315,7 +315,7 @@ func (self *ExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 	}
 	defer client.Close()
 
-	accounts, err := ethereum_t.GetAccounts(logger, cfg.EnvVars)
+	accounts, err := ethereum_p.GetAccounts(logger, cfg.EnvVars)
 	if err != nil {
 		return err
 	}
@@ -357,7 +357,7 @@ func (self *ExecuteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 			continue
 		}
 
-		opts, err := ethereum_t.PrepareTxOpts(ctx, client, accounts[0], self.GasPrice, contracts.VoteExecuteGasLimit)
+		opts, err := ethereum_p.PrepareTxOpts(ctx, client, accounts[0], self.GasPrice, contracts.VoteExecuteGasLimit)
 		if err != nil {
 			return errors.Wrapf(err, "prepare ethereum transaction")
 		}

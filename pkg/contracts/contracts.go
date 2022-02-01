@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	ethereum_t "github.com/cryptoriums/packages/ethereum"
+	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_governance"
 	"github.com/cryptoriums/telliot/pkg/contracts/tellorX_master"
@@ -224,7 +224,7 @@ func (self *TellorGovern) VoteExecuteWaitDuration() time.Duration {
 func NewContracts(
 	ctx context.Context,
 	logger log.Logger,
-	client ethereum_t.EthClient,
+	client ethereum_p.EthClient,
 	address common.Address,
 	params Params,
 ) (TellorMasterCaller, TellorOracleCaller, TellorGovernCaller, error) {
@@ -251,7 +251,7 @@ func newContractsWithAddr(
 	ctx context.Context,
 	logger log.Logger,
 	addrMaster common.Address,
-	client ethereum_t.EthClient,
+	client ethereum_p.EthClient,
 	params Params,
 ) (TellorMasterCaller, TellorOracleCaller, TellorGovernCaller, error) {
 	if params.VotingDuration == 0 {
@@ -265,7 +265,7 @@ func newContractsWithAddr(
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	addrOracle, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256("_ORACLE_CONTRACT"))
+	addrOracle, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_p.Keccak256("_ORACLE_CONTRACT"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getting contract address")
 	}
@@ -278,7 +278,7 @@ func newContractsWithAddr(
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	addrGovern, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_t.Keccak256("_GOVERNANCE_CONTRACT"))
+	addrGovern, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_p.Keccak256("_GOVERNANCE_CONTRACT"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getting contract address")
 	}
@@ -398,7 +398,7 @@ type DisputeLog struct {
 func GetDisputeLogs(
 	ctx context.Context,
 	logger log.Logger,
-	client ethereum_t.EthClient,
+	client ethereum_p.EthClient,
 	contract TellorGovernCaller,
 	lookBackDuration time.Duration,
 ) ([]*DisputeLog, error) {
@@ -407,7 +407,7 @@ func GetDisputeLogs(
 		return nil, errors.Wrap(err, "get latest eth block header")
 	}
 
-	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_t.BlocksPerMinute))
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_p.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
 
 	query := ethereum.FilterQuery{
@@ -443,7 +443,7 @@ func GetDisputeLogs(
 
 func GetTallyLogs(
 	ctx context.Context,
-	client ethereum_t.EthClient,
+	client ethereum_p.EthClient,
 	contract TellorGovernCaller,
 	lookBackDuration time.Duration,
 ) ([]*tellorX_governance.GovernanceVoteTallied, error) {
@@ -453,7 +453,7 @@ func GetTallyLogs(
 		return nil, errors.Wrap(err, "get latest eth block header")
 	}
 
-	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_t.BlocksPerMinute))
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_p.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(header.Number, lookBackDelta)
 
 	query := ethereum.FilterQuery{
@@ -571,7 +571,7 @@ type Report struct {
 
 func GetSubmitLogs(
 	ctx context.Context,
-	client ethereum_t.EthClient,
+	client ethereum_p.EthClient,
 	oracle TellorOracleCaller,
 	from int64,
 	lookBackDuration time.Duration,
@@ -585,12 +585,12 @@ func GetSubmitLogs(
 
 	if from != 0 {
 		// Total block numbers that correspond to this TS calculated from the current time.
-		blockNums := int64(ethereum_t.BlocksPerMinute * time.Since(time.Unix(from, 0)).Minutes())
+		blockNums := int64(ethereum_p.BlocksPerMinute * time.Since(time.Unix(from, 0)).Minutes())
 		// Subtract form the current header block number to use as the upper limit.
 		endBlock = endBlock - blockNums
 	}
 
-	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_t.BlocksPerMinute))
+	lookBackDelta := big.NewInt(int64(lookBackDuration.Minutes() * ethereum_p.BlocksPerMinute))
 	startBlock := big.NewInt(0).Sub(big.NewInt(endBlock), lookBackDelta)
 
 	query := ethereum.FilterQuery{
