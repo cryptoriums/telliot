@@ -564,6 +564,9 @@ Flags:
 		}
 	},
 	"EnvVars": "Required:false, Default:map[]",
+	"EthClient": {
+		"LogLevel": "Required:false, Default:"
+	},
 	"PsrTellor": {
 		"MinConfidenceDefault": "Required:false, Default:80",
 		"MinConfidencePerSymbol": "Required:false, Default:map[USPCE:100]"
@@ -607,6 +610,9 @@ Here are the config defaults in json format:
 		"Retention": "1440h0m0s"
 	},
 	"EnvVars": null,
+	"EthClient": {
+		"LogLevel": ""
+	},
 	"PsrTellor": {
 		"MinConfidenceDefault": 80,
 		"MinConfidencePerSymbol": {
