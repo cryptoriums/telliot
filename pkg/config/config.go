@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cryptoriums/packages/client"
 	"github.com/cryptoriums/packages/private_file"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/db"
@@ -43,7 +44,8 @@ type Config struct {
 	// Is is set by expanding the os env vars.
 	// Not using os.SetEnv so that it doesn't expose those to someone that has access to the machine.
 	// If using os.SetEnv for the private key anyone can see it that has access to the machine.
-	EnvVars map[string]string
+	EnvVars   map[string]string
+	EthClient client.Config
 }
 
 var DefaultConfig = Config{

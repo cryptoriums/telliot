@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cryptoriums/packages/client"
 	"github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/config"
@@ -287,7 +288,7 @@ func ConfigClientContract(
 		return nil, nil, nil, nil, nil, err
 	}
 
-	client, err := ethereum.NewClient(ctx, logger, cfg.EnvVars)
+	client, err := client.NewClientWithRetry(ctx, logger, cfg.EthClient, cfg.EnvVars)
 	if err != nil {
 		return nil, nil, nil, nil, nil, errors.Wrap(err, "creating ethereum client")
 	}
