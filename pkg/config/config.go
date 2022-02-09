@@ -23,7 +23,6 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
-	"golang.org/x/tools/godoc/util"
 )
 
 type Transactor struct {
@@ -82,10 +81,11 @@ func LoadConfig(ctx context.Context, logger log.Logger, path string, strictParsi
 		return nil, errors.Wrap(err, "validate config")
 	}
 
-	err = LoadEnvFile(ctx, logger, cfg)
+	cfg.EnvVars, err = private_file.LoadEnvFile(ctx, logger, cfg.EnvFile, cfg.Transactor.Transact, cfg.Web.ListenHost, cfg.Web.ListenPort)
 	if err != nil {
 		return nil, errors.Wrapf(err, "loading the enf file:%v", cfg.EnvFile)
 	}
+
 	return cfg, nil
 }
 
@@ -113,35 +113,6 @@ func Parse(logger log.Logger, path string, strictParsing bool) (*Config, error) 
 	cfg = cfgI.(*Config)
 
 	return cfg, err
-}
-
-func LoadEnvFile(ctx context.Context, logger log.Logger, cfg *Config) error {
-	envFileData, err := os.ReadFile(cfg.EnvFile)
-	if err != nil {
-		return errors.Wrapf(err, "reading the env file:%v", cfg.EnvFile)
-	}
-	if !util.IsText(envFileData) {
-		level.Info(logger).Log("msg", "env file is encrypted", "path", cfg.EnvFile)
-		if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
-			transacting := `<span style="color:grey">disabled</span>`
-			if cfg.Transactor.Transact {
-				transacting = `<span style="color:red">enabled</span>`
-			}
-
-			level.Info(logger).Log("msg", "running inside k8s so will wait for web password decrypt input")
-			envFileData = private_file.DecryptWithWebPassword(ctx, logger, "<h2>Transacting is:"+transacting+"</h2>", envFileData, cfg.Web.ListenHost, cfg.Web.ListenPort)
-		} else {
-			envFileData, err = private_file.DecryptWithPasswordLoop(envFileData)
-			if err != nil {
-				return errors.Wrap(err, "decrypt input file")
-			}
-		}
-	}
-
-	v, err := private_file.SetEnvVars(envFileData)
-	cfg.EnvVars = v
-
-	return err
 }
 
 func DeеpCopy(logger log.Logger, path string, cfg, cfgDefault interface{}, strictParsing bool) (interface{}, error) {

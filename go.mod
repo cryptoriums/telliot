@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/alecthomas/kong v0.2.18-0.20210621110843-8b2821cc246b
-	github.com/cryptoriums/packages v0.0.0-20220201134110-e70e3867904f
+	github.com/cryptoriums/packages v0.0.0-20220207165851-6a563c29eb06
 	github.com/ethereum/go-ethereum v1.10.15
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/structtag v1.2.0
