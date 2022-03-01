@@ -5,13 +5,13 @@ package aggregator
 
 import (
 	"context"
-	"math"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/cryptoriums/packages/format"
 	"github.com/cryptoriums/packages/logging"
+	math_p "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/telliot/pkg/db"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/go-kit/log"
@@ -108,7 +108,7 @@ func (self *Aggregator) mean(vals []float64) (float64, float64) {
 			max = val
 		}
 	}
-	return priceSum / float64(len(vals)), ConfidenceInDifference(min, max)
+	return priceSum / float64(len(vals)), math_p.ConfidenceInDifference(min, max)
 }
 
 func (self *Aggregator) TimeWeightedAvg(
@@ -354,15 +354,7 @@ func (self *Aggregator) median(vals []float64) (float64, float64) {
 		price = (vals[position-1] + vals[position]) / 2
 	}
 
-	return price, ConfidenceInDifference(vals[0], vals[len(vals)-1])
-}
-
-// ConfidenceInDifference calculates the percentage difference between the max and min and subtract this from 100%.
-// Example:
-// min 1, max 2
-// Difference is 1 which is 100% so the final confidence is 100-100 equals 0%.
-func ConfidenceInDifference(min, max float64) float64 {
-	return 100 - (math.Abs(min-max)/min)*100
+	return price, math_p.ConfidenceInDifference(vals[0], vals[len(vals)-1])
 }
 
 // valsAtWithConfidence returns the value from all sources for a given symbol with the confidence level.
