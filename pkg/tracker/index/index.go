@@ -20,10 +20,10 @@ import (
 	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
+	"github.com/cryptoriums/packages/format"
+	http_p "github.com/cryptoriums/packages/http"
 	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/telliot/pkg/db"
-	"github.com/cryptoriums/telliot/pkg/format"
-	"github.com/cryptoriums/telliot/pkg/web/helpers"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/itchyny/gojq"
@@ -167,7 +167,7 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config, envVa
 			}
 
 			// Fail early when the url has env that is not set.
-			url := helpers.ExpandTimeVars(endpoint.URL)
+			url := http_p.ExpandTimeVars(endpoint.URL)
 			os.Expand(url, func(key string) string {
 				v, ok := envVars[key]
 				if !ok {
@@ -467,7 +467,7 @@ type URLEnvExpander struct {
 
 func (self *URLEnvExpander) UrlExpanded() (string, error) {
 	var err error
-	url := helpers.ExpandTimeVars(self.url)
+	url := http_p.ExpandTimeVars(self.url)
 	url = os.Expand(url, func(key string) string {
 		v, ok := self.envVars[key]
 		if !ok {
@@ -495,7 +495,7 @@ func (self *JSONapiVolume) Get(ctx context.Context) (float64, float64, error) {
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "getting api url")
 	}
-	vals, err := helpers.Get(ctx, url, nil)
+	vals, err := http_p.Get(ctx, url, nil)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "fetching data from API url:%v", url)
 	}
@@ -565,7 +565,7 @@ func (self *Bravenewcoin) get(ctx context.Context, withRefresh, withRetry bool) 
 		return 0, 0, errors.Wrap(err, "getting api url")
 	}
 
-	result, err := helpers.Get(ctx, urlExpanded, headers)
+	result, err := http_p.Get(ctx, urlExpanded, headers)
 	if err != nil {
 		if withRetry {
 			return self.get(ctx, true, false)
@@ -662,7 +662,7 @@ func (self *JSONapi) Get(ctx context.Context) (float64, float64, error) {
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "getting api url")
 	}
-	result, err := helpers.Get(ctx, url, nil)
+	result, err := http_p.Get(ctx, url, nil)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "fetching data from API url:%v", url)
 	}

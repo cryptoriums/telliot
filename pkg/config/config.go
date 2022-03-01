@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/cryptoriums/packages/client"
+	"github.com/cryptoriums/packages/format"
 	"github.com/cryptoriums/packages/private_file"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/db"
-	"github.com/cryptoriums/telliot/pkg/format"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"

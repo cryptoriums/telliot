@@ -18,12 +18,12 @@ import (
 	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
+	"github.com/cryptoriums/packages/format"
 	"github.com/cryptoriums/packages/logging"
 	math_t "github.com/cryptoriums/packages/math"
 	"github.com/cryptoriums/packages/private_file"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
-	"github.com/cryptoriums/telliot/pkg/format"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/cryptoriums/telliot/pkg/web/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

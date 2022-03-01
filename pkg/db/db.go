@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cryptoriums/telliot/pkg/format"
+	"github.com/cryptoriums/packages/format"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	promConfig "github.com/prometheus/common/config"
