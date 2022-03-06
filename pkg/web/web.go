@@ -436,7 +436,7 @@ func createDispute(
 		return nil, errors.Wrap(err, "parsing the ts value")
 	}
 
-	opts, err := ethereum.PrepareTxOpts(ctx, client, account, 10, contracts.DisputeNewGasLimit)
+	opts, err := ethereum.NewTxOpts(ctx, client, account, 10, contracts.DisputeNewGasLimit)
 	if err != nil {
 		return nil, errors.Wrap(err, "preparing dispute TX")
 	}

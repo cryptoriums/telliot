@@ -200,7 +200,7 @@ func createDataSources(logger log.Logger, ctx context.Context, cfg Config, envVa
 				}
 			case ethereumSource:
 				{
-					client, err := ethereum.NewClient(ctx, logger, envVars)
+					client, err := ethereum.NewClient(ctx, logger, envVars[ethereum.NodeURLEnvName])
 					if err != nil {
 						return nil, errors.Wrap(err, "creating ethereum client")
 					}

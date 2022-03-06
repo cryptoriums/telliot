@@ -92,7 +92,7 @@ func (self *SubmitCmd) Submit(
 		return errors.Wrap(err, "get current DATA ids")
 	}
 
-	opts, err := ethereum_p.PrepareTxOpts(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
+	opts, err := ethereum_p.NewTxOpts(ctx, client, account, self.GasPrice, contracts.SubmitGasLimit)
 	if err != nil {
 		return errors.Wrapf(err, "prepare ethereum transaction")
 	}
