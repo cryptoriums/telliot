@@ -359,6 +359,8 @@ github.com/cryptoriums/packages v0.0.0-20220121053931-556a88bc4ec9/go.mod h1:CSi
 github.com/cryptoriums/packages v0.0.0-20220201000208-ffa1c5350933/go.mod h1:wMmKIYoQTvNKP/wNGrJgrZN6JxtoIGqf3nM24roh43o=
 github.com/cryptoriums/packages v0.0.0-20220320112631-8fd088ff28a5 h1:e9mQ3/5hcob4JJkV2oo5mxlIipq5JnjbLyTt1b89QsE=
 github.com/cryptoriums/packages v0.0.0-20220320112631-8fd088ff28a5/go.mod h1:3V9p+ZTDLVaPBiuBzq1qfoV8yXJFBXdSgunigsbAWh4=
+github.com/cryptoriums/packages v0.0.0-20220321154205-16303c379069 h1:yzSpmBRkBo+94ekreC0ElbMaOO0CxffqgHzMkGp/MLQ=
+github.com/cryptoriums/packages v0.0.0-20220321154205-16303c379069/go.mod h1:3V9p+ZTDLVaPBiuBzq1qfoV8yXJFBXdSgunigsbAWh4=
 github.com/cyberdelia/templates v0.0.0-20141128023046-ca7fffd4298c/go.mod h1:GyV+0YP4qX0UQ7r2MoYZ+AvYDp12OF5yg4q8rGnyNh4=
 github.com/cyphar/filepath-securejoin v0.2.2/go.mod h1:FpkQEhXnPnOthhzymB7CGsFk2G9VLXONKD9G7QGMM+4=
 github.com/d2g/dhcp4 v0.0.0-20170904100407-a1d1b6c41b1c/go.mod h1:Ct2BUK8SB0YC1SMSibvLzxjeJLnrYEVLULFNiHY9YfQ=
