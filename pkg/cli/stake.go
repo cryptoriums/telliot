@@ -36,7 +36,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	addrToCheck := account.Address
+	addrToCheck := account.PublicKey
 	// When using proxy contract need to get its status.
 	if cli.Contract != "" {
 		addrToCheck = common.HexToAddress(cli.Contract)
@@ -99,7 +99,7 @@ func (self *WithdrawCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 		return err
 	}
 
-	status, startTime, err := master.GetStakerInfo(nil, account.Address)
+	status, startTime, err := master.GetStakerInfo(nil, account.PublicKey)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}
@@ -139,7 +139,7 @@ func (self *RequestCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 		return err
 	}
 
-	status, startTime, err := master.GetStakerInfo(nil, account.Address)
+	status, startTime, err := master.GetStakerInfo(nil, account.PublicKey)
 	if err != nil {
 		return errors.Wrap(err, "get stake status")
 	}

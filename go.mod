@@ -3,8 +3,8 @@ module github.com/cryptoriums/telliot
 go 1.17
 
 require (
-	github.com/alecthomas/kong v0.2.18-0.20210621110843-8b2821cc246b
-	github.com/cryptoriums/packages v0.0.0-20220301211416-40033639c449
+	github.com/alecthomas/kong v0.2.22
+	github.com/cryptoriums/packages v0.0.0-20220320112631-8fd088ff28a5
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/structtag v1.2.0
@@ -19,7 +19,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/common v0.32.1
 	github.com/prometheus/prometheus v1.8.2-0.20220223151335-4b195fa080db
-	github.com/willabides/kongplete v0.2.0
+	github.com/willabides/kongplete v0.3.0
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/atomic v1.9.0
 	golang.org/x/tools v0.1.9
@@ -74,6 +74,7 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/tsdb v0.10.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/stretchr/testify v1.7.0 // indirect

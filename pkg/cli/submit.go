@@ -98,7 +98,7 @@ func (self *SubmitCmd) Submit(
 
 	level.Info(logger).Log(
 		"msg", "submitting",
-		"account", account.Address.Hex()[:8],
+		"account", account.PublicKey.Hex()[:8],
 		"id", fmt.Sprintf("%+v", id),
 		"val", fmt.Sprintf("%.0f", val),
 	)
@@ -167,7 +167,7 @@ func (self *SubmitCmd) SelectAccount(
 		}
 
 		acc := accounts[accIndex]
-		level.Info(logger).Log("msg", "selected account", "addr", acc.Address.Hex()[:8])
+		level.Info(logger).Log("msg", "selected account", "addr", acc.PublicKey.Hex()[:8])
 		return acc, nil
 
 	}

@@ -94,7 +94,7 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 			return errors.Errorf("value with timestamp:%v doesn't exist. it is possible that it has been removed by another dispute", self.Timestamp)
 		}
 
-		balance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+		balance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.PublicKey)
 		if err != nil {
 			return errors.Wrap(err, "fetch balance")
 		}
@@ -177,7 +177,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 	}
 
 	if !self.NoChecks {
-		voted, err := govern.DidVote(&bind.CallOpts{Context: ctx}, big.NewInt(self.DisputeID), account.Address)
+		voted, err := govern.DidVote(&bind.CallOpts{Context: ctx}, big.NewInt(self.DisputeID), account.PublicKey)
 		if err != nil {
 			return errors.Wrapf(err, "check if you've already voted")
 		}
@@ -185,7 +185,7 @@ func (self *VoteCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) error
 			return errors.New("you have already voted on this dispute")
 		}
 
-		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.PublicKey)
 		if err != nil {
 			return errors.Wrap(err, "getting reporter status")
 		}

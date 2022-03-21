@@ -127,7 +127,7 @@ func Data(
 	accountsMap := make(map[common.Address]struct{})
 
 	for _, account := range accounts {
-		accountsMap[account.Address] = struct{}{}
+		accountsMap[account.PublicKey] = struct{}{}
 	}
 
 	t := template.New("template").Funcs(template.FuncMap{
@@ -363,26 +363,26 @@ func prepareDisputeForm(
 	accOpts := ""
 	for _, account := range accounts {
 		metaData := ""
-		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.PublicKey)
 		if err != nil {
-			level.Error(logger).Log("msg", "get stake status", "addr", account.Address.Hex()[:8], "err", err)
+			level.Error(logger).Log("msg", "get stake status", "addr", account.PublicKey.Hex()[:8], "err", err)
 		} else {
 			metaData += contracts.ReporterStatusName(status.Int64()) + " "
 		}
-		trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+		trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.PublicKey)
 		if err != nil {
-			level.Error(logger).Log("msg", "get trb balance", "addr", account.Address.Hex()[:8], "err", err)
+			level.Error(logger).Log("msg", "get trb balance", "addr", account.PublicKey.Hex()[:8], "err", err)
 		} else {
 			metaData += fmt.Sprintf("TRB:%g ", math_t.BigIntToFloatDiv(trbBalance, params.Ether))
 		}
-		ethBalance, err := client.BalanceAt(ctx, account.Address, nil)
+		ethBalance, err := client.BalanceAt(ctx, account.PublicKey, nil)
 		if err != nil {
-			level.Error(logger).Log("msg", "get eth balance", "addr", account.Address.Hex()[:8], "err", err)
+			level.Error(logger).Log("msg", "get eth balance", "addr", account.PublicKey.Hex()[:8], "err", err)
 		} else {
 			metaData += fmt.Sprintf("ETH:%g", math_t.BigIntToFloatDiv(ethBalance, params.Ether))
 		}
 
-		accOpts += `<option value="` + string(account.Address.Hex()) + `">` + string(account.Address.Hex()[:8]) + ` ` + metaData + `</option>`
+		accOpts += `<option value="` + string(account.PublicKey.Hex()) + `">` + string(account.PublicKey.Hex()[:8]) + ` ` + metaData + `</option>`
 
 	}
 	postForm := `

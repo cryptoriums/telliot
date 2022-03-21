@@ -192,7 +192,7 @@ func (self *AccountsCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) e
 }
 
 type accountWithDetails struct {
-	common.Address
+	PublicKey          common.Address
 	StakedStatus       string
 	BalanceTRB         float64
 	BalanceETH         float64
@@ -219,29 +219,29 @@ func PrintAccounts(
 	var accountsAll []accountWithDetails
 
 	for _, account := range accounts {
-		logger := log.With(logger, "acc", account.Address.Hex())
+		logger := log.With(logger, "acc", account.PublicKey.Hex())
 
-		ethBalance, err := client.BalanceAt(ctx, account.Address, nil)
+		ethBalance, err := client.BalanceAt(ctx, account.PublicKey, nil)
 		if err != nil {
 			level.Error(logger).Log("msg", "get eth balance")
 		}
-		trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.Address)
+		trbBalance, err := master.BalanceOf(&bind.CallOpts{Context: ctx}, account.PublicKey)
 		if err != nil {
 			level.Error(logger).Log("msg", "get TRB balance")
 		}
 
-		timeSincelastSubmit, _, err := contracts.LastSubmit(ctx, oracle, account.Address)
+		timeSincelastSubmit, _, err := contracts.LastSubmit(ctx, oracle, account.PublicKey)
 		if err != nil {
 			level.Error(logger).Log("msg", "checking last submit time", "err", err)
 		}
 
-		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.Address)
+		status, _, err := master.GetStakerInfo(&bind.CallOpts{Context: ctx}, account.PublicKey)
 		if err != nil {
 			level.Error(logger).Log("msg", "getting stake status", "err", err)
 		}
 
 		accountsAll = append(accountsAll, accountWithDetails{
-			Address:            account.Address,
+			PublicKey:          account.PublicKey,
 			BalanceTRB:         math.BigIntToFloatDiv(trbBalance, params.Ether),
 			BalanceETH:         math.BigIntToFloatDiv(ethBalance, params.Ether),
 			TimeTillNextSubmit: -time.Since(time.Now().Add(minSubmitPeriod - timeSincelastSubmit)),
@@ -258,7 +258,7 @@ func PrintAccounts(
 	for _, account := range accountsAll {
 		//lint:ignore faillint looks cleaner with print instead of logs
 		fmt.Fprintf(w, "%v, \ttrb:%v \teth:%v \tnextSubmit:%v \tstakeStatus:%v \n",
-			account.Address.Hex(),
+			account.PublicKey.Hex(),
 			account.BalanceTRB,
 			account.BalanceETH,
 			account.TimeTillNextSubmit,
