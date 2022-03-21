@@ -54,8 +54,6 @@ var CLIDefault = CLI{
 		Tally:   TallyCmd{},
 		Execute: ExecuteCmd{},
 	},
-	Encrypt: EncryptCmd{},
-	Decrypt: DecryptCmd{},
 	Version: VersionCmd{},
 }
 
@@ -74,8 +72,6 @@ type CLI struct {
 	Balance  BalanceCmd  `cmd:"" help:"Check the balance of an address"`
 	Stake    StakeCmd    `cmd:"" help:"Perform one of the stake operations"`
 	Dispute  DisputeCmd  `cmd:"" help:"Perform commands related to disputes"`
-	Encrypt  EncryptCmd  `cmd:"" help:"Encrypts a file to be securely stored on disk and later used only with a password prompt"`
-	Decrypt  DecryptCmd  `cmd:"" help:"Decrypts an ecrypted file and write the decrytped version to disk"`
 	Events   EventsCmd   `cmd:"" help:"Subscribe to watch logs from the network."`
 	Version  VersionCmd  `cmd:"" help:"Show the CLI version information"`
 
