@@ -22,7 +22,6 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/model/labels"
-	"github.com/prometheus/prometheus/tsdb"
 )
 
 const (
@@ -38,11 +37,11 @@ type Config struct {
 }
 
 type TrackerBlocks struct {
-	logger log.Logger
-	ctx    context.Context
-	stop   context.CancelFunc
-	cfg    Config
-	tsDB   *tsdb.DB
+	logger     log.Logger
+	ctx        context.Context
+	stop       context.CancelFunc
+	cfg        Config
+	appCreator db.AppenderCreator
 
 	headTracker *head.TrackerHead
 	headBlocks  chan *types.Block
@@ -52,7 +51,7 @@ func New(
 	ctx context.Context,
 	logger log.Logger,
 	cfg Config,
-	tsDB *tsdb.DB,
+	appCreator db.AppenderCreator,
 	client ethereum.ChainReader,
 ) (*TrackerBlocks, error) {
 	logger, err := logging.ApplyFilter(cfg.LogLevel, logger)
@@ -78,7 +77,7 @@ func New(
 		ctx:         ctx,
 		stop:        stop,
 		logger:      logger,
-		tsDB:        tsDB,
+		appCreator:  appCreator,
 		headTracker: headTracker,
 		headBlocks:  headBlocks,
 	}, nil
@@ -159,7 +158,7 @@ func (self *TrackerBlocks) record(ctx context.Context, logger log.Logger, symbol
 		labels.Label{Name: "__name__", Value: index.MetricIndexValue},
 		labels.Label{Name: "symbol", Value: symbol},
 	}
-	err := db.Add(ctx, self.tsDB, lbls, v)
+	err := db.Add(ctx, self.appCreator, lbls, v)
 	if err != nil {
 		level.Error(logger).Log("msg", "add values to the DB", "err", err)
 		return

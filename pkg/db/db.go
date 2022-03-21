@@ -21,13 +21,15 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
-	"github.com/prometheus/prometheus/tsdb"
 	"go.uber.org/atomic"
 )
 
 const ComponentName = "db"
 const DbLookback = 6 * time.Minute
 
+type AppenderCreator interface {
+	Appender(context.Context) storage.Appender
+}
 type Config struct {
 	LogLevel string
 	Path     string
@@ -63,9 +65,9 @@ func NewRemoteDB(cfg Config) (storage.SampleAndChunkQueryable, error) {
 	), nil
 }
 
-func Add(ctx context.Context, tsdb *tsdb.DB, lbls labels.Labels, value float64) error {
+func Add(ctx context.Context, appCreator AppenderCreator, lbls labels.Labels, value float64) error {
 	var err error
-	appender := tsdb.Appender(ctx)
+	appender := appCreator.Appender(ctx)
 
 	defer func() { // An appender always needs to be committed or rolled back.
 		if err != nil {

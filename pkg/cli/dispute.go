@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -17,13 +16,13 @@ import (
 	"github.com/cryptoriums/packages/logging"
 	"github.com/cryptoriums/packages/math"
 	math_t "github.com/cryptoriums/packages/math"
-	"github.com/cryptoriums/packages/prompt"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -117,15 +116,15 @@ func (self *NewDisputeCmd) Run(cli *CLI, ctx context.Context, logger log.Logger)
 		}
 		level.Info(logger).Log("msg", "disputed reporter status", "addr", reporter.Hex()[:8], "status", contracts.ReporterStatusName(status.Int64()))
 		if status.Int64() != 1 {
-			promptResp, err := prompt.Prompt("Disputed reporter is not in staked status: "+contracts.ReporterStatusName(status.Int64())+". Press Y to continue despite its status:", false)
-			if err == nil && strings.ToLower(promptResp) != "y" {
+			confirmed, err := prompt.Stdin.PromptConfirm("Disputed reporter is not in staked status: " + contracts.ReporterStatusName(status.Int64()) + ". confirm you want to continue despite its status:")
+			if err != nil || !confirmed {
 				return errors.New("canceled")
 			}
 		}
 	}
 
-	promptResp, err := prompt.Prompt("Dispute fee is TRB: "+fmt.Sprintf("%.2f", math_t.BigIntToFloatDiv(disputeCost, params.Ether))+" Press Y to continue:", false)
-	if err == nil && strings.ToLower(promptResp) != "y" {
+	confirmed, err := prompt.Stdin.PromptConfirm("Dispute fee is TRB: " + fmt.Sprintf("%.2f", math_t.BigIntToFloatDiv(disputeCost, params.Ether)) + " confirm to continue:")
+	if err != nil || !confirmed {
 		return errors.New("canceled")
 	}
 

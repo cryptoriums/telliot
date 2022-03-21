@@ -9,20 +9,19 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/cryptoriums/packages/ethereum"
 	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	math_t "github.com/cryptoriums/packages/math"
-	"github.com/cryptoriums/packages/prompt"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/config"
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/cryptoriums/telliot/pkg/db"
 	psr_tellor "github.com/cryptoriums/telliot/pkg/psr/tellor"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -153,7 +152,7 @@ func (self *SubmitCmd) SelectAccount(
 		}
 		// Print the accounts details and prompt for a selection.
 		PrintAccounts(ctx, logger, accounts, client, master, oracle)
-		_accIndex, err := prompt.Prompt("select an account from 1 to "+strconv.Itoa(len(accounts))+":", false)
+		_accIndex, err := prompt.Stdin.Prompt("select an account from 1 to " + strconv.Itoa(len(accounts)) + ":")
 		if err != nil {
 			return nil, errors.Wrap(err, "selecting an accounts")
 		}
@@ -179,7 +178,7 @@ func GetValueFromInput(logger log.Logger, psr psr_tellor.PsrID) float64 {
 	//lint:ignore faillint for prompts can't use logs.
 	fmt.Println("Enter values in the format (1.123456)")
 	for {
-		_val, err := prompt.Prompt(PSRDetails(psr)+" Val:", false)
+		_val, err := prompt.Stdin.Prompt(PSRDetails(psr) + " Val:")
 		if err != nil {
 			//lint:ignore faillint for prompts can't use logs.
 			fmt.Println(err)
@@ -269,12 +268,12 @@ func FinalPrompt(
 		return true, val
 	}
 
-	promptResp, err := prompt.Prompt("Press Y to continue with the submit:", false)
-	if err == nil && strings.ToLower(promptResp) == "y" {
+	confirmed, err := prompt.Stdin.PromptConfirm("confirm to continue with the submit:")
+	if err == nil && confirmed {
 		return true, val
 	}
-	promptResp, err = prompt.Prompt("Press Y if you want to enter values manually?:", false)
-	if err == nil && strings.ToLower(promptResp) == "y" {
+	confirmed, err = prompt.Stdin.PromptConfirm("do you want to enter values manually?:")
+	if err == nil && confirmed {
 		val = GetValueFromInput(logger, psr)
 		return FinalPrompt(ctx, logger, contract, skipConfirm, gasMaxFee, psr, val)
 	}
