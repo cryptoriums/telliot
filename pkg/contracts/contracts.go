@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -265,7 +266,7 @@ func newContractsWithAddr(
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	addrOracle, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_p.Keccak256("_ORACLE_CONTRACT"))
+	addrOracle, err := master.Addresses(&bind.CallOpts{Context: ctx}, crypto.Keccak256Hash([]byte("_ORACLE_CONTRACT")))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getting contract address")
 	}
@@ -278,7 +279,7 @@ func newContractsWithAddr(
 		return nil, nil, nil, errors.Wrap(err, "creating contract interface")
 	}
 
-	addrGovern, err := master.Addresses(&bind.CallOpts{Context: ctx}, ethereum_p.Keccak256("_GOVERNANCE_CONTRACT"))
+	addrGovern, err := master.Addresses(&bind.CallOpts{Context: ctx}, crypto.Keccak256Hash([]byte("_GOVERNANCE_CONTRACT")))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getting contract address")
 	}

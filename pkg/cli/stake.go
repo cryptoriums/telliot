@@ -13,6 +13,7 @@ import (
 	"github.com/cryptoriums/telliot/pkg/contracts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -58,7 +59,7 @@ func (self *DepositCmd) Run(cli *CLI, ctx context.Context, logger log.Logger) er
 			return nil
 		}
 
-		stakeAmt, err := master.GetUintVar(nil, ethereum.Keccak256("_STAKE_AMOUNT"))
+		stakeAmt, err := master.GetUintVar(nil, crypto.Keccak256Hash([]byte("_STAKE_AMOUNT")))
 		if err != nil {
 			return errors.Wrap(err, "fetching stake amount")
 		}

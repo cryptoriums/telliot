@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"time"
 
-	ethereum_p "github.com/cryptoriums/packages/ethereum"
 	"github.com/cryptoriums/telliot/pkg/aggregator"
 	"github.com/cryptoriums/telliot/pkg/tracker/blocks"
 	"github.com/cryptoriums/telliot/pkg/tracker/index"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -235,7 +235,7 @@ func (self *Psr) getValue(psr PsrID, ts time.Time) (float64, error) {
 	return val, err
 }
 
-func IntToQueryID(i int64) [32]byte {
+func IntToQueryID(i int64) common.Hash {
 	// Ids under 100 are encoded differently so that the legacy values can be red from the contract.
 	if i <= 100 {
 		bs := make([]byte, 4) // uint32 uses only 4 bytes
@@ -250,7 +250,7 @@ func IntToQueryID(i int64) [32]byte {
 		return a
 	}
 
-	return ethereum_p.Keccak256(string(NewQueryData(i)))
+	return crypto.Keccak256Hash(NewQueryData(i))
 }
 
 func QueryIDToInt(i [32]byte) (int64, error) {
