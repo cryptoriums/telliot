@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -180,9 +179,11 @@ func (self *Psr) ConfidenceThreshold(pair string) float64 {
 	return self.cfg.MinConfidencePerSymbol[pair]
 }
 
+var ErrInactive = errors.New("psr is inactive")
+
 func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (val float64, err error) {
 	defer func() {
-		if err != nil {
+		if err != nil && err != ErrInactive {
 			self.errCount.WithLabelValues(common.Bytes2Hex(queryID[:])).Inc()
 		}
 	}()
@@ -192,8 +193,7 @@ func (self *Psr) GetValue(queryID [32]byte, ts time.Time) (val float64, err erro
 	}
 
 	if psr.Inactive {
-		level.Info(self.logger).Log("msg", "adding 0 for inactive PSR", "queryID", common.Bytes2Hex(queryID[:]))
-		return 0, nil
+		return 0, ErrInactive
 	}
 	val, err = self.getValue(psr, ts)
 
